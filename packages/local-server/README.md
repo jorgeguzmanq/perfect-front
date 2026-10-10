@@ -26,3 +26,14 @@ Endpoints añadidos (compatibles con los contratos de `shared`):
 - `GET /api/projects/:id/comments/:commentId/attachments/:file`: captura del comentario. Requiere token (el rol `extension` recibe 403); solo archivos declarados en `attachments` del comentario, nombre plano, extension png/jpg/webp, MIME comprobado con la firma binaria (422 si no coincide) y limite de tamaño; sin traversal.
 - Cabecera opcional `X-PF-Expected-Updated-At` en `PATCH .../comments/:commentId`: si el `updatedAt` actual difiere, `409 conflict` sin escribir (control de conflictos entre pestañas).
 - Cabecera opcional `X-PF-Include-Corrupt: 1` en el listado de comentarios: añade `corrupt: [{collection, file, code, message}]` con los JSON ilegibles (sin ella la respuesta es la de siempre).
+
+## Contratos v2 (`shared/api.ts`)
+
+Las requests de comentarios aceptan `version` 1 o 2. Con v2 se usan estos campos (ver `packages/shared/README.md`):
+
+- Creación (`CreateCommentRequestSchema`): `sections` (sin `attachments`), `uploads` (cada una con `clientId`, `name`, `source`, `sectionId`, `mimeType`, `dataBase64`), `extraTargets`, `proposals`, `group`. Una captura heredada (`screenshot`) cuenta como una subida más.
+- PATCH (`UpdateCommentRequestSchema`): `comment`, `status`, `sections`, `uploads`, `extraTargets`, `proposals`, `group`. Al menos un campo. `sections` reemplaza la lista completa.
+- Grupos (`CreateGroupRequestSchema`, `UpdateGroupRequestSchema`, `ReorderGroupRequestSchema`): crear con `name`, `note` (por defecto vacía) y `readFirst` (por defecto `true`); PATCH con cualquiera de esos campos; reordenar con `order` (ids únicos, máx. 200).
+- Respuestas: `ListGroupsResponse` y `GroupResponse` (`ReadingGroup`).
+
+Los nombres de ruta de los endpoints de grupos no se verificaron al escribir esta sección; la fuente de los contratos es `api.ts`.

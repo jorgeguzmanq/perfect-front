@@ -157,6 +157,10 @@ beforeEach(async () => {
         res.writeHead(201, { "content-type": "application/json" }).end(
           JSON.stringify({ ok: true, comment: { id: "pf_ABCDE", collection: "inbox", location: { route: "/pricing" } } }),
         );
+      } else if (req.url === "/api/projects/proj_1/groups" && req.method === "GET") {
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, groups: [{ id: "g1" }] }));
+      } else if (req.url === "/api/projects/proj_1/groups/g1" && req.method === "DELETE") {
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true }));
       } else {
         res.writeHead(404, { "content-type": "application/json" }).end(JSON.stringify({ ok: false, error: { code: "not_found", message: "no" } }));
       }
@@ -359,13 +363,28 @@ describe("seguridad", () => {
     expect((await request(handle.port, "/__pf/comments", { headers: { ...auth(), origin: "http://evil.com" } })).status).toBe(403);
   });
   it("lista blanca: rutas no permitidas -> 404 y nada llega al servidor local", async () => {
-    for (const p of ["/__pf/", "/__pf/api/projects", "/__pf/comments/pf_ABCDE", "/__pf/projects", "/__pf/comment/x", "/__pf/../api/projects", "/__pf/__proto__"]) {
+    for (const p of ["/__pf/", "/__pf/api/projects", "/__pf/comments/a/b", "/__pf/comments/a%2Fb", "/__pf/groups/a/b", "/__pf/groups/a/reorder/x", "/__pf/projects", "/__pf/comment/x", "/__pf/../api/projects", "/__pf/__proto__"]) {
       const r = await request(handle.port, p, { headers: auth() });
       expect(r.status, p).toBe(404);
     }
     const wrongMethod = await request(handle.port, "/__pf/comment", { headers: auth() });
     expect(wrongMethod.status).toBe(405);
     expect(localLog).toHaveLength(0);
+  });
+  it("grupos: reenvía GET/DELETE con token, exige token/método y valida cuerpos", async () => {
+    expect((await request(handle.port, "/__pf/groups")).status).toBe(401);
+    const list = await request(handle.port, "/__pf/groups", { headers: auth() });
+    expect(list.status).toBe(200);
+    expect(JSON.parse(list.text)).toEqual({ ok: true, groups: [{ id: "g1" }] });
+    expect(localLog[0]).toMatchObject({ method: "GET", url: "/api/projects/proj_1/groups", auth: `Bearer ${LOCAL_TOKEN}` });
+    const del = await request(handle.port, "/__pf/groups/g1", { method: "DELETE", headers: auth() });
+    expect(del.status).toBe(200);
+    expect((await request(handle.port, "/__pf/groups/g1", { headers: auth() })).status).toBe(405);
+    const bad = await request(handle.port, "/__pf/groups", { method: "POST", headers: auth(), body: JSON.stringify({ nope: 1 }) });
+    expect(bad.status).toBe(400);
+    const badPatch = await request(handle.port, "/__pf/comments/pf_ABCDE", { method: "PATCH", headers: auth(), body: JSON.stringify({ nope: 1 }) });
+    expect(badPatch.status).toBe(400);
+    expect(localLog).toHaveLength(2);
   });
   it("POST válido: reenvía con el token del servidor local y devuelve CommentCreatedData", async () => {
     const r = await request(handle.port, "/__pf/comment", { method: "POST", headers: auth(), body: JSON.stringify(validComment) });
@@ -407,6 +426,7 @@ describe("seguridad", () => {
             comment: "hola",
             location: { route: "/r", selector: "#a", selectorCandidates: ["#a"] },
             elementRect: { x: 1, y: 2, width: 3, height: 4 },
+            group: null,
             createdAt: "2026-01-01T00:00:00.000Z",
           },
         ],

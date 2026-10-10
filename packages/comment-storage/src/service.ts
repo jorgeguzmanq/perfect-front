@@ -7,7 +7,12 @@ import {
   generateCommentId,
   nowTimestamp,
   zodDetails,
+  LIMITS,
+  type AttachmentInfo,
+  type AttachmentUpload as NamedUpload,
   type CommentId,
+  type CommentSection,
+  type ScreenshotUpload as Upload,
 } from "@perfect-front/shared";
 import { renderMarkdown } from "./markdown";
 import { STORAGE_LIMITS, parseCollectionName, parseCommentId } from "./paths";
@@ -234,6 +239,47 @@ export class CommentStorage {
 
   // --- Comentarios -----------------------------------------------------------
 
+  /**
+   * Guarda imágenes nuevas como attachments/<id>[-n].<ext> (firma binaria verificada). `screenshot` es el
+   * campo v1 (se guarda como `capture` suelta). `startIndex` evita colisiones de nombre al añadir.
+   */
+  private async storeUploads(
+    id: CommentId,
+    screenshot: Upload | undefined,
+    uploads: NamedUpload[],
+    startIndex: number,
+  ) {
+    const paths: string[] = [];
+    const infos: AttachmentInfo[] = [];
+    const written: string[] = [];
+    const sectionOf = new Map<string, string[]>();
+    const all: NamedUpload[] = [
+      ...(screenshot ? [{ ...screenshot, clientId: "screenshot", name: "captura", source: "capture" as const, sectionId: null }] : []),
+      ...uploads,
+    ];
+    const rollback = async () => {
+      for (const f of written) await this.repo.remove(f).catch(() => undefined);
+    };
+    try {
+      for (const [i, u] of all.entries()) {
+        const { bytes, ext } = decodeScreenshot(u.mimeType, u.dataBase64, STORAGE_LIMITS.attachment);
+        const n = startIndex + i;
+        const name = n === 0 ? `${id}.${ext}` : `${id}-${n}.${ext}`;
+        const file = this.repo.attachmentFile(name);
+        await this.repo.writeBinaryExclusive(file, bytes, STORAGE_LIMITS.attachment);
+        written.push(file);
+        const rel = `attachments/${name}`;
+        paths.push(rel);
+        infos.push({ path: rel, name: u.name.slice(0, 200), source: u.source, mimeType: u.mimeType, bytes: bytes.byteLength });
+        if (u.sectionId) sectionOf.set(u.sectionId, [...(sectionOf.get(u.sectionId) ?? []), rel]);
+      }
+    } catch (e) {
+      await rollback();
+      throw e;
+    }
+    return { paths, infos, rollback, bySection: (sid: string) => sectionOf.get(sid) ?? [] };
+  }
+
   async createComment(input: CreateCommentRequest | unknown): Promise<VisualComment> {
     const req = parseWith<CreateCommentRequest>(CreateCommentRequestSchema, input);
     const config = await this.getConfig();
@@ -247,15 +293,12 @@ export class CommentStorage {
     }
     if (id === null) throw new PerfectFrontError("conflict", "No se pudo generar un ID único");
 
-    const attachments: string[] = [];
-    let attachmentFile: string | null = null;
-    if (req.screenshot) {
-      const { bytes, ext } = decodeScreenshot(req.screenshot.mimeType, req.screenshot.dataBase64, STORAGE_LIMITS.attachment);
-      const name = `${id}.${ext}`;
-      attachmentFile = this.repo.attachmentFile(name);
-      await this.repo.writeBinaryExclusive(attachmentFile, bytes, STORAGE_LIMITS.attachment);
-      attachments.push(`attachments/${name}`);
-    }
+    const stored = await this.storeUploads(id, req.screenshot, req.uploads, 0);
+    const attachments = stored.paths;
+    const sections: CommentSection[] = req.sections.map((sec) => ({
+      ...sec,
+      attachments: stored.bySection(sec.id),
+    }));
 
     const ts = this.ts();
     const doc = {
@@ -271,6 +314,11 @@ export class CommentStorage {
       elementRect: req.elementRect,
       environment: req.environment,
       attachments,
+      attachmentInfo: stored.infos,
+      sections,
+      extraTargets: req.extraTargets,
+      proposals: req.proposals,
+      group: req.group,
       createdAt: ts,
       updatedAt: ts,
       resolution: null,
@@ -281,7 +329,7 @@ export class CommentStorage {
         maxBytes: STORAGE_LIMITS.commentFile,
       });
     } catch (e) {
-      if (attachmentFile) await this.repo.remove(attachmentFile);
+      await stored.rollback();
       throw e;
     }
   }
@@ -330,14 +378,41 @@ export class CommentStorage {
 
   async updateComment(id: string, patch: UpdateCommentRequest | unknown): Promise<VisualComment> {
     const p = parseWith<UpdateCommentRequest>(UpdateCommentRequestSchema, patch);
-    return this.mutate(id, (c) => {
-      const next: VisualComment = { ...c, updatedAt: this.ts() };
+    const cid = parseCommentId(id);
+    return this.withLock(cid, async () => {
+      const current = await this.load(cid);
+      const next: VisualComment = { ...current, updatedAt: this.ts() };
       if (p.comment !== undefined) next.comment = p.comment;
       if (p.status !== undefined) {
         next.status = p.status;
         if (p.status !== "resolved" && p.status !== "archived") next.resolution = null;
       }
-      return next;
+      if (p.extraTargets !== undefined) next.extraTargets = p.extraTargets;
+      if (p.proposals !== undefined) next.proposals = p.proposals;
+      if (p.group !== undefined) next.group = p.group;
+      if (p.sections !== undefined) next.sections = p.sections;
+      let stored: Awaited<ReturnType<CommentStorage["storeUploads"]>> | null = null;
+      if (p.uploads?.length) {
+        if (current.attachments.length + p.uploads.length > LIMITS.attachments) {
+          throw new PerfectFrontError("invalid_request", `Máximo ${LIMITS.attachments} adjuntos por comentario`);
+        }
+        const secIds = new Set(next.sections.map((x) => x.id));
+        if (p.uploads.some((u) => u.sectionId && !secIds.has(u.sectionId))) {
+          throw new PerfectFrontError("invalid_request", "sectionId inexistente");
+        }
+        const used = current.attachments.map((a) => Number(/-(\d+)\.[a-z]+$/.exec(a)?.[1] ?? 0));
+        const st = await this.storeUploads(cid, undefined, p.uploads, Math.max(0, ...used) + 1);
+        stored = st;
+        next.attachments = [...current.attachments, ...st.paths];
+        next.attachmentInfo = [...current.attachmentInfo, ...st.infos];
+        next.sections = next.sections.map((x) => ({ ...x, attachments: [...x.attachments, ...st.bySection(x.id)] }));
+      }
+      try {
+        return await this.commit(current.collection, next);
+      } catch (e) {
+        await stored?.rollback();
+        throw e;
+      }
     });
   }
 

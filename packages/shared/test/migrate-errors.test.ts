@@ -7,7 +7,7 @@ import {
   migrateProjectConfig,
   toErrorData,
 } from "../src/index";
-import { specComment, specConfig } from "./fixtures";
+import { specComment, specCommentV2, specConfig } from "./fixtures";
 
 function catchError(fn: () => unknown): PerfectFrontError {
   try {
@@ -19,15 +19,28 @@ function catchError(fn: () => unknown): PerfectFrontError {
 }
 
 describe("migrador", () => {
-  it("v1 es identidad", () => {
-    expect(migrateComment(specComment())).toEqual(specComment());
+  it("v1 migra a v2 sin pérdida (campos nuevos vacíos)", () => {
+    expect(migrateComment(specComment())).toEqual({
+      ...specComment(),
+      version: 2,
+      attachmentInfo: [],
+      sections: [],
+      extraTargets: [],
+      proposals: [],
+      group: null,
+    });
     expect(migrateProjectConfig(specConfig)).toEqual(specConfig);
   });
 
-  it("versión futura da error comprensible", () => {
-    const e = catchError(() => migrateComment({ ...specComment(), version: 2 }));
+  it("v2 es identidad", () => {
+    expect(migrateComment(specCommentV2())).toEqual(specCommentV2());
+  });
+
+  it("versión futura (3) da error comprensible", () => {
+    const e = catchError(() => migrateComment({ ...specCommentV2(), version: 3 }));
     expect(e.code).toBe("unsupported_version");
-    expect(e.message).toMatch(/más nueva/);
+    expect(e.message).toMatch(/versión 3 es más nueva/);
+    expect(e.message).toMatch(/\(2\)/);
     expect(e.message).toMatch(/Actualiza/);
   });
 

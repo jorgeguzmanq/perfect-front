@@ -10,8 +10,9 @@ export const SERVER_VERSION = "0.0.0";
  * Capacidades del contrato que el CLI comprueba (GET /api/health -> features) antes de reutilizar un
  * servidor vivo. Añade una (o sube su sufijo) cada vez que cambie lo que el CLI necesita.
  * - proxy-v1: el registro acepta `targetUrl` y ProjectSummary lo devuelve.
+ * - groups-v1: rutas /api/projects/:id/groups (grupos de lectura con nota y cola ordenada).
  */
-export const SERVER_FEATURES: readonly string[] = ["proxy-v1"];
+export const SERVER_FEATURES: readonly string[] = ["proxy-v1", "groups-v1"];
 
 export const LIMITS = {
   /** Body de cualquier ruta salvo creación de comentario (que admite captura). */

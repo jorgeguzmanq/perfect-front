@@ -1,7 +1,7 @@
 import { mkdir, readFile, readdir, rename, symlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { CommentStorage } from "../src/index";
+import { CommentStorage, STORAGE_LIMITS } from "../src/index";
 import { commentInput, tempDir, tempProject } from "./helpers";
 
 const BAD_COLLECTIONS = [
@@ -150,7 +150,11 @@ describe("límites de tamaño", () => {
   it("un archivo de comentario gigante se reporta sin leerlo", async () => {
     const { root, storage } = await tempProject();
     const ok = await storage.createComment(commentInput());
-    await writeFile(path.join(root, ".perfect-front", "comments", "inbox", "pf_HHHHHH.json"), "x".repeat(600 * 1024));
+    // Límite actual: STORAGE_LIMITS.commentFile = 2 MB (antes 512 KB). Un byte por encima basta.
+    await writeFile(
+      path.join(root, ".perfect-front", "comments", "inbox", "pf_HHHHHH.json"),
+      "x".repeat(STORAGE_LIMITS.commentFile + 1),
+    );
     const { comments, errors } = await storage.listComments();
     expect(comments.map((c) => c.id)).toEqual([ok.id]);
     expect(errors[0]).toMatchObject({ file: "pf_HHHHHH.json", code: "payload_too_large" });

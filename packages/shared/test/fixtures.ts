@@ -47,3 +47,16 @@ export function specComment(): Record<string, any> {
     resolution: null,
   };
 }
+
+/** Comentario v2 equivalente a `specComment()` con los campos nuevos vacíos. */
+export function specCommentV2(): Record<string, any> {
+  return {
+    ...specComment(),
+    version: 2,
+    attachmentInfo: [],
+    sections: [],
+    extraTargets: [],
+    proposals: [],
+    group: null,
+  };
+}

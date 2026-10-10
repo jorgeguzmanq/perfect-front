@@ -7,3 +7,4 @@ export * from "./events";
 export * from "./errors";
 export * from "./migrate";
 export * from "./messages";
+export * from "./locationRef";

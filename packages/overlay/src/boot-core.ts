@@ -1,10 +1,22 @@
 import { captureViewport } from './capture';
+import { imageToBlob } from './attachments';
+import { mountShotActions } from './clipboard';
+import { createDrawer, type DrawerHandle } from './drawer';
+import type { GroupsPort } from './editor-ctx';
+import type { GroupsApi, QueueComment } from './groups';
 import { createLauncher, type LauncherHandle } from './launcher';
 import { onNavigate } from './navigation';
 import { createOverlay } from './overlay';
 import { createPins, type PinComment, type PinsHandle } from './pins';
-import type { OverlayHandle, OverlayState, SubmitResult } from './types';
-import type { CreateCommentRequest } from '@perfect-front/shared';
+import type { CapturedShot, OverlayHandle, OverlayState, SubmitResult } from './types';
+import type {
+  CommentGroupRef,
+  CreateCommentRequest,
+  CreateGroupRequest,
+  ReadingGroup,
+  ReorderGroupRequest,
+  UpdateGroupRequest,
+} from '@perfect-front/shared';
 
 export const VERSION = '0.1.0';
 export const LAYER_KEY = 'pf:layer';
@@ -83,12 +95,57 @@ export function bootPage(opts: BootOptions): PfApi {
     return body.data;
   };
 
+  /** Llamada REST JSON (mismo origen, con el token). Devuelve el cuerpo ya validado como `ok`. */
+  const call = async <T extends object>(path: string, method: string, payload?: unknown): Promise<T> => {
+    const res = await doFetch(`${base}${path}`, {
+      method,
+      headers: headers(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
+      ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
+    });
+    const body = await res
+      .json()
+      .then((j: unknown) => j as (ApiErrorBody & T) | null)
+      .catch(() => null);
+    if (!res.ok || !body || body.ok === false) {
+      throw new Error(body?.error?.message ?? `El servidor respondió ${res.status}.`);
+    }
+    return body;
+  };
+
+  // Grupos de lectura: rutas REST `/groups` del local-server (el proxy las reenvía con el proyecto ya resuelto).
+  const gid = (id: string) => encodeURIComponent(id);
+  const groupsApi: GroupsApi = {
+    listGroups: async () => (await call<{ groups: ReadingGroup[] }>('/groups', 'GET')).groups ?? [],
+    createGroup: async (req: CreateGroupRequest) => (await call<{ group: ReadingGroup }>('/groups', 'POST', req)).group,
+    updateGroup: async (id: string, req: UpdateGroupRequest) =>
+      (await call<{ group: ReadingGroup }>(`/groups/${gid(id)}`, 'PATCH', req)).group,
+    reorderGroup: async (id: string, req: ReorderGroupRequest) => {
+      await call(`/groups/${gid(id)}/reorder`, 'POST', req);
+    },
+    setCommentGroup: async (commentId: string, ref: CommentGroupRef | null) => {
+      await call(`/comments/${gid(commentId)}`, 'PATCH', { group: ref });
+    },
+  };
+
+  // Caché sincrónica que lee el editor (`GroupsPort`); se renueva al cargar comentarios/grupos.
+  let groupsCache: ReadingGroup[] = [];
+  let commentsCache: QueueComment[] = [];
+  const groupsPort: GroupsPort = { api: groupsApi, groups: () => groupsCache, comments: () => commentsCache };
+
+  const refreshGroups = async () => {
+    try {
+      groupsCache = await groupsApi.listGroups();
+    } catch {
+      /* sin grupos disponibles: el editor y el cajón siguen funcionando sin cola */
+    }
+  };
+
   const loadComments = async (): Promise<PinComment[]> => {
     const res = await doFetch(`${base}/comments`, { headers: headers() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const body = (await res.json()) as { ok?: boolean; comments?: unknown };
     if (!body || body.ok === false || !Array.isArray(body.comments)) throw new Error('respuesta inválida');
-    return body.comments.filter(
+    const list = body.comments.filter(
       (c): c is PinComment =>
         !!c &&
         typeof c === 'object' &&
@@ -96,6 +153,44 @@ export function bootPage(opts: BootOptions): PfApi {
         typeof (c as PinComment).comment === 'string' &&
         typeof (c as PinComment).location?.route === 'string',
     );
+    commentsCache = list; // incluye `group` cuando el servidor lo envía
+    return list;
+  };
+
+  /** Cajón de comentarios (cola y grupos): vive en el Shadow Root del lanzador. */
+  let drawer: DrawerHandle | null = null;
+  const route = () => doc.location.pathname || '/';
+  const openDrawer = () => {
+    if (!launcher || gone) return;
+    drawer ??= createDrawer({
+      doc,
+      layer: launcher.layer,
+      load: async () => {
+        const [comments] = await Promise.all([loadComments(), refreshGroups()]);
+        return { comments, groups: groupsCache };
+      },
+      api: groupsApi,
+      route,
+      onGoto: (c) => {
+        // Solo desplaza la vista hasta el nodo; no modifica la página.
+        const sels = [c.location.selector].filter((x): x is string => !!x);
+        for (const s of sels) {
+          try {
+            const el = doc.querySelector(s);
+            if (el) return el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          } catch {
+            /* selector inválido */
+          }
+        }
+      },
+      onAddToGroup: (groupId) => {
+        if (!overlay) return;
+        drawer?.close();
+        overlay.startInGroup(groupId);
+      },
+      announce: (m) => launcher?.showHint(m),
+    });
+    drawer.toggle();
   };
 
   // El lanzador solo vive en la ventana superior; en iframes la capa funciona con Alt+clic.
@@ -114,6 +209,7 @@ export function bootPage(opts: BootOptions): PfApi {
   let enabled = readPref(win) !== 'off';
   let gone = false;
   let readyCleanup: (() => void) | null = null;
+  const shotOffs: Array<() => void> = [];
 
   const mountLayer = () => {
     if (gone || overlay) return;
@@ -121,16 +217,32 @@ export function bootPage(opts: BootOptions): PfApi {
       document: doc,
       passive: true,
       onSubmit: postComment,
-      onStateChange: (st) => launcher?.setSelecting(st === 'SELECTING'),
-      onRequestCapture: async () => {
-        launcher?.setHidden(true);
-        try {
-          return await captureViewport(win);
-        } finally {
-          launcher?.setHidden(false);
+      groups: groupsPort,
+      onStateChange: (st) => {
+        launcher?.setSelecting(st === 'SELECTING');
+        if (st === 'EDITING') void refreshGroups(); // la pestaña «Cola» lee la caché de grupos
+      },
+      onShotCard: (card) => {
+        // Copiar/Descargar por cada captura; se liberan al cambiar el resultado o al cerrar la capa.
+        const offs = shotOffs.splice(0);
+        for (const f of offs) f();
+        card.actions.textContent = '';
+        for (const s of card.shots as readonly CapturedShot[]) {
+          shotOffs.push(
+            mountShotActions(card.actions, {
+              getBlob: () => imageToBlob(s),
+              name: s.name,
+              onResult: (m) => launcher?.showHint(m),
+            }),
+          );
         }
       },
-      onSaved: () => void pins?.refresh(),
+      // Sin ocultar nada: captureViewport excluye los nodos propios con isPfNode (no hay parpadeo).
+      onRequestCapture: () => captureViewport(win),
+      onSaved: () => {
+        void pins?.refresh();
+        void drawer?.refresh();
+      },
     });
     overlay.enable();
     pins = createPins({
@@ -152,6 +264,8 @@ export function bootPage(opts: BootOptions): PfApi {
     stopNav = null;
     pins?.destroy();
     pins = null;
+    for (const f of shotOffs.splice(0)) f();
+    drawer?.close();
     overlay?.destroy();
     overlay = null;
     launcher?.setSelecting(false);
@@ -192,6 +306,8 @@ export function bootPage(opts: BootOptions): PfApi {
       if (gone) return;
       gone = true;
       unmountLayer();
+      drawer?.destroy();
+      drawer = null;
       launcher?.destroy();
       launcher = null;
       if (win.__pf === api) delete win.__pf;
@@ -204,6 +320,8 @@ export function bootPage(opts: BootOptions): PfApi {
       onToggleSelect: () => overlay?.toggleSelecting(),
       onHide: () => api.disable(),
       onShow: () => api.enable(),
+      onOpenComments: openDrawer,
+      onCaptureNode: () => void overlay?.captureSelectedNodes(),
     });
     launcher.setLayerOn(enabled);
     if (enabled && readPref(win, HINT_KEY) !== '1') {

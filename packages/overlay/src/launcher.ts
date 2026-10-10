@@ -1,4 +1,5 @@
 import { LAUNCHER_ATTR } from './constants';
+import { makeMovable } from './drag-panel';
 import { icon } from './icons';
 import { injectStylesIntoShadowRoot } from './styles';
 
@@ -13,6 +14,10 @@ export interface LauncherOptions {
   onHide(): void;
   /** «Mostrar capa» (equivale a enable()). */
   onShow(): void;
+  /** Si se da, el menú añade «Comentarios», que abre el cajón de comentarios. */
+  onOpenComments?(): void;
+  /** Si se da, el menú añade «Capturar nodo» (Alt+Mayús+S): abre la captura del nodo seleccionado. */
+  onCaptureNode?(): void;
 }
 
 export interface LauncherStats {
@@ -23,12 +28,14 @@ export interface LauncherStats {
 
 export interface LauncherHandle {
   readonly host: HTMLElement;
+  /** Contenedor `.pf-root` del Shadow Root del lanzador (donde se monta el cajón). */
+  readonly layer: HTMLElement;
   setLayerOn(on: boolean): void;
   setSelecting(on: boolean): void;
   setStats(s: LauncherStats): void;
   /** Aviso breve (aria-live polite) que se autodescarta. */
   showHint(text?: string): void;
-  /** Oculta el lanzador sin quitarlo (durante las capturas). */
+  /** Oculta el lanzador sin quitarlo. Ya no se usa en las capturas (se excluyen con isPfNode, sin parpadeo). */
   setHidden(hidden: boolean): void;
   destroy(): void;
 }
@@ -66,7 +73,10 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
   more.setAttribute('aria-expanded', 'false');
   more.title = 'Más opciones';
   more.append(icon(doc, 'layers'));
-  group.append(main, more);
+  const grip = el('span', 'pf-ln-grip');
+  grip.setAttribute('aria-hidden', 'true');
+  grip.textContent = '⋮⋮';
+  group.append(grip, main, more);
 
   const menu = el('div', 'pf-ln-menu');
   menu.setAttribute('role', 'menu');
@@ -74,10 +84,14 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
   menu.hidden = true;
   const itemHide = button('pf-ln-item', 'Ocultar capa');
   const itemList = button('pf-ln-item', 'Ver comentarios');
-  for (const i of [itemHide, itemList]) i.setAttribute('role', 'menuitem');
+  const itemComments = opts.onOpenComments ? button('pf-ln-item', 'Comentarios') : null;
+  const itemCapture = opts.onCaptureNode ? button('pf-ln-item', 'Capturar nodo · Alt+Mayús+S') : null;
+  for (const i of [itemComments, itemCapture, itemHide, itemList]) i?.setAttribute('role', 'menuitem');
   const info = el('p', 'pf-ln-info');
   info.setAttribute('role', 'status');
   info.hidden = true;
+  if (itemComments) menu.appendChild(itemComments);
+  if (itemCapture) menu.appendChild(itemCapture);
   menu.append(itemList, itemHide, info);
 
   // Capa oculta: solo una pestaña mínima.
@@ -99,6 +113,26 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
   root.append(toast, menu, group, tab);
   shadow.appendChild(root);
   doc.documentElement.appendChild(host);
+
+  // Reposicionado unificado (módulo drag-panel): el menú y el aviso siguen al grupo cuando se mueve.
+  const follow = (p: { left: number; top: number } | null) => {
+    for (const n of [menu, toast]) {
+      for (const s of ['left', 'right', 'top', 'bottom'] as const) n.style[s] = '';
+    }
+    if (!p) return;
+    const vh = doc.defaultView?.innerHeight ?? 0;
+    const above = p.top > (vh || 0) / 2;
+    menu.style.right = toast.style.right = 'auto';
+    menu.style.left = toast.style.left = `${p.left}px`;
+    if (above) {
+      menu.style.bottom = `${vh - p.top + 8}px`;
+      toast.style.bottom = `${vh - p.top + 8}px`;
+    } else {
+      menu.style.top = toast.style.top = `${p.top + group.getBoundingClientRect().height + 8}px`;
+      menu.style.bottom = toast.style.bottom = 'auto';
+    }
+  };
+  const movable = makeMovable(group, grip, { kind: 'launcher', onMoved: follow });
 
   let layerOn = true;
   let selecting = false;
@@ -138,7 +172,7 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
   const openMenu = () => {
     menu.hidden = false;
     more.setAttribute('aria-expanded', 'true');
-    itemList.focus();
+    (itemComments ?? itemList).focus();
   };
   const toggleMenu = () => (menu.hidden ? openMenu() : closeMenu(true));
 
@@ -161,6 +195,18 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
     renderInfo();
     info.hidden = !info.hidden;
   });
+  if (itemComments) {
+    on(itemComments, 'click', () => {
+      closeMenu(false);
+      opts.onOpenComments?.();
+    });
+  }
+  if (itemCapture) {
+    on(itemCapture, 'click', () => {
+      closeMenu(false);
+      opts.onCaptureNode?.();
+    });
+  }
   on(itemHide, 'click', () => {
     closeMenu(false);
     opts.onHide();
@@ -171,7 +217,7 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
     const k = (e as KeyboardEvent).key;
     if (k !== 'ArrowDown' && k !== 'ArrowUp') return;
     e.preventDefault();
-    const items = [itemList, itemHide];
+    const items = [...(itemComments ? [itemComments] : []), ...(itemCapture ? [itemCapture] : []), itemList, itemHide];
     const i = items.findIndex((b) => shadow.activeElement === b);
     items[(i + (k === 'ArrowDown' ? 1 : items.length - 1)) % items.length]!.focus();
   });
@@ -202,6 +248,7 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
 
   return {
     host,
+    layer: root,
     setLayerOn(v) {
       layerOn = v;
       if (!v) selecting = false;
@@ -231,6 +278,7 @@ export function createLauncher(opts: LauncherOptions): LauncherHandle {
       if (gone) return;
       gone = true;
       hideToast();
+      movable.destroy();
       for (const fn of listeners) fn();
       host.remove();
     },

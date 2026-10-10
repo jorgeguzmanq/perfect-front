@@ -61,3 +61,15 @@ export const AttachmentPathSchema = z
     (v) => !v.includes("..") && !isWindowsReservedName(v.slice("attachments/".length)),
     "Ruta de adjunto insegura",
   );
+
+/** ID local corto (sección, propuesta, objetivo): único dentro de su comentario. */
+export const LocalIdSchema = z
+  .string()
+  .min(1)
+  .max(40)
+  .regex(/^[A-Za-z0-9][A-Za-z0-9_-]*$/, "Id local inválido");
+export type LocalId = z.infer<typeof LocalIdSchema>;
+
+/** ID de grupo de lectura (SPEC §6.7): único por proyecto. */
+export const GroupIdSchema = safeSegment("GroupId", /^[a-z0-9][a-z0-9_-]*$/, 64).brand<"GroupId">();
+export type GroupId = z.infer<typeof GroupIdSchema>;

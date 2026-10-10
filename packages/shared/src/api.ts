@@ -1,6 +1,15 @@
 import { z } from "zod";
 import {
+  AttachmentSourceSchema,
   COMMENT_VERSION,
+  COMMENT_VERSION_V1,
+  CommentGroupRefSchema,
+  CommentProposalSchema,
+  CommentSectionSchema,
+  ExtraTargetSchema,
+  LIMITS,
+  ReadingGroupSchema,
+  refineV2Parts,
   CommentLocationSchema,
   CommentScopeSchema,
   CommentTextSchema,
@@ -12,7 +21,7 @@ import {
   VisualCommentSchema,
 } from "./comment";
 import { ProjectConfigSchema } from "./config";
-import { CollectionNameSchema, ProjectIdSchema } from "./ids";
+import { CollectionNameSchema, CommentIdSchema, GroupIdSchema, LocalIdSchema, ProjectIdSchema } from "./ids";
 
 /** Todas las requests son .strict(): ninguna acepta rutas de filesystem (SPEC §12). */
 
@@ -84,9 +93,50 @@ export const ScreenshotUploadSchema = z
   })
   .strict();
 
+export type ScreenshotUpload = z.infer<typeof ScreenshotUploadSchema>;
+
+/**
+ * Imagen nueva (pegada, soltada, abierta o capturada). El servidor la guarda en attachments/ y la ata a
+ * `sectionId` (null = suelta, sin sección). `clientId` solo identifica la subida dentro de la request.
+ */
+export const AttachmentUploadSchema = ScreenshotUploadSchema.extend({
+  clientId: LocalIdSchema,
+  name: z.string().min(1).max(LIMITS.attachmentName),
+  source: AttachmentSourceSchema,
+  sectionId: LocalIdSchema.nullable(),
+}).strict();
+export type AttachmentUpload = z.infer<typeof AttachmentUploadSchema>;
+
+/** Sección en una request de creación: las imágenes se declaran en `uploads` con `sectionId`. */
+export const NewSectionSchema = CommentSectionSchema.omit({ attachments: true });
+export type NewSection = z.infer<typeof NewSectionSchema>;
+
+const uploadsArray = z.array(AttachmentUploadSchema).max(LIMITS.attachments);
+
+function refineUploads(
+  c: { uploads: AttachmentUpload[]; sections?: { id: string }[]; screenshot?: unknown },
+  ctx: z.RefinementCtx,
+): void {
+  const ids = new Set<string>();
+  let chars = 0;
+  c.uploads.forEach((u, i) => {
+    if (ids.has(u.clientId)) ctx.addIssue({ code: "custom", path: ["uploads", i, "clientId"], message: "clientId duplicado" });
+    ids.add(u.clientId);
+    chars += u.dataBase64.length;
+    if (c.sections && u.sectionId !== null && !c.sections.some((s) => s.id === u.sectionId)) {
+      ctx.addIssue({ code: "custom", path: ["uploads", i, "sectionId"], message: "sectionId inexistente" });
+    }
+  });
+  if (c.uploads.length + (c.screenshot ? 1 : 0) > LIMITS.attachments) {
+    ctx.addIssue({ code: "custom", path: ["uploads"], message: `máximo ${LIMITS.attachments} adjuntos por comentario` });
+  }
+  if (chars > LIMITS.uploadsBase64) ctx.addIssue({ code: "custom", path: ["uploads"], message: "subidas demasiado grandes" });
+}
+
+/** Acepta clientes v1 (sin campos nuevos) y v2. */
 export const CreateCommentRequestSchema = z
   .object({
-    version: z.literal(COMMENT_VERSION),
+    version: z.union([z.literal(COMMENT_VERSION_V1), z.literal(COMMENT_VERSION)]),
     collection: CollectionNameSchema.optional(),
     scope: CommentScopeSchema,
     comment: CommentTextSchema,
@@ -94,7 +144,13 @@ export const CreateCommentRequestSchema = z
     viewport: ViewportSchema,
     elementRect: ElementRectSchema.nullable(),
     environment: EnvironmentSchema,
+    /** Heredado de v1: una captura, tratada como imagen `capture` suelta. */
     screenshot: ScreenshotUploadSchema.optional(),
+    sections: z.array(NewSectionSchema).max(LIMITS.sections).default([]),
+    uploads: uploadsArray.default([]),
+    extraTargets: z.array(ExtraTargetSchema).max(LIMITS.extraTargets).default([]),
+    proposals: z.array(CommentProposalSchema).max(LIMITS.proposals).default([]),
+    group: CommentGroupRefSchema.nullable().default(null),
   })
   .strict()
   .superRefine((c, ctx) => {
@@ -105,6 +161,18 @@ export const CreateCommentRequestSchema = z
         message: "scope element requiere selector y elementRect",
       });
     }
+    refineUploads(c, ctx);
+    refineV2Parts(
+      {
+        scope: c.scope,
+        attachments: [],
+        attachmentInfo: [],
+        sections: c.sections.map((s) => ({ ...s, attachments: [] })),
+        extraTargets: c.extraTargets,
+        proposals: c.proposals,
+      },
+      ctx,
+    );
   });
 export type CreateCommentRequest = z.infer<typeof CreateCommentRequestSchema>;
 
@@ -117,13 +185,26 @@ export const ListCommentsQuerySchema = z
   .strict();
 export type ListCommentsQuery = z.infer<typeof ListCommentsQuerySchema>;
 
+/**
+ * PATCH. `sections` reemplaza la lista completa: así se reubican imágenes entre secciones (solo rutas
+ * que el comentario ya tiene; las de `uploads` se atan por `sectionId`). Una ruta ausente de todas las
+ * secciones queda suelta; los archivos nunca se borran por PATCH.
+ */
 export const UpdateCommentRequestSchema = z
   .object({
     comment: CommentTextSchema.optional(),
     status: CommentStatusSchema.optional(),
+    sections: z.array(CommentSectionSchema).max(LIMITS.sections).optional(),
+    uploads: uploadsArray.optional(),
+    extraTargets: z.array(ExtraTargetSchema).max(LIMITS.extraTargets).optional(),
+    proposals: z.array(CommentProposalSchema).max(LIMITS.proposals).optional(),
+    group: CommentGroupRefSchema.nullable().optional(),
   })
   .strict()
-  .refine((v) => Object.keys(v).length > 0, "PATCH vacío");
+  .refine((v) => Object.keys(v).length > 0, "PATCH vacío")
+  .superRefine((c, ctx) => {
+    if (c.uploads) refineUploads({ uploads: c.uploads, ...(c.sections ? { sections: c.sections } : {}) }, ctx);
+  });
 export type UpdateCommentRequest = z.infer<typeof UpdateCommentRequestSchema>;
 
 export const MoveCommentRequestSchema = z.object({ to: CollectionNameSchema }).strict();
@@ -170,3 +251,40 @@ export const CollectionResponseSchema = z
   .strict();
 export type CollectionResponse = z.infer<typeof CollectionResponseSchema>;
 
+
+// --- Grupos de lectura ---------------------------------------------------------
+
+export const CreateGroupRequestSchema = z
+  .object({
+    id: GroupIdSchema.optional(),
+    name: ReadingGroupSchema.shape.name,
+    note: ReadingGroupSchema.shape.note.default(""),
+    readFirst: ReadingGroupSchema.shape.readFirst.default(true),
+  })
+  .strict();
+export type CreateGroupRequest = z.infer<typeof CreateGroupRequestSchema>;
+
+export const UpdateGroupRequestSchema = z
+  .object({
+    name: ReadingGroupSchema.shape.name.optional(),
+    note: ReadingGroupSchema.shape.note.optional(),
+    readFirst: ReadingGroupSchema.shape.readFirst.optional(),
+  })
+  .strict()
+  .refine((v) => Object.keys(v).length > 0, "PATCH vacío");
+export type UpdateGroupRequest = z.infer<typeof UpdateGroupRequestSchema>;
+
+/** Orden de la cola: `order[i]` pasa a `position = i + 1`; los ausentes salen del grupo. */
+export const ReorderGroupRequestSchema = z
+  .object({ order: z.array(CommentIdSchema).max(LIMITS.groupItems) })
+  .strict()
+  .refine((v) => new Set(v.order).size === v.order.length, "ids duplicados");
+export type ReorderGroupRequest = z.infer<typeof ReorderGroupRequestSchema>;
+
+export const ListGroupsResponseSchema = z
+  .object({ ok: z.literal(true), groups: z.array(ReadingGroupSchema) })
+  .strict();
+export type ListGroupsResponse = z.infer<typeof ListGroupsResponseSchema>;
+
+export const GroupResponseSchema = z.object({ ok: z.literal(true), group: ReadingGroupSchema }).strict();
+export type GroupResponse = z.infer<typeof GroupResponseSchema>;

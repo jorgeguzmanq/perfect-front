@@ -341,6 +341,17 @@ Ejemplo de `.perfect-front/comments/inbox/pf_01K7A.json`:
 }
 ```
 
+#### Esquema v2 (`version: 2`)
+
+El ejemplo anterior es v1; v1 sigue siendo legible y se migra al leerlo (campos nuevos vacíos, adjuntos sueltos). v2 añade, todos obligatorios en disco:
+
+- `sections[]` (≤20): `{ id, title, text, attachments[] }`. `comment` sigue siendo el texto principal.
+- `attachments[]` (≤20 en total) sigue siendo la lista canónica de rutas `attachments/<archivo>`; `attachmentInfo[]` guarda `{ path, name, source: paste|drop|open|capture, mimeType, bytes }`. Una imagen se reubica entre secciones cambiando las rutas de `sections[].attachments` (cada ruta en una sola sección; sin sección = suelta). El archivo no se mueve ni se borra por PATCH.
+- `extraTargets[]` (≤19): resto de la multiselección; el elemento principal sigue en `location`/`elementRect`.
+- `proposals[]` (≤50): propuestas que **nunca modifican el proyecto observado**; viajan con el comentario. Tipos: `text_fixed`, `text_dynamic` (variables fijas, deben conservarse), `text_i18n` (cambios por idioma; `scope: one` exige `newKey`), `style` (cambios `before→after` con `origin: editable|foundation`; foundation es solo referencia) y `reorder` («mover de N a M», 1-based, `from ≠ to`).
+- `group: { id, position } | null`: pertenencia a un grupo de lectura. Nombre, nota y `readFirst` viven en el grupo (`ReadingGroup`); la cola es el orden por `position`.
+- `location.source` y cada propuesta/objetivo pueden llevar `{ file, line }` para «copiar ubicación» (formatos `file`, `selector`, `pf`, `markdown`).
+
 ### 6.4 Comentario de vista completa
 
 Cuando `scope` sea `view`, `selector`, `html` y `elementRect` pueden ser nulos. La ruta, el viewport, la captura y el comentario siguen siendo obligatorios según la configuración.

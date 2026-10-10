@@ -1,5 +1,6 @@
 import tokensCss from '@perfect-front/design-tokens/tokens.css?inline';
 import baseCss from '@perfect-front/design-tokens/base.css?inline';
+import { overlayV2Css } from './styles-v2';
 
 /**
  * CSS propio del overlay: solo variables --pf-* y clases .pf-*.
@@ -242,6 +243,7 @@ const overlayCss = `
   box-shadow: var(--pf-shadow-lg);
   overflow: hidden;
 }
+.pf-ln-grip { display: inline-flex; align-items: center; padding: 0 var(--pf-space-2); color: var(--pf-color-text-muted); font-size: var(--pf-font-size-xs); letter-spacing: -2px; }
 .pf-ln-group[hidden], .pf-ln-tab[hidden], .pf-ln-menu[hidden], .pf-ln-toast[hidden], .pf-ln-info[hidden] { display: none; }
 .pf-ln-main, .pf-ln-more {
   display: inline-flex;
@@ -337,7 +339,7 @@ const overlayCss = `
 }
 `;
 
-export const CSS = tokensCss + '\n' + baseCss + '\n' + overlayCss;
+export const CSS = tokensCss + '\n' + baseCss + '\n' + overlayCss + '\n' + overlayV2Css;
 
 export function injectStylesIntoShadowRoot(shadowRoot: ShadowRoot, doc: Document = document): HTMLStyleElement {
   const style = doc.createElement('style');

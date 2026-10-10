@@ -5,6 +5,9 @@ import type { ZodType } from "zod";
 import {
   CreateCollectionRequestSchema,
   CreateCommentRequestSchema,
+  CreateGroupRequestSchema,
+  ReorderGroupRequestSchema,
+  UpdateGroupRequestSchema,
   ListCommentsQuerySchema,
   MoveCommentRequestSchema,
   OFFICIAL_EXTENSION_ID,
@@ -36,6 +39,7 @@ import {
   type OriginKind,
 } from "./security";
 import { CommentsService } from "./services/comments";
+import { GroupsService } from "./services/groups";
 import { ProcessesService } from "./services/processes";
 import { ProjectsService } from "./services/projects";
 import {
@@ -115,6 +119,7 @@ export async function createCore(options: CoreOptions): Promise<Core> {
   const projects = new ProjectsService(registry, bus, controller);
   const processes = new ProcessesService(projects, controller, bus, secrets);
   const comments = new CommentsService(registry, bus);
+  const groups = new GroupsService(registry, comments);
 
   const limiter = new RateLimiter(options.rateMax ?? LIMITS.rateMax, options.rateWindowMs ?? LIMITS.rateWindowMs);
   const authFails = new RateLimiter(options.authFailMax ?? LIMITS.authFailMax, options.rateWindowMs ?? LIMITS.rateWindowMs);
@@ -301,7 +306,7 @@ export async function createCore(options: CoreOptions): Promise<Core> {
     return c.json({ ok: true, comment: await comments.get(c.req.param("id"), c.req.param("commentId")) });
   });
 
-  app.patch("/api/projects/:id/comments/:commentId", jsonBody, async (c) => {
+  app.patch("/api/projects/:id/comments/:commentId", commentBody, async (c) => {
     const id = c.req.param("id");
     registry.get(id);
     const body = await readBody(c, UpdateCommentRequestSchema);
@@ -348,6 +353,38 @@ export async function createCore(options: CoreOptions): Promise<Core> {
     registry.get(id);
     const body = await readBody(c, CreateCollectionRequestSchema);
     return c.json({ ok: true, collection: await comments.createCollection(id, body.name) }, 201);
+  });
+
+  // --- Grupos de lectura -------------------------------------------------------
+
+  app.get("/api/projects/:id/groups", async (c) => c.json({ ok: true, groups: await groups.list(c.req.param("id")) }));
+
+  app.post("/api/projects/:id/groups", jsonBody, async (c) => {
+    const id = c.req.param("id");
+    registry.get(id);
+    const body = await readBody(c, CreateGroupRequestSchema);
+    return c.json({ ok: true, group: await groups.create(id, body) }, 201);
+  });
+
+  app.patch("/api/projects/:id/groups/:groupId", jsonBody, async (c) => {
+    const id = c.req.param("id");
+    registry.get(id);
+    const body = await readBody(c, UpdateGroupRequestSchema);
+    return c.json({ ok: true, group: await groups.update(id, c.req.param("groupId"), body) });
+  });
+
+  app.post("/api/projects/:id/groups/:groupId/reorder", jsonBody, async (c) => {
+    const id = c.req.param("id");
+    registry.get(id);
+    const body = await readBody(c, ReorderGroupRequestSchema);
+    return c.json({ ok: true, group: await groups.reorder(id, c.req.param("groupId"), body.order) });
+  });
+
+  app.delete("/api/projects/:id/groups/:groupId", async (c) => {
+    const id = c.req.param("id");
+    registry.get(id);
+    await groups.delete(id, c.req.param("groupId"));
+    return c.json({ ok: true });
   });
 
   // --- SSE ---------------------------------------------------------------------

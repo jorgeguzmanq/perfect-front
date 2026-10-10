@@ -12,8 +12,9 @@ export const PF_DIR = ".perfect-front";
 
 /** Límites de tamaño de lectura/escritura (bytes). */
 export const STORAGE_LIMITS = {
-  commentFile: 512 * 1024,
+  commentFile: 2 * 1024 * 1024,
   configFile: 64 * 1024,
+  groupsFile: 2 * 1024 * 1024,
   attachment: 7_000_000,
   gitignore: 1024 * 1024,
   export: 16 * 1024 * 1024,

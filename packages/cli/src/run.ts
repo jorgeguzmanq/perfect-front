@@ -14,6 +14,8 @@ import { pageUrl, staticTarget } from "./static/launch";
 import { rememberEntry } from "./static/remember";
 import { ServerNotRunningError, defaultStateDir } from "./discovery";
 import { COMMENT_EXIT, detectCommentCommand, runCommentCommand } from "./comments";
+import { buildAgentPrompt, formatPromptBlock } from "./agent-prompt";
+import { agentsDocPath, detectPromptCommand, runPromptCommand } from "./prompt-command";
 import {
   ServerStartError,
   ensureServer,
@@ -72,6 +74,10 @@ Comandos:
               Administra el servidor local de Perfect Front (segundo plano);
               \`stop\` solo detiene el que inicio Perfect Front
 
+  prompt      Imprime un PROMPT listo para pegar a un agente de codigo (Claude Code, Codex...)
+              con las rutas y URLs reales del proyecto (alias: agent-prompt; --copy lo copia
+              al portapapeles; --project <ruta>; no necesita servidor). Detalle: perfect-front prompt --help
+
 Comentarios (directo sobre .perfect-front, sin servidor ni navegador; ver AGENTS.md):
   list, show <id>, claim <id>, resolve <id> --summary "...", edit <id> --comment "...",
   move <id...> --to <coleccion>, status <id> <estado>, ignore <id>, reopen <id>,
@@ -92,7 +98,8 @@ Opciones:
   --no-proxy         No pone el proxy delante: sin capa de comentarios (la extension ya no la inyecta)
   --server-port <n>  Puerto preferido del servidor local (por defecto 45800)
   --state-dir <dir>  Directorio de estado del servidor local (discovery.json)
-  --json             Salida JSON en stdout
+  --no-agent-prompt  No imprime el prompt para el agente tras el arranque (con --json, omite el campo agentPrompt)
+  --json             Salida JSON en stdout (el arranque incluye agentPrompt: texto del prompt para el agente)
   -h, --help         Ayuda
   -v, --version      Version
 
@@ -127,6 +134,7 @@ interface Parsed {
   sub: string | null;
   noServer: boolean;
   noProxy: boolean;
+  noAgentPrompt: boolean;
   overlayNoCache: boolean;
   detach: boolean;
   serverPort: number | undefined;
@@ -144,7 +152,7 @@ interface Parsed {
 const EXTENSION_HINT = "La extensión Perfect Front es opcional: lista este proyecto y alterna la capa";
 const LAYER_HINT = "Capa de comentarios activa: Alt+clic sobre un elemento (o Ctrl/Cmd+Mayús+C)";
 
-const COMMANDS = ["start", "status", "stop", "restart", "logs", "open", "server"];
+const COMMANDS = ["start", "status", "stop", "restart", "logs", "open", "server"]; // `prompt` se atiende antes (prompt-command.ts)
 const SERVER_SUBS = ["start", "stop", "status", "logs"];
 
 function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
@@ -162,6 +170,7 @@ function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
         "no-open": { type: "boolean" },
         "no-server": { type: "boolean" },
         "no-proxy": { type: "boolean" },
+        "no-agent-prompt": { type: "boolean" },
         "overlay-no-cache": { type: "boolean" }, // oculto: reconstruye el overlay en cada peticion (desarrollo)
         detach: { type: "boolean" },
         "server-port": { type: "string" },
@@ -211,6 +220,7 @@ function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
     sub,
     noServer: values["no-server"] === true,
     noProxy: values["no-proxy"] === true,
+    noAgentPrompt: values["no-agent-prompt"] === true,
     overlayNoCache: values["overlay-no-cache"] === true,
     detach: values.detach === true,
     serverPort: num(values["server-port"], "server-port", 0, 65535),
@@ -269,6 +279,7 @@ const describeServer = (s: ServerStatus): string =>
       : `Servidor local externo en ${s.url} (Perfect Front no lo detendra)`;
 
 export async function runCli(argv: string[], io: Io): Promise<number> {
+  if (detectPromptCommand(argv)) return runPromptCommand(argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd });
   const commentCmd = detectCommentCommand(argv);
   if (commentCmd) return runCommentCommand(commentCmd, argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd });
   let json = argv.includes("--json");
@@ -432,7 +443,12 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
           opened: boolean,
           proxy: ProxyReady | null,
           proxyReason: string | null,
-        ): { data: Record<string, unknown>; lines: string[] } => ({
+        ): { data: Record<string, unknown>; lines: string[]; prompt: string | null } => {
+          const prompt = parsed.noAgentPrompt
+            ? null
+            : buildAgentPrompt({ root: target.root, url: proxy?.url ?? mapUrl(status.url), targetUrl: proxy?.targetUrl ?? mapUrl(status.url), agentsDoc: agentsDocPath() });
+          return {
+          prompt,
           data: {
             command: parsed.command,
             action,
@@ -449,6 +465,7 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
                 }
               : {}),
             ...(detection ? { project: detection.name } : {}),
+            ...(prompt ? { agentPrompt: prompt } : {}),
           },
           lines: [
             action === "started" ? "Servidor iniciado" : "Conectado a servidor activo",
@@ -464,7 +481,9 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
                 ]
               : [`SIN CAPA DE COMENTARIOS: ${proxyReason ?? noProxyReason()}`]),
           ],
-        });
+          };
+        };
+        const promptTail = (p: string | null): string[] => (p && !json ? ["", formatPromptBlock(p)] : []);
 
         if (parsed.command === "default" && !parsed.detach) {
           // Primer plano: queda vivo y apaga todo al recibir una senal de cierre.
@@ -491,7 +510,7 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
               const r = report(action, status, local, shouldOpen, proxy, proxyReason);
               emit(
                 { ...r.data, foreground: true },
-                [...r.lines, ...(shouldOpen ? [`Abriendo ${pageLink}`] : []), "En primer plano: Ctrl+C (o cerrar esta terminal) apaga todo lo iniciado."].join("\n"),
+                [...r.lines, ...(shouldOpen ? [`Abriendo ${pageLink}`] : []), "En primer plano: Ctrl+C (o cerrar esta terminal) apaga todo lo iniciado.", ...promptTail(r.prompt)].join("\n"),
               );
             },
           });
@@ -555,7 +574,7 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
         const r = report(action, status, local, shouldOpen, proxy, proxyReason);
         emit(
           { ...r.data, ...(warnings.length > 0 ? { warnings } : {}) },
-          [...r.lines, ...warnings, ...(shouldOpen ? [`Abriendo ${pageLink}`] : [])].join("\n"),
+          [...r.lines, ...warnings, ...(shouldOpen ? [`Abriendo ${pageLink}`] : []), ...promptTail(r.prompt)].join("\n"),
         );
         return EXIT.OK;
       }

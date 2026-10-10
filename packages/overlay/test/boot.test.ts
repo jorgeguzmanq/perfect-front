@@ -57,6 +57,12 @@ const fire = (t: EventTarget, type: string, init: Record<string, unknown> = {}) 
   t.dispatchEvent(ev);
   return ev;
 };
+/** El editor v2 lee el borrador del evento `input`: se simula la escritura. */
+const typeIn = (ta: HTMLTextAreaElement, v: string) => {
+  ta.value = v;
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+};
+const camBtn = () => q<HTMLButtonElement>('[aria-label="Captura de la página"]');
 const keydown = (k: string, init: Record<string, unknown> = {}, t: EventTarget = document.body) =>
   t.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true, composed: true, ...init }));
 
@@ -195,40 +201,42 @@ describe('interacción', () => {
     expect(overlayHost()).not.toBeNull();
   });
 
-  it('panel: sin pestañas Diseño/Contenido; Comentar y Niveles; alcance elemento/vista', () => {
+  it('panel v2: pestañas Comentar/Contenido/Estilos/Estructura/Cola; alcance elemento/vista', () => {
     boot();
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    const tabs = Array.from(osr().querySelectorAll('[role="tab"]')).map((t) => t.textContent);
-    expect(tabs.some((t) => t?.includes('Diseño') || t?.includes('Contenido'))).toBe(false);
-    expect(tabs.some((t) => t?.startsWith('Niveles'))).toBe(true);
-    expect(tabs.some((t) => t?.startsWith('Comentar'))).toBe(true);
-    expect(q<HTMLTextAreaElement>('textarea')!.placeholder).toBe('Qué habría que cambiar acá…');
+    const tabs = Array.from(osr().querySelectorAll('[role="tab"]')).map((t) => t.textContent ?? '');
+    for (const name of ['Comentar', 'Contenido', 'Estilos', 'Estructura', 'Cola']) {
+      expect(tabs.some((t) => t.startsWith(name))).toBe(true);
+    }
+    expect(tabs.some((t) => t.startsWith('Niveles'))).toBe(false);
+    expect(osr().querySelector('[role="tab"][aria-selected="true"]')!.textContent).toContain('Comentar');
+    expect(q<HTMLTextAreaElement>('textarea')!.placeholder).toBe('Qué habría que cambiar en este elemento…');
     expect(btn('Este elemento').getAttribute('aria-pressed')).toBe('true');
     btn('Toda la vista').click();
     expect(btn('Toda la vista').getAttribute('aria-pressed')).toBe('true');
     expect(q('.pf-ov-title')!.textContent).toBe('Toda la vista');
+    // En vista completa Estilos y Estructura quedan deshabilitadas.
+    const off = (n: string) =>
+      (Array.from(osr().querySelectorAll<HTMLButtonElement>('[role="tab"]')).find((t) => t.textContent?.startsWith(n)))!.disabled;
+    expect(off('Estilos')).toBe(true);
+    expect(off('Estructura')).toBe(true);
   });
 
-  it('flechas padre/hijo (botones y teclado) y lista de Niveles navegable', () => {
+  it('flechas padre/hijo (botones y teclado) y posición entre hermanos', () => {
     boot();
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    expect(q('.pf-ov-src')!.textContent).toBe('#b1');
-    (osr().querySelector('[aria-label^="Elemento padre"]') as HTMLButtonElement).click();
-    expect(q('.pf-ov-src')!.textContent).toBe('#mid');
-    keydown('ArrowUp', {}, osr().querySelector('[aria-label^="Elemento padre"]')!);
-    expect(q('.pf-ov-src')!.textContent).toBe('#outer');
-    keydown('ArrowDown', {}, osr().querySelector('[aria-label^="Elemento hijo"]')!);
-    expect(q('.pf-ov-src')!.textContent).toBe('#mid');
+    expect(q('.pf-ov-sub')!.textContent).toBe('#b1');
+    expect(q('.pf-ov-pos')!.textContent).toBe('1/1');
+    (osr().querySelector('[aria-label^="Padre"]') as HTMLButtonElement).click();
+    expect(q('.pf-ov-sub')!.textContent).toBe('#mid');
+    keydown('ArrowUp', {}, osr().querySelector('[aria-label^="Padre"]')!);
+    expect(q('.pf-ov-sub')!.textContent).toBe('#outer');
+    keydown('ArrowDown', {}, osr().querySelector('[aria-label^="Primer hijo"]')!);
+    expect(q('.pf-ov-sub')!.textContent).toBe('#mid');
     // Las flechas dentro del textarea no se secuestran.
     keydown('ArrowUp', {}, q('textarea')!);
-    expect(q('.pf-ov-src')!.textContent).toBe('#mid');
-
-    (osr().querySelector('#pf-ov-tab-levels') as HTMLButtonElement).click();
-    const items = Array.from(osr().querySelectorAll<HTMLButtonElement>('.pf-ov-level'));
-    expect(items.map((i) => i.textContent)).toEqual(['body', 'main#app', 'div#outer', 'section#mid']);
-    items[1]!.click();
-    expect(q('.pf-ov-src')!.textContent).toBe('#app');
-    expect(osr().querySelector('.pf-ov-level[aria-current="true"]')!.textContent).toBe('main#app');
+    expect(q('.pf-ov-sub')!.textContent).toBe('#mid');
+    // v1 tenía una lista «Niveles»; en v2 el recorrido es solo con los botones/flechas.
   });
 
   it('nombre de componente React y cadena "en A < B" desde un fiber simulado', () => {
@@ -251,25 +259,24 @@ describe('interacción', () => {
     void Card;
     boot();
     fire(el, 'click', { altKey: true });
-    expect(q('.pf-ov-title')!.textContent).toBe('Button');
-    expect(q('.pf-ov-chain')!.textContent).toBe('en Card < Page');
-    expect(q('.pf-ov-foot .pf-ov-path')!.textContent).toContain('Button < Card < Page');
+    expect(q('.pf-ov-title')!.firstChild!.textContent).toBe('Button');
+    expect(q('.pf-ov-title small')!.textContent!.trim()).toBe('en Card < Page');
   });
 
   it('un elemento fuera de React no muestra cadena', () => {
     boot();
     fire(document.getElementById('lnk')!, 'click', { altKey: true });
     expect(q('.pf-ov-title')!.textContent).toBe('a#lnk');
-    expect(q('.pf-ov-chain')!.hidden).toBe(true);
+    expect(q('.pf-ov-title small')).toBeNull();
   });
 
   it('archivo:línea solo con data-pf-src (del nodo o su ancestro)', async () => {
     document.getElementById('mid')!.setAttribute('data-pf-src', 'src/components/Landing.tsx:103');
     boot();
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    expect(q('.pf-ov-src')!.textContent).toBe('Landing.tsx:103');
-    expect(q('.pf-ov-src')!.title).toBe('src/components/Landing.tsx:103');
-    q<HTMLTextAreaElement>('textarea')!.value = 'x';
+    expect(q('.pf-ov-sub')!.textContent).toBe('src/components/Landing.tsx:103');
+    expect(q('.pf-ov-sub')!.title).toBe('src/components/Landing.tsx:103');
+    typeIn(q<HTMLTextAreaElement>('textarea')!, 'x');
     btn('Guardar').click();
     await flush();
     const body = JSON.parse(String(fetchMock.mock.calls.find((c) => String(c[0]).endsWith('/comment'))![1]!.body));
@@ -332,7 +339,7 @@ describe('guardado', () => {
     boot(f);
     await flush();
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    q<HTMLTextAreaElement>('textarea')!.value = '  Cambiar el color  ';
+    typeIn(q<HTMLTextAreaElement>('textarea')!, '  Cambiar el color  ');
     btn('Guardar').click();
     await vi.waitFor(() => expect(api!.state).toBe('SELECTING'));
     const call = f.mock.calls.find((c) => String(c[0]) === '/__pf/comment')!;
@@ -353,7 +360,7 @@ describe('guardado', () => {
     boot(f);
     fire(document.getElementById('b1')!, 'click', { altKey: true });
     btn('Toda la vista').click();
-    q<HTMLTextAreaElement>('textarea')!.value = 'Todo raro';
+    typeIn(q<HTMLTextAreaElement>('textarea')!, 'Todo raro');
     keydown('Enter', { ctrlKey: true }, q('textarea')!);
     await vi.waitFor(() => expect(api!.state).toBe('SELECTING'));
     const body = JSON.parse(String(f.mock.calls.find((c) => String(c[0]) === '/__pf/comment')![1]!.body));
@@ -366,7 +373,7 @@ describe('guardado', () => {
     boot(makeFetch([], () => json({ ok: false, error: { code: 'unauthorized', message: 'Token inválido' } }, 401)));
     fire(document.getElementById('b1')!, 'click', { altKey: true });
     const ta = q<HTMLTextAreaElement>('textarea')!;
-    ta.value = 'No debo perder esto';
+    typeIn(ta, 'No debo perder esto');
     btn('Guardar').click();
     await vi.waitFor(() => expect(api!.state).toBe('ERROR'));
     expect(q('.pf-ov-error')!.textContent).toContain('Token inválido');
@@ -377,7 +384,7 @@ describe('guardado', () => {
   it('una respuesta no JSON también conserva el texto', async () => {
     boot(makeFetch([], () => new Response('<html>502</html>', { status: 502 })));
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    q<HTMLTextAreaElement>('textarea')!.value = 'texto';
+    typeIn(q<HTMLTextAreaElement>('textarea')!, 'texto');
     btn('Guardar').click();
     await vi.waitFor(() => expect(api!.state).toBe('ERROR'));
     expect(q('.pf-ov-error')!.textContent).toContain('502');
@@ -386,11 +393,11 @@ describe('guardado', () => {
 });
 
 describe('captura opcional', () => {
-  it('«Incluir captura» captura (host oculto) y la envía en screenshot', async () => {
+  it('el botón de captura captura (host visible, sin parpadeo) y la envía como adjunto', async () => {
     vi.resetModules();
     vi.doMock('../src/capture', () => ({
       captureViewport: vi.fn(async () => {
-        expect(overlayHost()!.style.visibility).toBe('hidden');
+        expect(overlayHost()!.style.visibility).toBe('');
         return { mimeType: 'image/png', dataBase64: 'iVBORw0KGgo=' };
       }),
     }));
@@ -398,28 +405,30 @@ describe('captura opcional', () => {
     const f = makeFetch();
     api = mod.bootPage({ token: TOKEN, base: '/__pf', fetch: f });
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    const box = q<HTMLInputElement>('#pf-ov-shot')!;
-    expect(box.type).toBe('checkbox');
-    expect(box.parentElement!.textContent).toBe('Incluir captura');
-    box.checked = true;
-    q<HTMLTextAreaElement>('textarea')!.value = 'con captura';
+    expect(camBtn()).not.toBeNull();
+    camBtn()!.click();
+    await flush();
+    typeIn(q<HTMLTextAreaElement>('textarea')!, 'con captura');
     btn('Guardar').click();
     await vi.waitFor(() => expect(api!.state).toBe('SELECTING'));
     const body = JSON.parse(String(f.mock.calls.find((c) => String(c[0]) === '/__pf/comment')![1]!.body));
-    expect(body.screenshot).toEqual({ mimeType: 'image/png', dataBase64: 'iVBORw0KGgo=' });
+    // v2: la captura viaja como adjunto (uploads, source 'capture'), ya no en `screenshot`.
+    expect(body.uploads).toHaveLength(1);
+    expect(body.uploads[0]).toMatchObject({ source: 'capture', mimeType: 'image/png', dataBase64: 'iVBORw0KGgo=' });
     expect(CreateCommentRequestSchema.safeParse(body).success).toBe(true);
     expect(overlayHost()!.style.visibility).toBe('');
     vi.doUnmock('../src/capture');
   });
 
-  it('sin marcar la casilla no se captura', async () => {
+  it('sin pulsar el botón de captura no se adjunta nada', async () => {
     const f = makeFetch();
     boot(f);
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    q<HTMLTextAreaElement>('textarea')!.value = 'sin captura';
+    typeIn(q<HTMLTextAreaElement>('textarea')!, 'sin captura');
     btn('Guardar').click();
     await vi.waitFor(() => expect(api!.state).toBe('SELECTING'));
     const body = JSON.parse(String(f.mock.calls.find((c) => String(c[0]) === '/__pf/comment')![1]!.body));
     expect(body.screenshot).toBeUndefined();
+    expect(body.uploads).toEqual([]);
   });
 });
