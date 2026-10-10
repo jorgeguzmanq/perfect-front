@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perfect Front</title>
+<meta name="description" content="Revisión visual local para proyectos web: comenta elementos de tu app y guarda cada comentario como JSON dentro del proyecto.">
+<style>
+:root{--bg:#fbfaf7;--fg:#17181c;--mut:#5d6068;--card:#fff;--line:#e4e1d9;--acc:#4338ca;--acc-fg:#fff;--code:#f1efe9}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1014;--fg:#ecebe6;--mut:#9a9ca5;--card:#17181e;--line:#2a2c34;--acc:#8b87ff;--acc-fg:#0f1014;--code:#1c1e26}}
+:root[data-theme="dark"]{--bg:#0f1014;--fg:#ecebe6;--mut:#9a9ca5;--card:#17181e;--line:#2a2c34;--acc:#8b87ff;--acc-fg:#0f1014;--code:#1c1e26}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif}
+a{color:var(--acc)}
+.w{max-width:960px;margin:0 auto;padding:0 16px}
+nav{display:flex;gap:16px;align-items:center;padding:18px 0;flex-wrap:wrap}
+nav b{margin-right:auto;font-size:18px}
+nav a{color:var(--mut);text-decoration:none;font-size:14px}
+nav a:hover{color:var(--fg)}
+header.h{padding:56px 0 40px}
+h1{font-size:clamp(34px,6vw,56px);line-height:1.08;margin:0 0 16px;letter-spacing:-.02em;max-width:18ch}
+.lead{font-size:19px;color:var(--mut);max-width:58ch;margin:0 0 28px}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn{display:inline-block;padding:11px 18px;border-radius:10px;border:1px solid var(--line);text-decoration:none;color:var(--fg);font-weight:600;background:var(--card)}
+.btn.p{background:var(--acc);color:var(--acc-fg);border-color:var(--acc)}
+pre{background:var(--code);border:1px solid var(--line);border-radius:12px;padding:16px;overflow:auto;font:14px/1.55 ui-monospace,Consolas,monospace;margin:0}
+code{font-family:ui-monospace,Consolas,monospace}
+section{padding:36px 0}
+h2{font-size:26px;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--mut);margin:0 0 22px}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(240px,1fr))}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.card h3{margin:0 0 6px;font-size:17px}
+.card p{margin:0;color:var(--mut);font-size:15px}
+.num{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--acc);color:var(--acc-fg);font-size:13px;font-weight:700;margin-bottom:10px}
+.tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--acc)}
+footer{border-top:1px solid var(--line);margin-top:30px;padding:26px 0 40px;color:var(--mut);font-size:14px}
+.flow{white-space:pre;overflow:auto}
+</style>
+</head>
+<body>
+<div class="w">
+<nav aria-label="Principal">
+  <b>Perfect Front</b>
+  <a href="#como">Cómo funciona</a>
+  <a href="#v2">Capa v2</a>
+  <a href="#inicio">Inicio rápido</a>
+  <a href="https://github.com/jorgeguzmanq/perfect-front">GitHub</a>
+</nav>
+
+<header class="h">
+  <h1>Di qué cambiar, justo donde lo ves.</h1>
+  <p class="lead">Perfect Front es una capa de comentarios para tu app en desarrollo. Toca un elemento, escribe qué debería cambiar y el comentario queda como un archivo JSON dentro de tu proyecto, listo para una persona o un agente de código.</p>
+  <div class="btns">
+    <a class="btn p" href="overlay-layer-v2.html">Ver prototipo de la capa v2</a>
+    <a class="btn" href="https://github.com/jorgeguzmanq/perfect-front">Ver el código</a>
+  </div>
+</header>
+
+<section aria-labelledby="t-why">
+  <h2 id="t-why">Por qué</h2>
+  <p class="sub">El feedback visual vive lejos del código. Aquí se captura donde ocurre y se guarda donde se usa.</p>
+  <div class="grid">
+    <div class="card"><h3>Sin tocar tu app</h3><p>Nada de imports ni plugins. Un proxy inyecta la capa; Vite, Next.js, Angular o HTML estático.</p></div>
+    <div class="card"><h3>Tu proyecto manda</h3><p>Un comentario es un archivo en <code>.perfect-front/</code>. Sin nube, sin cuenta, sin base de datos.</p></div>
+    <div class="card"><h3>Hecho para agentes</h3><p>CLI con <code>--json</code> estable, bloqueo optimista y códigos de salida documentados.</p></div>
+    <div class="card"><h3>Con contexto</h3><p>Selector, archivo y línea, ruta y captura opcional para reencontrar el elemento.</p></div>
+  </div>
+</section>
+
+<section id="como" aria-labelledby="t-how">
+  <h2 id="t-how">Cómo funciona</h2>
+  <p class="sub">Cuatro pasos, desde la raíz de cualquier proyecto.</p>
+  <div class="grid">
+    <div class="card"><span class="num">1</span><h3>Ejecuta <code>comment</code></h3><p>Detecta el proyecto e inicia o reutiliza su dev server.</p></div>
+    <div class="card"><span class="num">2</span><h3>Proxy + capa</h3><p>Un proxy local inyecta la capa en tu HTML.</p></div>
+    <div class="card"><span class="num">3</span><h3>Alt+clic</h3><p>Elige un elemento, comenta o márcalo para eliminar. Al guardar, ya puedes elegir otro.</p></div>
+    <div class="card"><span class="num">4</span><h3>Procesa</h3><p>Dashboard, CLI o un agente leen, reclaman y resuelven.</p></div>
+  </div>
+  <pre class="flow" aria-label="Diagrama de flujo" style="margin-top:16px"> tu dev server ──► proxy local ──► navegador
+                    │ inyecta /__pf/overlay.js
+                    ▼
+              servidor local ──► &lt;proyecto&gt;/.perfect-front/*.json
+                    ▲
+       dashboard · CLI · agentes</pre>
+</section>
+
+<section id="v2" aria-labelledby="t-v2">
+  <h2 id="t-v2">Capa v2: apuntar, describir, organizar</h2>
+  <p class="sub">Regla de diseño: cada zona responde una sola pregunta. <a href="overlay-layer-v2.html">Explora el prototipo interactivo →</a></p>
+  <div class="grid">
+    <div class="card"><span class="tag">Apuntar</span><h3>¿A qué nodos me refiero?</h3><p>Navegación en cuatro direcciones, selección múltiple, reordenar hermanos y copiar ubicación.</p></div>
+    <div class="card"><span class="tag">Describir</span><h3>¿Qué debería cambiar?</h3><p>Texto e i18n, imágenes (pegar, soltar, abrir) y estilos propuestos «antes → después».</p></div>
+    <div class="card"><span class="tag">Organizar</span><h3>¿Con qué otros se entiende?</h3><p>Grupos con nota de contexto, cola de lectura y cajón de comentarios.</p></div>
+  </div>
+  <p class="sub" style="margin-top:16px">Los cambios se proponen; nunca modifican el código. Todo es previsualizable y reversible.</p>
+</section>
+
+<section id="inicio" aria-labelledby="t-start">
+  <h2 id="t-start">Inicio rápido</h2>
+  <p class="sub">Requiere Node.js ≥ 22 y pnpm ≥ 11.</p>
+<pre>git clone https://github.com/jorgeguzmanq/perfect-front.git
+cd perfect-front
+pnpm install &amp;&amp; pnpm build
+
+# desde la raíz del proyecto a revisar
+perfect-front            # alias: comment</pre>
+</section>
+
+<footer>
+  Perfect Front · en desarrollo activo ·
+  <a href="https://github.com/jorgeguzmanq/perfect-front">Repositorio</a> ·
+  <a href="https://github.com/jorgeguzmanq/perfect-front/blob/main/SPEC.md">Especificación</a>
+</footer>
+</div>
+</body>
+</html>
