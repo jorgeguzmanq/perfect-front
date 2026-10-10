@@ -238,14 +238,14 @@ svg.links path{fill:none;stroke:var(--pf-color-accent);stroke-width:2;stroke-das
 @keyframes toastIn{from{opacity:0;transform:translateY(8px)}}
 @keyframes pop{0%{transform:scale(.6)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
 
-/* ===== App falsa «Brisa» ===== */
-.brisa{--bw:72px;position:relative;container-type:inline-size;background:var(--cv-page);color:var(--cv-page-ink);border:1px solid var(--pf-color-border);border-radius:14px;box-shadow:var(--pf-shadow-lg);overflow:hidden;font-family:var(--pf-font-sans);text-align:left}
+/* ===== App falsa «Nido» ===== */
+.nido{--bw:72px;position:relative;container-type:inline-size;background:var(--cv-page);color:var(--cv-page-ink);border:1px solid var(--pf-color-border);border-radius:14px;box-shadow:var(--pf-shadow-lg);overflow:hidden;font-family:var(--pf-font-sans);text-align:left}
 .b-bar{display:flex;align-items:center;gap:6px;height:34px;padding:0 12px;background:var(--cv-page-2);border-bottom:1px solid color-mix(in srgb,var(--cv-page-ink) 10%,transparent)}
 .b-bar>i{width:10px;height:10px;border-radius:50%;background:color-mix(in srgb,var(--cv-page-ink) 18%,transparent)}
 .b-bar>i:first-child{background:#ff6159}.b-bar>i:nth-child(2){background:#ffbd2e}.b-bar>i:nth-child(3){background:#28c941}
 .b-url{flex:1;min-width:0;margin:0 8px;height:22px;display:flex;align-items:center;padding:0 10px;border-radius:6px;background:var(--cv-page);font:11px var(--lp-mono);color:color-mix(in srgb,var(--cv-page-ink) 65%,transparent);overflow:hidden;white-space:nowrap}
-.b-pf{display:inline-flex;align-items:center;gap:5px;font:600 10.5px var(--lp-mono);color:var(--pf-color-accent);white-space:nowrap}
-.b-pf::before{content:"";width:7px;height:7px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 25%,transparent)}
+.b-ex{flex:none;display:inline-flex;align-items:center;padding:2px 9px;border-radius:99px;border:1px solid color-mix(in srgb,var(--pf-status-pending-fg) 45%,transparent);background:var(--pf-status-pending-bg);color:var(--pf-status-pending-fg);font:700 10.5px/14px var(--lp-mono);white-space:nowrap}
+.b-ex .xs{display:none}
 .b-doc{position:relative}
 .b-nav{display:flex;align-items:center;gap:14px;padding:12px 18px;font-size:13px}
 .b-logo{font:700 17px Georgia,"Times New Roman",serif;letter-spacing:-.01em;margin-right:auto;color:var(--b-acc)}
@@ -255,27 +255,29 @@ svg.links path{fill:none;stroke:var(--pf-color-accent);stroke-width:2;stroke-das
 .b-hero{padding:8px 18px 6px}
 .b-hero h1{margin:0;font:400 clamp(22px,4.4cqi,32px)/1.08 Georgia,"Times New Roman",serif;letter-spacing:-.015em;color:inherit}
 .b-hero p{margin:6px 0 0;font-size:13px;opacity:.65}
-.pricing{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 18px 20px}
+.team{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 18px 20px}
 .card{position:relative;display:flex;flex-direction:column;align-items:flex-start;padding:12px;border:1px solid color-mix(in srgb,var(--cv-page-ink) 14%,transparent);border-radius:10px;background:var(--cv-page)}
-.card.pro{border-color:var(--b-acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--b-acc) 14%,transparent)}
+.card.lead{border-color:var(--b-acc);box-shadow:0 0 0 3px color-mix(in srgb,var(--b-acc) 14%,transparent)}
 .card h2{margin:0;font:600 13.5px var(--pf-font-sans);letter-spacing:0;color:inherit}
-.card .price{margin:2px 0 0;font:400 26px/1.1 Georgia,serif}
-.card .price small{font:12px var(--pf-font-sans);opacity:.6}
+.card .av{display:grid;place-items:center;width:34px;height:34px;margin-bottom:8px;border-radius:50%;background:color-mix(in srgb,var(--b-acc) 18%,transparent);color:var(--b-acc);font:700 12px var(--pf-font-sans)}
+.card .role{margin:2px 0 0;font:400 18px/1.15 Georgia,serif}
 .card .desc{margin:2px 0 10px;font-size:11.5px;opacity:.65}
 .card .tagp{position:absolute;right:10px;top:10px;padding:0 6px;border-radius:99px;background:color-mix(in srgb,var(--b-acc) 16%,transparent);color:var(--b-acc);font:600 10px/16px var(--pf-font-sans)}
-.buy{display:inline-block;margin-top:auto;width:calc(var(--bw) + (100% - var(--bw)) * var(--t));padding:6px calc(14px + 10px * var(--t));border:0;border-radius:8px;background:var(--cv-page-ink);color:var(--cv-page);font:600 12.5px var(--pf-font-sans);white-space:nowrap;transition:--t .6s var(--lp-ease)}
-.buy.full{--t:1}
-.buy.shine{background-image:linear-gradient(110deg,transparent 30%,rgb(255 255 255/.45) 50%,transparent 70%);background-size:250% 100%;animation:shine .8s ease-out 1}
+.hi{display:inline-block;margin-top:auto;width:calc(var(--bw) + (100% - var(--bw)) * var(--t));padding:6px calc(14px + 10px * var(--t));border:0;border-radius:8px;background:var(--cv-page-ink);color:var(--cv-page);font:600 12.5px var(--pf-font-sans);white-space:nowrap;transition:--t .6s var(--lp-ease)}
+.hi.full{--t:1}
+.hi.shine{background-image:linear-gradient(110deg,transparent 30%,rgb(255 255 255/.45) 50%,transparent 70%);background-size:250% 100%;animation:shine .8s ease-out 1}
 @keyframes shine{from{background-position:120% 0}to{background-position:-60% 0}}
 @container (max-width:470px){
-  .pricing{gap:6px;padding:10px 10px 14px}
+  .team{gap:6px;padding:10px 10px 14px}
   .card{padding:9px 8px}
   .card h2{font-size:12px}
-  .card .price{font-size:19px}
-  .card .price small,.card .tagp{display:none}
+  .card .role{font-size:14px}
+  .card .av{width:26px;height:26px;margin-bottom:6px;font-size:10px}
+  .card .tagp{display:none}
   .card .desc{font-size:10.5px;line-height:1.3;margin-bottom:8px}
-  .buy{padding:5px calc(9px + 8px * var(--t));font-size:11.5px}
+  .hi{padding:5px calc(9px + 8px * var(--t));font-size:11.5px}
   .b-nav{padding:10px 12px}.b-nav a{display:none}
+  .b-ex .xl{display:none}.b-ex .xs{display:inline}
   .b-hero{padding:6px 12px 4px}
 }
 .ov{position:absolute;inset:0;pointer-events:none;z-index:4}
@@ -342,8 +344,8 @@ svg.links path{fill:none;stroke:var(--pf-color-accent);stroke-width:2;stroke-das
 /* ===== S2 Tu turno ===== */
 .turn .wrap>header{max-width:760px}
 .turn-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:24px;margin-top:40px;align-items:start}
-.turn-grid .brisa .b-hero h1{font-size:clamp(24px,5cqi,38px)}
-.turn-grid .pricing{padding-bottom:28px}
+.turn-grid .nido .b-hero h1{font-size:clamp(24px,5cqi,38px)}
+.turn-grid .team{padding-bottom:28px}
 .turn-tip{display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:12px;font-size:13px;color:var(--pf-color-text-muted)}
 .turn-tip span{display:inline-flex;gap:4px;align-items:center}
 .jv{border:1px solid var(--pf-color-border);border-radius:12px;background:var(--pf-color-surface-raised);box-shadow:var(--pf-shadow-md);overflow:hidden}
@@ -404,14 +406,14 @@ svg.links path{fill:none;stroke:var(--pf-color-accent);stroke-width:2;stroke-das
 .pola .shot{display:block;height:74px;border-radius:3px;overflow:hidden;position:relative}
 .pola figcaption{font:10px/16px var(--lp-mono);color:#555;text-align:center}
 .pola:focus-visible{outline:var(--pf-focus-ring);outline-offset:3px}
-/* Recortes CSS de Brisa (capturas) */
+/* Recortes CSS de Nido (capturas) */
 .shot{background:#fbfaf6}
 .shot.s1{background:linear-gradient(#f0eee7 0 22%,#fbfaf6 22%)}
-.shot.s1::before{content:"Brisa";position:absolute;left:8px;top:3px;font:700 10px Georgia,serif;color:#2e7d5b}
+.shot.s1::before{content:"Nido";position:absolute;left:8px;top:3px;font:700 10px Georgia,serif;color:#2e7d5b}
 .shot.s1::after{content:"";position:absolute;left:8px;right:24px;top:30px;height:22px;background:linear-gradient(#1c2030 0 0) 0 0/80% 7px no-repeat,linear-gradient(#1c2030 0 0) 0 11px/55% 7px no-repeat;opacity:.85}
 .shot.s2::before{content:"";position:absolute;left:14px;right:14px;top:8px;bottom:8px;border:1.5px solid #2e7d5b;border-radius:6px;background:linear-gradient(#1c2030 0 0) 8px 8px/30% 5px no-repeat,linear-gradient(#1c2030 0 0) 8px 18px/45% 10px no-repeat,linear-gradient(#1c2030 0 0) 8px 42px/60% 12px no-repeat}
 .shot.s3{background:repeating-linear-gradient(135deg,#eef4ff 0 8px,#f7f9ff 8px 16px)}
-.shot.s3::before{content:"Comprar";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:5px 18px;border-radius:7px;background:#1c2030;color:#fff;font:600 10px var(--pf-font-sans)}
+.shot.s3::before{content:"Saludar";position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);padding:5px 18px;border-radius:7px;background:#1c2030;color:#fff;font:600 10px var(--pf-font-sans)}
 .shot.s3::after{content:"";position:absolute;inset:16px 8px;border:1.5px dashed #2f5bea;border-radius:8px}
 .mk{position:absolute;z-index:3;transform:scale(0);transition:transform .36s var(--lp-spring)}
 .mk.on{transform:none}
@@ -422,13 +424,31 @@ svg.links path{fill:none;stroke:var(--pf-color-accent);stroke-width:2;stroke-das
 .term>header{display:flex;align-items:center;gap:6px;padding:8px 12px;background:#12151b;border-bottom:1px solid #232833;color:#8b93a3;font-size:11.5px}
 .term>header i{width:10px;height:10px;border-radius:50%;background:#2a2f3a}
 .term>header span{margin-left:8px}
-.term>header button{margin-left:auto;border:1px solid #2a2f3a;background:transparent;color:#aeb5c3;border-radius:6px;padding:1px 8px;font:11px var(--lp-mono);cursor:pointer}
+.term>header .ex{margin-left:auto;padding:0 8px;border-radius:99px;border:1px solid #6b5320;background:#3a2a08;color:#ffc766;font:700 10.5px/16px var(--lp-mono)}
+.term>header .ex+button{margin-left:8px}
+.term>header button{border:1px solid #2a2f3a;background:transparent;color:#aeb5c3;border-radius:6px;padding:1px 8px;font:11px var(--lp-mono);cursor:pointer}
 .term>header button:hover{color:#fff;border-color:#4a5163}
 .term pre{margin:0;padding:14px 16px;min-height:17.5rem;white-space:pre-wrap;word-break:break-word;font:inherit}
 .t-p{color:#7fdc9b}.t-c{color:#fff}.t-o{color:#9aa3b2}.t-ok{color:#7fdc9b}.t-g{color:#5d6574;font-style:italic}.t-k{color:#9db8ff}.t-s{color:#f3c47a}
 .agent-app{position:relative}
 .agent-app .st-chip{position:absolute;z-index:5;transform:translate(-50%,-50%);box-shadow:var(--pf-shadow-md)}
 .agent-foot{margin-top:18px;font-size:14px;color:var(--pf-color-text-muted)}
+
+/* ===== S4b Capa v2 ===== */
+.vtag{display:inline-block;padding:0 7px;border-radius:99px;background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg);font:700 10.5px/18px var(--lp-mono);letter-spacing:.04em;text-transform:uppercase}
+.v2-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin-top:40px}
+.v2c{padding:18px;border:1px solid var(--pf-color-border);border-radius:14px;background:var(--pf-color-surface-raised);box-shadow:var(--pf-shadow-sm)}
+.v2c.wide{grid-column:1/-1}
+.v2c h3{margin:10px 0 6px;font:700 19px/1.2 var(--lp-display);letter-spacing:-.01em;color:var(--cv-ink)}
+.v2c p{margin:0;font-size:15px;color:var(--pf-color-text-muted)}
+.capdemo{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:14px;padding:10px 12px;border:1px dashed var(--pf-color-border);border-radius:10px;background:var(--pf-color-surface)}
+.exb{padding:0 8px;border-radius:99px;border:1px solid color-mix(in srgb,var(--pf-status-pending-fg) 45%,transparent);background:var(--pf-status-pending-bg);color:var(--pf-status-pending-fg);font:700 10.5px/18px var(--lp-mono)}
+.seg{display:inline-flex;border:1px solid var(--pf-color-border);border-radius:99px;overflow:hidden;background:var(--pf-color-surface-raised)}
+.seg button{border:0;background:transparent;padding:4px 12px;font:600 12.5px var(--lp-mono);color:var(--pf-color-text-muted);cursor:pointer}
+.seg button[aria-checked=true]{background:var(--pf-color-accent);color:var(--pf-color-accent-fg)}
+.capdemo output{font:12.5px var(--lp-mono);color:var(--pf-color-text)}
+@media (max-width:980px){.v2-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.v2-grid{grid-template-columns:minmax(0,1fr)}}
 
 /* ===== S5 Cierre ===== */
 .close-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(24px,4vw,56px);align-items:center}
@@ -450,6 +470,13 @@ svg.links path{fill:none;stroke:var(--pf-color-accent);stroke-width:2;stroke-das
 .foot .wrap{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center}
 .foot a{color:var(--pf-color-text-muted)}
 .foot a:hover{color:var(--pf-color-text)}
+.foot .made{display:inline-flex;align-items:center;gap:10px;text-decoration:none}
+.foot .made:hover span:last-child{text-decoration:underline}
+.foot .lg img{display:block;height:24px;width:auto}
+.foot .lg-dark{display:none!important}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .foot .lg-light{display:none!important}:root:not([data-theme="light"]) .foot .lg-dark{display:block!important}}
+:root[data-theme="dark"] .foot .lg-light{display:none!important}
+:root[data-theme="dark"] .foot .lg-dark{display:block!important}
 .foot .r{margin-left:auto;display:flex;gap:16px;flex-wrap:wrap}
 
 /* ===== Capa global ===== */
@@ -525,6 +552,7 @@ body.pf-armed,body.pf-armed *{cursor:crosshair!important}
     <nav aria-label="Principal">
       <a href="#tu-turno">Demo</a>
       <a href="#agente">Agentes</a>
+      <a href="manual.html">Manual de uso</a>
       <a href="https://github.com/jorgeguzmanq/perfect-front">GitHub</a>
     </nav>
     <div class="theme" role="group" aria-label="Tema">
@@ -543,14 +571,14 @@ body.pf-armed,body.pf-armed *{cursor:crosshair!important}
       <p class="sub">Alt+clic sobre tu app en desarrollo, escribe qué cambiar y el comentario queda como JSON en <code>.perfect-front/</code>. Para ti o para tu agente.</p>
       <div class="ctas">
         <a class="cta pri" href="https://github.com/jorgeguzmanq/perfect-front"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 .2a8 8 0 00-2.5 15.6c.4 0 .5-.2.5-.4v-1.5c-2.2.5-2.7-1-2.7-1-.4-.9-.9-1.2-.9-1.2-.7-.5.1-.5.1-.5.8.1 1.2.8 1.2.8.7 1.3 1.9.9 2.3.7.1-.5.3-.9.5-1.1-1.8-.2-3.6-.9-3.6-4 0-.9.3-1.6.8-2.1-.1-.2-.4-1 .1-2.1 0 0 .7-.2 2.2.8a7.5 7.5 0 014 0c1.5-1 2.2-.8 2.2-.8.4 1.1.2 1.9.1 2.1.5.6.8 1.3.8 2.1 0 3.1-1.9 3.8-3.6 4 .3.3.6.8.6 1.5v2.2c0 .2.1.5.6.4A8 8 0 008 .2z"/></svg>Ver en GitHub</a>
-        <a class="cta" href="overlay-layer-v2.html">Probar la capa v2 →</a>
+        <a class="cta" href="manual.html">Manual de uso →</a>
       </div>
       <p class="psst"><i aria-hidden="true">✎</i><span class="d">Psst: esta página también. <kbd>Alt</kbd>+clic donde quieras.</span><span class="m">Psst: toca ✎ y luego cualquier cosa.</span></p>
     </div>
-    <div class="stage" id="hero-stage" aria-label="Demostración automática: Alt+clic en Comprar, se escribe el comentario y el JSON llega al árbol de archivos" role="img">
-      <div class="brisa" data-brisa="hero" inert aria-hidden="true"></div>
+    <div class="stage" id="hero-stage" aria-label="Demostración automática: Alt+clic en el botón Saludar de una app de ejemplo, se escribe el comentario y el JSON llega al árbol de archivos" role="img">
+      <div class="nido" data-nido="hero" inert aria-hidden="true"></div>
       <div class="files" aria-hidden="true">
-        <header><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg><b>~/brisa</b><span>· .perfect-front/</span></header>
+        <header><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg><b>~/nido</b><span>· .perfect-front/</span></header>
         <ul class="tree" id="hero-tree"></ul>
       </div>
     </div>
@@ -567,7 +595,7 @@ body.pf-armed,body.pf-armed *{cursor:crosshair!important}
     </header>
     <div class="turn-grid">
       <div class="rv">
-        <div class="brisa" data-brisa="live" data-live-app role="region" aria-label="App de ejemplo Brisa: haz clic o pulsa Enter sobre un elemento para comentarlo"></div>
+        <div class="nido" data-nido="live" data-live-app role="region" aria-label="App de ejemplo Nido, no es Perfect Front: haz clic o pulsa Enter sobre un elemento para comentarlo"></div>
         <p class="turn-tip"><span><kbd>Alt</kbd>+clic o clic aquí dentro</span><span><kbd>Ctrl</kbd><kbd>↵</kbd> guardar</span><span><kbd>Esc</kbd> salir</span></p>
       </div>
       <div class="rv">
@@ -576,7 +604,7 @@ body.pf-armed,body.pf-armed *{cursor:crosshair!important}
           <pre id="jv-pre" aria-live="polite" tabindex="0"><span class="wait">// esperando tu primer Alt+clic</span></pre>
         </div>
         <div class="files">
-          <header><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg><b>~/brisa</b><span>· tu repo</span></header>
+          <header><svg class="ic" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M2 4.5h4l1.5 1.5H14v6.5H2z"/></svg><b>~/nido</b><span>· tu repo</span></header>
           <ul class="tree" id="live-tree" aria-label="Archivos de .perfect-front"></ul>
         </div>
       </div>
@@ -592,8 +620,8 @@ body.pf-armed,body.pf-armed *{cursor:crosshair!important}
         <p class="eyebrow">02 · describir</p>
         <h2 id="t-verbs">Más que una nota.</h2>
         <ol class="steps" id="steps">
-          <li data-s="a"><button class="sb" type="button"><strong>Apuntar.</strong>Uno o varios. Numerados, en orden.</button><div class="step-scene"></div></li>
-          <li data-s="b"><button class="sb" type="button"><strong>Describir.</strong>Texto, capturas y estilos antes → después.</button><div class="step-scene"></div></li>
+          <li data-s="a"><button class="sb" type="button"><strong>Apuntar.</strong>Uno o varios, numerados. «Eliminar elemento» guarda una nota, nunca borra código.</button><div class="step-scene"></div></li>
+          <li data-s="b"><button class="sb" type="button"><strong>Describir.</strong>Texto, capturas y estilos antes → después, como propuesta.</button><div class="step-scene"></div></li>
           <li data-s="c"><button class="sb" type="button"><strong>Organizar.</strong>Grupos, cola y cajón. Nada se pierde.</button><div class="step-scene"></div></li>
         </ol>
         <div class="vprog" aria-hidden="true"><i></i></div>
@@ -612,16 +640,37 @@ body.pf-armed,body.pf-armed *{cursor:crosshair!important}
       <p class="sub">CLI con <code>--json</code> estable, bloqueo optimista y códigos de salida. Sin servidor ni navegador.</p>
     </header>
     <div class="agent-grid">
-      <div class="term rv" id="term">
-        <header><i></i><i></i><i></i><span>~/brisa · zsh</span><button type="button" id="term-replay">Repetir</button></header>
+      <div class="term rv" id="term" role="group" aria-label="Terminal de ejemplo, simulada: no es Perfect Front">
+        <header><i></i><i></i><i></i><span>~/nido · zsh</span><span class="ex">Ejemplo</span><button type="button" id="term-replay">Repetir</button></header>
         <pre id="term-pre" aria-hidden="true"></pre>
         <p class="sr" id="term-sr"></p>
       </div>
       <div class="agent-app rv">
-        <div class="brisa" data-brisa="agent" inert aria-hidden="true"></div>
+        <div class="nido" data-nido="agent" inert aria-hidden="true"></div>
       </div>
     </div>
     <p class="agent-foot rv">Pega el bloque de <a href="https://github.com/jorgeguzmanq/perfect-front/blob/main/packages/cli/AGENTS.md"><code>AGENTS.md</code></a> en tu <code>CLAUDE.md</code> y listo.</p>
+  </div>
+</section>
+
+<!-- S4b · CAPA V2 -->
+<section class="sec v2" id="v2" aria-labelledby="t-v2">
+  <div class="wrap">
+    <header class="rv">
+      <p class="eyebrow">04 · capa v2</p>
+      <h2 id="t-v2">Y en la capa v2.</h2>
+      <p class="sub">Prototipo: lo marcado <span class="vtag">v2</span> aún no está en la rama principal. Las propuestas nunca tocan tu código: las lee quien ejecuta.</p>
+    </header>
+    <div class="v2-grid">
+      <article class="v2c rv wide"><span class="vtag">v2</span><h3>Captura de nodo</h3><p><kbd>Alt</kbd>+<kbd>Mayús</kbd>+<kbd>S</kbd> captura el elemento a 1×–4× y muestra su tamaño real en px. Cópiala al portapapeles o descárgala en PNG.</p>
+        <div class="capdemo" role="group" aria-label="Ejemplo de escalas de captura (no es Perfect Front)"><span class="exb">Ejemplo</span><div class="seg" role="radiogroup" aria-label="Escala de captura"><button type="button" role="radio" aria-checked="true" data-k="1">1×</button><button type="button" role="radio" aria-checked="false" data-k="2">2×</button><button type="button" role="radio" aria-checked="false" data-k="3">3×</button><button type="button" role="radio" aria-checked="false" data-k="4">4×</button></div><output id="cap-px" aria-live="polite">button.hi · 96 × 32 px</output></div></article>
+      <article class="v2c rv"><span class="vtag">v2</span><h3>Imágenes y secciones</h3><p>Pega, suelta o abre imágenes: hasta 20 adjuntos. Un comentario puede tener varias secciones, cada una con los suyos.</p></article>
+      <article class="v2c rv"><span class="vtag">v2</span><h3>Propuestas</h3><p>Multiselección y reordenar, textos e i18n, estilos antes → después. Llegan como propuesta, no como cambio.</p></article>
+      <article class="v2c rv"><span class="vtag">v2</span><h3>Grupos y cajón</h3><p>Agrupa comentarios en una cola de lectura y revísalos todos en el cajón.</p></article>
+      <article class="v2c rv"><span class="vtag">v2</span><h3>Eliminar elemento</h3><p>Guarda un comentario de eliminar. Nunca borra código.</p></article>
+      <article class="v2c rv"><span class="vtag">v2</span><h3>Sigue sin parar</h3><p>Tras guardar, la capa queda lista para elegir otro elemento.</p></article>
+    </div>
+    <p class="agent-foot rv">Todos los atajos y pasos, en el <a href="manual.html">Manual de uso</a>.</p>
   </div>
 </section>
 
@@ -669,9 +718,10 @@ perfect-front</pre>
 
 <footer class="foot">
   <div class="wrap">
-    <span>Open source · En desarrollo activo · Hecho por <a href="https://github.com/jorgeguzmanq">@jorgeguzmanq</a></span>
+    <span>Open source · En desarrollo activo · <a href="https://github.com/jorgeguzmanq">@jorgeguzmanq</a></span>
+    <a class="made" href="https://www.jorgegz.com" target="_blank" rel="noopener"><span class="lg"><img class="lg-light" src="assets/jorgegz-logo-light.svg" alt="jorgegz" height="24"><img class="lg-dark" src="assets/jorgegz-logo-dark.svg" alt="" height="24" aria-hidden="true"></span><span>Hecho por Jorge Guzmán · jorgegz.com</span></a>
     <span class="r">
-      <a href="overlay-layer-v2.html">Capa v2 (en diseño)</a>
+      <a href="manual.html">Manual de uso</a>
       <a href="https://github.com/jorgeguzmanq/perfect-front/blob/main/SPEC.md">SPEC.md</a>
       <a href="https://github.com/jorgeguzmanq/perfect-front">GitHub</a>
     </span>
@@ -679,16 +729,16 @@ perfect-front</pre>
 </footer>
 
 <!-- Plantilla de la app falsa -->
-<template id="tpl-brisa">
-  <div class="b-bar"><i></i><i></i><i></i><span class="b-url">localhost:5173/pricing</span><span class="b-pf">pf</span></div>
+<template id="tpl-nido">
+  <div class="b-bar"><i></i><i></i><i></i><span class="b-url">localhost:5173/equipo</span><span class="b-ex"><span class="xl">App de ejemplo — no es Perfect Front</span><span class="xs">Ejemplo</span></span></div>
   <div class="b-doc">
-    <header class="b-nav"><b class="b-logo">Brisa</b><a href="#" class="prod" tabindex="-1">Producto</a><a href="#" class="on" tabindex="-1">Precios</a><button type="button" class="b-enter">Entrar</button></header>
+    <header class="b-nav"><b class="b-logo">Nido</b><a href="#" class="prod" tabindex="-1">Inicio</a><a href="#" class="on" tabindex="-1">Equipo</a><button type="button" class="b-enter">Entrar</button></header>
     <main>
-      <section class="b-hero"><h1>Planes que respiran contigo</h1><p>Cambia de plan cuando quieras.</p></section>
-      <section class="pricing">
-        <article class="card"><h2>Básico</h2><p class="price">$0<small>/mes</small></p><p class="desc">Para probar sin prisa</p><button type="button" class="buy">Comprar</button></article>
-        <article class="card pro"><span class="tagp">Popular</span><h2>Pro</h2><p class="price">$12<small>/mes</small></p><p class="desc">Para equipos pequeños</p><button type="button" class="buy">Comprar</button></article>
-        <article class="card"><h2>Equipo</h2><p class="price">$29<small>/mes</small></p><p class="desc">Soporte dedicado</p><button type="button" class="buy">Comprar</button></article>
+      <section class="b-hero"><h1>Personas que construyen contigo</h1><p>Conoce al equipo y salúdalo.</p></section>
+      <section class="team">
+        <article class="card"><span class="av" aria-hidden="true">AL</span><h2>Ana López</h2><p class="role">Diseño</p><p class="desc">Disponible hoy</p><button type="button" class="hi">Saludar</button></article>
+        <article class="card lead"><span class="tagp">Líder</span><span class="av" aria-hidden="true">MR</span><h2>Marcos Ruiz</h2><p class="role">Ingeniería</p><p class="desc">Equipo de plataforma</p><button type="button" class="hi">Saludar</button></article>
+        <article class="card"><span class="av" aria-hidden="true">LV</span><h2>Lucía Vega</h2><p class="role">Investigación</p><p class="desc">Entrevistas de usuario</p><button type="button" class="hi">Saludar</button></article>
       </section>
     </main>
   </div>
@@ -752,17 +802,17 @@ $$('[data-theme-btn]').forEach(b=>b.addEventListener('click',()=>applyTheme(b.da
 applyTheme(ls.get('pf-theme')||'auto');
 
 /* ================= app falsa ================= */
-const tpl=$('#tpl-brisa');
-function mountBrisa(el){el.appendChild(tpl.content.cloneNode(true));return el}
-$$('[data-brisa]').forEach(mountBrisa);
-// botón Comprar: ancho natural medido para interpolar con --t
-function measureBuy(root){$$('.buy',root).forEach(b=>{const ot=b.style.getPropertyValue('--t'),otr=b.style.transition;b.style.transition='none';b.style.setProperty('--t','0');b.style.width='auto';const w=b.offsetWidth;b.style.width='';if(ot)b.style.setProperty('--t',ot);else b.style.removeProperty('--t');b.style.transition=otr;if(w)b.style.setProperty('--bw',w+'px')})}
+const tpl=$('#tpl-nido');
+function mountNido(el){el.appendChild(tpl.content.cloneNode(true));return el}
+$$('[data-nido]').forEach(mountNido);
+// botón Saludar: ancho natural medido para interpolar con --t
+function measureBuy(root){$$('.hi',root).forEach(b=>{const ot=b.style.getPropertyValue('--t'),otr=b.style.transition;b.style.transition='none';b.style.setProperty('--t','0');b.style.width='auto';const w=b.offsetWidth;b.style.width='';if(ot)b.style.setProperty('--t',ot);else b.style.removeProperty('--t');b.style.transition=otr;if(w)b.style.setProperty('--bw',w+'px')})}
 
 /* ================= selectores ================= */
 const SKIPCLS=/^(pf-|on$|rv$|in$|sig$|full$|shine$)/;
 function seg(el){
   const tag=el.tagName.toLowerCase();
-  if(el.id&&!el.closest('[data-brisa]'))return '#'+el.id;
+  if(el.id&&!el.closest('[data-nido]'))return '#'+el.id;
   const cls=[...el.classList].filter(c=>!SKIPCLS.test(c))[0];
   let s=tag+(cls?'.'+cls:'');
   const p=el.parentElement;
@@ -781,9 +831,9 @@ function kindOf(el){const t=el.tagName.toLowerCase();return KIND[t]||t.toUpperCa
 function textOf(el){const t=(el.innerText||el.textContent||'').replace(/\s+/g,' ').trim();return t.length>60?t.slice(0,59)+'…':t}
 function srcOf(el){
   if(appRoot(el)){
-    if(el.closest('.pricing'))return el.closest('.card')?'src/components/PricingCard.tsx':'src/pages/Pricing.tsx';
+    if(el.closest('.team'))return el.closest('.card')?'src/components/MemberCard.tsx':'src/pages/Equipo.tsx';
     if(el.closest('.b-nav'))return 'src/components/Navbar.tsx';
-    return 'src/pages/Pricing.tsx';
+    return 'src/pages/Equipo.tsx';
   }
   return 'docs/index.html';
 }
@@ -797,8 +847,8 @@ function selectable(el){
 
 /* ================= comentarios (estado compartido) ================= */
 const BASE=[
-  {id:'pf_01K7A',status:'pending',comment:'Este botón debe ocupar todo el ancho en móvil.',selector:'main > section.pricing > article.card:nth-of-type(2) > button.buy',text:'Comprar',route:'/pricing',src:'src/components/PricingCard.tsx'},
-  {id:'pf_01K7B',status:'pending',comment:'El precio anual en negrita, con el ahorro al lado.',selector:'main > section.pricing > article.card:nth-of-type(2) > p.price',text:'$12/mes',route:'/pricing',src:'src/components/PricingCard.tsx'}];
+  {id:'pf_01K7A',status:'pending',comment:'Este botón debe ocupar todo el ancho en móvil.',selector:'main > section.team > article.card:nth-of-type(2) > button.hi',text:'Saludar',route:'/equipo',src:'src/components/MemberCard.tsx'},
+  {id:'pf_01K7B',status:'pending',comment:'El rol en negrita, con el área del equipo al lado.',selector:'main > section.team > article.card:nth-of-type(2) > p.role',text:'Ingeniería',route:'/equipo',src:'src/components/MemberCard.tsx'}];
 const B32='0123456789ABCDEFGHJKMNPQRSTVWXYZ';
 let comments=[];
 try{comments=JSON.parse(store.get('pf-landing')||'[]')||[]}catch(e){comments=[]}
@@ -811,11 +861,11 @@ function buildJSON(el,text,opt={}){
     version:1,id:opt.id||'pf_····',status:'pending',collection:'inbox',scope:'element',
     comment:text,
     location:{
-      url:inApp?'http://localhost:5173/pricing':location.href.split('#')[0],
-      route:inApp?'/pricing':(location.pathname||'/'),
+      url:inApp?'http://localhost:5173/equipo':location.href.split('#')[0],
+      route:inApp?'/equipo':(location.pathname||'/'),
       selector:fullSelector(el),
       text:textOf(el)||null,
-      componentHint:inApp?(el.closest('.card')?'PricingCard':el.closest('.b-nav')?'Navbar':'Pricing'):null
+      componentHint:inApp?(el.closest('.card')?'MemberCard':el.closest('.b-nav')?'Navbar':'Equipo'):null
     },
     viewport:{width:innerWidth,height:innerHeight,devicePixelRatio:Math.round(devicePixelRatio*100)/100},
     elementRect:{x:Math.round(r.left),y:Math.round(r.top+scrollY),width:Math.round(r.width),height:Math.round(r.height)},
@@ -824,11 +874,11 @@ function buildJSON(el,text,opt={}){
     createdAt:now,updatedAt:now,resolution:null
   };
 }
-function baseJSON(b){return{version:1,id:b.id,status:b.status,collection:'inbox',scope:'element',comment:b.comment,location:{url:'http://localhost:5173/pricing',route:b.route,selector:b.selector,text:b.text,componentHint:'PricingCard'},viewport:{width:390,height:844,devicePixelRatio:2},environment:{framework:'vite-react',browser:'Chrome',colorScheme:'dark'},attachments:[],createdAt:'2026-10-03T15:30:00.000Z',updatedAt:'2026-10-03T15:30:00.000Z',resolution:null}}
+function baseJSON(b){return{version:1,id:b.id,status:b.status,collection:'inbox',scope:'element',comment:b.comment,location:{url:'http://localhost:5173/equipo',route:b.route,selector:b.selector,text:b.text,componentHint:'MemberCard'},viewport:{width:390,height:844,devicePixelRatio:2},environment:{framework:'vite-react',browser:'Chrome',colorScheme:'dark'},attachments:[],createdAt:'2026-10-03T15:30:00.000Z',updatedAt:'2026-10-03T15:30:00.000Z',resolution:null}}
 function persist(){store.set('pf-landing',JSON.stringify(comments.map(c=>({json:c.json,app:c.app,del:c.del}))))}
 function elOf(c){
   if(c._el&&c._el.isConnected)return c._el;
-  try{if(c.app){const root=$('[data-brisa="live"] .b-doc');c._el=root&&root.querySelector(':scope > '+c.json.location.selector)}else{c._el=document.querySelector(c.json.location.selector)}}catch(e){c._el=null}
+  try{if(c.app){const root=$('[data-nido="live"] .b-doc');c._el=root&&root.querySelector(':scope > '+c.json.location.selector)}else{c._el=document.querySelector(c.json.location.selector)}}catch(e){c._el=null}
   return c._el;
 }
 const listeners=new Set();
@@ -921,7 +971,7 @@ function panelHTML(el){
   <div class="p-body">
     <div class="field ${S.err?'bad':''}"><label class="sr" for="gp-ta">Comentario</label><textarea id="gp-ta" maxlength="10000" placeholder="¿Qué debería cambiar?" aria-invalid="${!!S.err}">${esc(S.draft)}</textarea><div class="foot"><span></span><span id="gp-count">${S.draft.length.toLocaleString('es')} / 10.000</span></div></div>
     ${S.err?`<div class="msg" role="alert">${ic('warn')}<span>${esc(S.err)}</span></div>`:''}
-    <div class="dz" id="gp-dz">${ic('img',18)}<span><b>Pega</b> (<kbd>Ctrl</kbd>+<kbd>V</kbd>) o suelta una captura</span></div>
+    <div class="dz" id="gp-dz">${ic('img',18)}<span><b>Pega</b> (<kbd>Ctrl</kbd>+<kbd>V</kbd>) o suelta imágenes · hasta 20</span></div>
     ${imgs?`<div class="thumbs">${S.images.map((m,i)=>`<div class="th" style="cursor:default"><span class="img" style="background-image:url(${m.url})"></span><span class="k">${i+1}</span><div class="meta"><span>${esc(m.name)}</span></div></div>`).join('')}</div>`:''}
   </div>
   <div class="inc" aria-label="Incluye este comentario"><small>Incluye</small><span class="ichip">${ic('node',13)}selector</span><span class="ichip">${ic('route',13)}ruta</span><span class="ichip">${ic('view',13)}viewport</span>${imgs?`<span class="ichip new">${ic('img',13)}${imgs} captura${imgs>1?'s':''}</span>`:''}</div>
@@ -1052,7 +1102,7 @@ function placePins(){
   $$('.pin',PINS).forEach(p=>{const c=comments[+p.dataset.i];const el=c&&elOf(c);if(!el){p.hidden=true;return}
     const r=el.getBoundingClientRect();if(!r.width&&!r.height){p.hidden=true;return}
     // ocultar si queda fuera de su contenedor con scroll (tarjetas en móvil)
-    const sc=el.closest('.pricing');if(sc){const R=sc.getBoundingClientRect();if(r.right<R.left+4||r.left>R.right-4){p.hidden=true;return}}
+    const sc=el.closest('.team');if(sc){const R=sc.getBoundingClientRect();if(r.right<R.left+4||r.left>R.right-4){p.hidden=true;return}}
     p.hidden=false;p.style.left=Math.round(r.right+scrollX-10)+'px';p.style.top=Math.round(r.top+scrollY-10)+'px'});
 }
 PINS.addEventListener('click',e=>{const p=e.target.closest('.pin');if(!p)return;toggleDrawer(true,+p.dataset.i)});
@@ -1120,12 +1170,12 @@ function treeHTML(files,o={}){
 
 /* ================= S1 · hero con cursor fantasma ================= */
 const hero=(()=>{
-  const stage=$('#hero-stage'),app=$('.brisa',stage),ov=$('.ov',app),tree=$('#hero-tree');
-  const pro=$$('.card',app)[1],buy=$('.buy',pro),h1=$('.b-hero h1',app),pricing=$('.pricing',app);
+  const stage=$('#hero-stage'),app=$('.nido',stage),ov=$('.ov',app),tree=$('#hero-tree');
+  const pro=$$('.card',app)[1],buy=$('.hi',pro),h1=$('.b-hero h1',app),pricing=$('.team',app);
   ov.innerHTML=`<div class="hl g"><span></span></div>`;
   const hl=$('.hl',ov);
   const panel=document.createElement('div');panel.className='hpanel';
-  panel.innerHTML=`<div class="panel pf" style="width:100%"><div class="p-head"><span class="p-kind">BTN</span><div class="p-id"><h3>button.buy <small>Comprar</small></h3><p>main › section.pricing › button.buy</p></div></div><div class="p-body" style="padding-top:0"><div class="fake-ta"><span class="tx"></span><span class="caret"></span></div></div><div class="inc"><small>Incluye</small><span class="ichip">${ic('node',13)}selector</span><span class="ichip">${ic('route',13)}ruta</span><span class="ichip">${ic('view',13)}viewport</span></div><div class="p-foot"><div class="keys"><span><kbd>Ctrl</kbd><kbd>↵</kbd> guardar</span></div><button class="btn btn--primary" tabindex="-1">Guardar</button></div></div>`;
+  panel.innerHTML=`<div class="panel pf" style="width:100%"><div class="p-head"><span class="p-kind">BTN</span><div class="p-id"><h3>button.hi <small>Saludar</small></h3><p>main › section.team › button.hi</p></div></div><div class="p-body" style="padding-top:0"><div class="fake-ta"><span class="tx"></span><span class="caret"></span></div></div><div class="inc"><small>Incluye</small><span class="ichip">${ic('node',13)}selector</span><span class="ichip">${ic('route',13)}ruta</span><span class="ichip">${ic('view',13)}viewport</span></div><div class="p-foot"><div class="keys"><span><kbd>Ctrl</kbd><kbd>↵</kbd> guardar</span></div><button class="btn btn--primary" tabindex="-1">Guardar</button></div></div>`;
   stage.appendChild(panel);
   const tx=$('.tx',panel),saveBtn=$('.btn--primary',panel);
   const cur=document.createElement('div');cur.className='ghost-cur';
@@ -1138,7 +1188,7 @@ const hero=(()=>{
   setTree();
   let pos={x:40,y:40};
   function ptOf(el,fx=.5,fy=.5){const r=relRect(el,stage);return{x:r.x+r.w*fx,y:r.y+r.h*fy}}
-  function hlTo(el){const r=relRect(el,app);hl.style.transform=`translate(${r.x-2}px,${r.y-2}px)`;hl.style.width=r.w+4+'px';hl.style.height=r.h+4+'px';$('span',hl).textContent=el===buy?'button.buy':el===h1?'h1':'article.card.pro';hl.classList.add('on')}
+  function hlTo(el){const r=relRect(el,app);hl.style.transform=`translate(${r.x-2}px,${r.y-2}px)`;hl.style.width=r.w+4+'px';hl.style.height=r.h+4+'px';$('span',hl).textContent=el===buy?'button.hi':el===h1?'h1':'article.card.lead';hl.classList.add('on')}
   async function move(to,ms,tok){const a=cur.animate([{transform:`translate(${pos.x}px,${pos.y}px)`},{transform:`translate(${to.x}px,${to.y}px)`}],{duration:ms,easing:'cubic-bezier(.45,.05,.25,1)',fill:'forwards'});pos=to;await Promise.race([a.finished,wait(ms+50,tok)]);if(tok.dead)throw ABORT}
   function ripple(p){const r=document.createElement('span');r.className='ripple';r.style.left=p.x+'px';r.style.top=p.y+'px';stage.appendChild(r);setTimeout(()=>r.remove(),600)}
   function placePanel(){const b=relRect(buy,stage),W=stage.offsetWidth,pw=panel.offsetWidth;
@@ -1200,12 +1250,12 @@ const verbs=(()=>{
   const sec=$('#verbos'),stage=$('#verbs-stage'),stepsEl=$('#steps'),prog=$('.vprog i',sec);
   const wide=matchMedia('(min-width: 900px)');
   let mode=null,scenes=[],cur='a';
-  const QDEF=[{t:'Contenedor: rejilla de 3 columnas.',w:'section.pricing',card:-1},{t:'Tarjeta Pro con más aire.',w:'article.card.pro',card:1},{t:'Comprar a ancho completo.',w:'button.buy',card:1,btn:true}];
+  const QDEF=[{t:'Contenedor: rejilla de 3 columnas.',w:'section.team',card:-1},{t:'Tarjeta del líder con más aire.',w:'article.card.lead',card:1},{t:'Saludar a ancho completo.',w:'button.hi',card:1,btn:true}];
   const POLAS=[{c:'s1',n:'captura-1.png'},{c:'s2',n:'captura-2.png'},{c:'s3',n:'captura-3.png'}];
   function panelA(st){
     const n=st.sel.length,f=st.sel[st.focus];
-    return `<div class="panel pf" data-p="a"><div class="p-head"><span class="p-kind">${n}</span><div class="p-id"><h3>${n} elemento${n>1?'s':''}</h3><p>Foco: button.buy · tarjeta ${f+1}</p></div></div>
-    <div class="tray" aria-label="Elementos seleccionados">${st.sel.map((c,i)=>`<span class="tchip" ${i===st.focus?'aria-current="true"':''}><i>${i+1}</i><button type="button" data-v="focus" data-i="${i}">${['básico','pro','equipo'][c]}</button><button type="button" data-v="unsel" data-i="${i}" aria-label="Quitar ${i+1}" ${n<2?'disabled':''}>${ic('close',11)}</button></span>`).join('')}<span class="tip"><kbd>Shift</kbd>+clic suma</span></div>
+    return `<div class="panel pf" data-p="a"><div class="p-head"><span class="p-kind">${n}</span><div class="p-id"><h3>${n} elemento${n>1?'s':''}</h3><p>Foco: button.hi · tarjeta ${f+1}</p></div></div>
+    <div class="tray" aria-label="Elementos seleccionados">${st.sel.map((c,i)=>`<span class="tchip" ${i===st.focus?'aria-current="true"':''}><i>${i+1}</i><button type="button" data-v="focus" data-i="${i}">${['ana','marcos','lucía'][c]}</button><button type="button" data-v="unsel" data-i="${i}" aria-label="Quitar ${i+1}" ${n<2?'disabled':''}>${ic('close',11)}</button></span>`).join('')}<span class="tip"><kbd>Shift</kbd>+clic suma</span></div>
     <div class="p-target"><div class="nav"><div class="ngrp"><button type="button" class="ibtn" data-v="prev" aria-label="Foco anterior (←)" ${st.focus<=0?'disabled':''}>${ic('left')}</button><span class="pos">${st.focus+1}/${n}</span><button type="button" class="ibtn" data-v="next" aria-label="Foco siguiente (→)" ${st.focus>=n-1?'disabled':''}>${ic('right')}</button></div><span class="sp"></span><button type="button" class="btn sm" data-v="add" ${n>=3?'disabled':''}>${ic('plus',13)} Sumar</button></div></div>
     <div class="p-tabs" role="tablist"><button class="p-tab" role="tab" aria-selected="true" tabindex="-1">${ic('comment',14)}Comentar</button><button class="p-tab" role="tab" aria-selected="false" tabindex="-1">${ic('style',14)}Estilos</button><button class="p-tab" role="tab" aria-selected="false" tabindex="-1">${ic('queue',14)}Cola</button></div>
     <div class="p-body"><div class="fake-ta" style="min-height:3.6rem;padding-bottom:10px">Alinear los ${n>1?n:''} botones con la misma rejilla de 8px.</div></div>
@@ -1214,7 +1264,7 @@ const verbs=(()=>{
   }
   function panelB(st){
     const n=st.thumbs.length,chg=st.t>0.001;
-    return `<div class="panel pf" data-p="b"><div class="p-head"><span class="p-kind">BTN</span><div class="p-id"><h3>button.buy <small>Comprar</small></h3><p>main › section.pricing › button.buy</p></div></div>
+    return `<div class="panel pf" data-p="b"><div class="p-head"><span class="p-kind">BTN</span><div class="p-id"><h3>button.hi <small>Saludar</small></h3><p>main › section.team › button.hi</p></div></div>
     <div class="p-tabs" role="tablist"><button class="p-tab" role="tab" aria-selected="true" tabindex="-1">${ic('comment',14)}Comentar${n?`<span class="badge">${n}</span>`:''}</button><button class="p-tab" role="tab" aria-selected="false" tabindex="-1">${ic('style',14)}Estilos${chg?'<span class="badge">1</span>':''}</button><button class="p-tab" role="tab" aria-selected="false" tabindex="-1">${ic('queue',14)}Cola</button></div>
     <div class="p-body">
       <div class="fake-ta" style="min-height:2.6rem;padding-bottom:10px">Así lo quiero. Mira las capturas.</div>
@@ -1226,10 +1276,10 @@ const verbs=(()=>{
     <div class="p-foot"><div class="keys"><span><kbd>Ctrl</kbd><kbd>↵</kbd> guardar</span></div><button type="button" class="btn btn--primary" tabindex="-1">Guardar</button></div></div>`;
   }
   function panelC(st){
-    return `<div class="panel pf" data-p="c"><div class="p-head"><span class="p-kind" style="background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg)">A</span><div class="p-id"><h3>Grupo A <small>Checkout</small></h3><p>3 comentarios · se leen en orden</p></div></div>
+    return `<div class="panel pf" data-p="c"><div class="p-head"><span class="p-kind" style="background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg)">A</span><div class="p-id"><h3>Grupo A <small>Perfiles</small></h3><p>3 comentarios · se leen en orden</p></div></div>
     <div class="p-tabs" role="tablist"><button class="p-tab" role="tab" aria-selected="false" tabindex="-1">${ic('comment',14)}Comentar</button><button class="p-tab" role="tab" aria-selected="false" tabindex="-1">${ic('style',14)}Estilos</button><button class="p-tab" role="tab" aria-selected="true" tabindex="-1">${ic('queue',14)}Cola<span class="badge">3</span></button></div>
     <div class="p-body">
-      <div class="gsel"><span class="gtag">A</span><b style="font-size:13px">Checkout</b><span class="help" style="margin-left:auto">cola de lectura</span></div>
+      <div class="gsel"><span class="gtag">A</span><b style="font-size:13px">Perfiles</b><span class="help" style="margin-left:auto">cola de lectura</span></div>
       <textarea class="gnote" aria-label="Contexto del grupo" rows="2">Primero el contenedor, luego la tarjeta y al final el CTA.</textarea>
       <div class="sect"><span>Orden · arrastra o usa ↑↓</span></div>
       <div class="q" data-q>${st.q.map((k,i)=>{const it=QDEF[k];return `<div class="qi" data-i="${i}"><span class="qn">${i+1}</span><div class="qc"><span class="grip">${ic('grip',14)}</span><p>${esc(it.t)}<small>${esc(it.w)}</small></p><button type="button" class="ibtn" data-v="qu" data-i="${i}" aria-label="Subir «${esc(it.t)}»" ${i===0?'disabled':''}>${ic('up',14)}</button><button type="button" class="ibtn" data-v="qd" data-i="${i}" aria-label="Bajar «${esc(it.t)}»" ${i===st.q.length-1?'disabled':''}>${ic('down',14)}</button></div></div>`}).join('')}</div>
@@ -1239,10 +1289,10 @@ const verbs=(()=>{
   function makeScene(host,fixed){
     const st={step:fixed||'a',sel:[0,1,2],focus:1,thumbs:[],t:0,q:[0,1,2],used:[]};
     const sc=document.createElement('div');sc.className='scene'+(fixed?' flow':'');sc.dataset.step=st.step;
-    sc.innerHTML=`<div class="sc-app"><div class="brisa" inert aria-hidden="true"></div></div><div class="sc-panels"></div>${!fixed||fixed==='b'?`<div class="polas" aria-label="Capturas para adjuntar">${POLAS.map((p,i)=>`<figure class="pola" data-i="${i}" tabindex="0" role="button" aria-label="Adjuntar ${p.n}"><span class="shot ${p.c}"></span><figcaption>${p.n}</figcaption></figure>`).join('')}</div>`:''}`;
+    sc.innerHTML=`<div class="sc-app"><div class="nido" inert aria-hidden="true"></div></div><div class="sc-panels"></div>${!fixed||fixed==='b'?`<div class="polas" aria-label="Capturas para adjuntar">${POLAS.map((p,i)=>`<figure class="pola" data-i="${i}" tabindex="0" role="button" aria-label="Adjuntar ${p.n}"><span class="shot ${p.c}"></span><figcaption>${p.n}</figcaption></figure>`).join('')}</div>`:''}`;
     host.appendChild(sc);
-    const app=mountBrisa($('.brisa',sc)),ov=$('.ov',app),panels=$('.sc-panels',sc);
-    const cards=$$('.card',app),buys=$$('.buy',app),pricing=$('.pricing',app);
+    const app=mountNido($('.nido',sc)),ov=$('.ov',app),panels=$('.sc-panels',sc);
+    const cards=$$('.card',app),buys=$$('.hi',app),pricing=$('.team',app);
     measureBuy(app);
     const bar=document.createElement('div');bar.className='bar pf';bar.style.pointerEvents='auto';
     function barHTML(){const pi=Math.round(14+10*st.t);return `<span>padding-inline <b>${chgTxt(14,pi,'px')}</b> · width <b>${st.t>.98?'auto → 100%':st.t>0?'auto → '+Math.round(st.t*100)+'%':'auto'}</b></span>`}
@@ -1290,14 +1340,14 @@ const verbs=(()=>{
       if(s==='a'){
         const pts=st.sel.map((c,i)=>{const r=R(buys[c]);return{r,i,c}});
         h+=`<svg class="links">${pts.slice(1).map((p,k)=>{const a=pts[k].r,b=p.r;const x1=a.x+a.w,y1=a.y,x2=b.x+b.w,y2=b.y;return `<path pathLength="1" style="stroke-dasharray:${animate&&!reduced?'1;stroke-dashoffset:1;animation:draw .6s '+(.36+k*.12)+'s cubic-bezier(.2,.8,.2,1) forwards':'5 5'}" d="M${x1} ${y1}Q${(x1+x2)/2} ${Math.min(y1,y2)-40} ${x2} ${y2}"/>`}).join('')}</svg>`;
-        pts.forEach(p=>{const f=p.i===st.focus;h+=`<div class="hl ${f?'':'dim'}" style="left:${p.r.x-3}px;top:${p.r.y-3}px;width:${p.r.w+6}px;height:${p.r.h+6}px">${f?'<span>button.buy · foco</span>':''}</div><span class="pin mk ${animate&&!reduced?'':'on'}" data-d="${p.i}" style="left:${p.r.x+p.r.w-10}px;top:${p.r.y-11}px">${p.i+1}</span>`});
+        pts.forEach(p=>{const f=p.i===st.focus;h+=`<div class="hl ${f?'':'dim'}" style="left:${p.r.x-3}px;top:${p.r.y-3}px;width:${p.r.w+6}px;height:${p.r.h+6}px">${f?'<span>button.hi · foco</span>':''}</div><span class="pin mk ${animate&&!reduced?'':'on'}" data-d="${p.i}" style="left:${p.r.x+p.r.w-10}px;top:${p.r.y-11}px">${p.i+1}</span>`});
       }else if(s==='b'){
         const b=buys[1];const r=R(b);const bw=parseFloat(getComputedStyle(b).getPropertyValue('--bw'))||r.w;
-        h+=`<div class="hl" style="left:${r.x-3}px;top:${r.y-3}px;width:${r.w+6}px;height:${r.h+6}px"><span>button.buy${st.t>0?' · antes → después':''}</span></div>`;
+        h+=`<div class="hl" style="left:${r.x-3}px;top:${r.y-3}px;width:${r.w+6}px;height:${r.h+6}px"><span>button.hi${st.t>0?' · antes → después':''}</span></div>`;
         if(st.t>0.02)h+=`<div class="ghost" style="left:${r.x-2}px;top:${r.y-2}px;width:${bw+4}px;height:${r.h+4}px"></div>`;
       }else{
         const pr=R(pricing);
-        h+=`<div class="brace" style="left:${pr.x+8}px;top:${pr.y+2}px;width:${pr.w-16}px;height:${pr.h-8}px"><b>Checkout</b></div>`;
+        h+=`<div class="brace" style="left:${pr.x+8}px;top:${pr.y+2}px;width:${pr.w-16}px;height:${pr.h-8}px"><b>Perfiles</b></div>`;
         const anchors=st.q.map((k,i)=>{const d=QDEF[k];const el=d.card<0?pricing:d.btn?buys[d.card]:cards[d.card];const r=R(el);return d.card<0?{x:r.x+22,y:r.y+14}:d.btn?{x:r.x+r.w-4,y:r.y}:{x:r.x+14,y:r.y+2}});
         h+=`<svg class="links">${anchors.slice(1).map((p,k)=>{const a=anchors[k];return `<path d="M${a.x} ${a.y}Q${(a.x+p.x)/2} ${Math.min(a.y,p.y)-36} ${p.x} ${p.y}"/>`}).join('')}</svg>`;
         anchors.forEach((p,i)=>{h+=`<span class="pin g" style="left:${p.x-11}px;top:${p.y-11}px">${i+1}</span>`});
@@ -1384,8 +1434,8 @@ const verbs=(()=>{
 
 /* ================= S4 · agente ================= */
 const agent=(()=>{
-  const pre=$('#term-pre'),sr=$('#term-sr'),appEl=$('.agent-app .brisa'),wrap=$('.agent-app'),ov=$('.ov',appEl);
-  const pro=$$('.card',appEl)[1],buy=$('.buy',pro);
+  const pre=$('#term-pre'),sr=$('#term-sr'),appEl=$('.agent-app .nido'),wrap=$('.agent-app'),ov=$('.ov',appEl);
+  const pro=$$('.card',appEl)[1],buy=$('.hi',pro);
   measureBuy(appEl);
   const chip=document.createElement('span');chip.className='pf-chip pf-chip--pending st-chip';chip.textContent='pending';wrap.appendChild(chip);
   const pin=document.createElement('span');pin.className='pin';pin.textContent='1';ov.appendChild(pin);
@@ -1397,15 +1447,15 @@ const agent=(()=>{
     const extra=mine?`,{"id":"${mine.json.id}","status":"pending","text":${JSON.stringify(mine.json.comment.length>34?mine.json.comment.slice(0,33)+'…':mine.json.comment)}}`:'';
     return [
       ['cmd','perfect-front list --json'],
-      ['out',`{"ok":true,"command":"list","status":"pending","count":${ids.length},"comments":[{"id":"pf_01K7A","status":"pending","text":"Este botón debe ocupar todo el ancho en móvil."},{"id":"pf_01K7B","status":"pending","text":"El precio anual en negrita…"}${extra}]}`],
+      ['out',`{"ok":true,"command":"list","status":"pending","count":${ids.length},"comments":[{"id":"pf_01K7A","status":"pending","text":"Este botón debe ocupar todo el ancho en móvil."},{"id":"pf_01K7B","status":"pending","text":"El rol en negrita…"}${extra}]}`],
       ['cmd','perfect-front claim pf_01K7A'],
       ['ok','✓ claimed (in_progress)',()=>setStatus('in_progress')],
-      ['g','// agente edita src/Pricing.tsx'],
-      ['cmd','perfect-front resolve pf_01K7A --summary "CTA a ancho completo en móvil" --files src/Pricing.tsx --by agent'],
+      ['g','// agente edita src/Equipo.tsx'],
+      ['cmd','perfect-front resolve pf_01K7A --summary "CTA a ancho completo en móvil" --files src/Equipo.tsx --by agent'],
       ['ok','✓ resolved',()=>{setStatus('resolved');buy.classList.add('full');if(!reduced){buy.classList.remove('shine');void buy.offsetWidth;buy.classList.add('shine')}}]];
   }
   function colorJSON(s){return esc(s).replace(/(&quot;[^&]*?&quot;)(:)?/g,(m,a,c)=>c?`<span class="t-k">${a}</span>:`:`<span class="t-s">${a}</span>`)}
-  function lineHTML([k,t]){return k==='cmd'?`<span class="t-p">~/brisa $</span> <span class="t-c">${esc(t)}</span>\n`:k==='out'?`<span class="t-o">${colorJSON(t)}</span>\n`:k==='ok'?`<span class="t-ok">${esc(t)}</span>\n`:`<span class="t-g">${esc(t)}</span>\n`}
+  function lineHTML([k,t]){return k==='cmd'?`<span class="t-p">~/nido $</span> <span class="t-c">${esc(t)}</span>\n`:k==='out'?`<span class="t-o">${colorJSON(t)}</span>\n`:k==='ok'?`<span class="t-ok">${esc(t)}</span>\n`:`<span class="t-g">${esc(t)}</span>\n`}
   let tok=null,done=false;
   function reset(){setStatus('pending');buy.classList.remove('full','shine');pre.innerHTML='';place()}
   function full(){const L=lines();pre.innerHTML=L.map(lineHTML).join('');L.forEach(l=>l[2]&&l[2]());sr.textContent=L.map(l=>(l[0]==='cmd'?'$ ':'')+l[1]).join('. ')}
@@ -1414,7 +1464,7 @@ const agent=(()=>{
     if(reduced){full();return}
     try{
       for(const l of L){
-        if(l[0]==='cmd'){const pfx=`<span class="t-p">~/brisa $</span> <span class="t-c">`;const base=pre.innerHTML;await wait(350,t);
+        if(l[0]==='cmd'){const pfx=`<span class="t-p">~/nido $</span> <span class="t-c">`;const base=pre.innerHTML;await wait(350,t);
           for(let i=1;i<=l[1].length;i++){pre.innerHTML=base+pfx+esc(l[1].slice(0,i))+'</span><span class="caret"></span>';await wait(l[1].length>40?14:28,t)}
           pre.innerHTML=base+lineHTML(l);await wait(260,t)}
         else{pre.innerHTML+=lineHTML(l);if(l[2])l[2]();await wait(l[0]==='g'?700:420,t)}
@@ -1434,7 +1484,7 @@ $$('.rv').forEach(el=>io.observe(el));
 // reduced motion: quitar el paquete animado del diagrama
 function proxyMotion(){if(!reduced)return;$$('.proxy .pkt').forEach((c,i)=>{c.querySelector('animateMotion')?.remove();if(i){c.remove()}else{c.setAttribute('cx','440');c.setAttribute('cy','125')}})}
 proxyMotion();
-function relayoutAll(){$$('[data-brisa]').forEach(measureBuy);hero.relayout();verbs.relayout();agent.relayout();placePins();if(S.target){showHL(S.target);placePanel()}}
+function relayoutAll(){$$('[data-nido]').forEach(measureBuy);hero.relayout();verbs.relayout();agent.relayout();placePins();if(S.target){showHL(S.target);placePanel()}}
 let rz=0;addEventListener('resize',()=>{cancelAnimationFrame(rz);rz=requestAnimationFrame(relayoutAll)});
 let sc=0;addEventListener('scroll',()=>{if(sc)return;sc=requestAnimationFrame(()=>{sc=0;if(S.target){showHL(S.target);placePanel()}else if(S.pick&&S.kb)showHL(S.kb);placePins()})},{passive:true,capture:true});
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(relayoutAll);
@@ -1442,6 +1492,9 @@ addEventListener('load',relayoutAll);
 if('ResizeObserver' in window)new ResizeObserver(()=>{placePins()}).observe(document.body);
 RM.addEventListener('change',e=>{reduced=e.matches;hero.motion();verbs.rebuild()});
 $('#copy-install').addEventListener('click',async e=>{const b=e.currentTarget;const ok=await copyText($('#install-code').innerText);$('span',b).textContent=ok?'Copiado':'Error';setTimeout(()=>$('span',b).textContent='Copiar',1400)});
+// demo de escalas de captura (tamaño real en px)
+(()=>{const g=$('.capdemo .seg');if(!g)return;const out=$('#cap-px');
+  g.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=+b.dataset.k;$$('button',g).forEach(x=>x.setAttribute('aria-checked',String(x===b)));out.textContent=`button.hi · ${96*k} × ${32*k} px`})})();
 // estado inicial
 LNB.textContent=comments.length;renderPins();
 })();

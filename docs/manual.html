@@ -1,0 +1,774 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perfect Front · Manual de uso</title>
+<meta name="description" content="Manual de uso de la capa de comentarios de Perfect Front: instalación, atajos, captura de nodo, grupos, CLI para agentes y dónde se guarda todo.">
+<meta name="color-scheme" content="light dark">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/bricolage-grotesque@5.2.10/index.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5.2.8/index.css">
+<script>try{var t=localStorage.getItem('pf-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
+<style>
+/* ===== Tokens (los mismos de index.html / design-tokens) ===== */
+:root{
+  color-scheme:light;
+  --pf-color-bg:#fff;--pf-color-surface:#f6f7f9;--pf-color-surface-raised:#fff;--pf-color-border:#d5d9e0;
+  --pf-color-text:#14161a;--pf-color-text-muted:#5b6270;--pf-color-accent:#2f5bea;--pf-color-accent-hover:#2349c4;
+  --pf-color-accent-fg:#fff;--pf-color-danger:#c42b1c;--pf-color-focus:#2f5bea;
+  --pf-status-pending-fg:#8a5300;--pf-status-pending-bg:#fff1d6;
+  --pf-status-in-progress-fg:#1d4ed8;--pf-status-in-progress-bg:#e0e9ff;
+  --pf-status-resolved-fg:#146c2e;--pf-status-resolved-bg:#dcf5e3;
+  --pf-status-archived-fg:#5b4b8a;--pf-status-archived-bg:#ece8f7;
+  --pf-font-sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --pf-font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --pf-radius-sm:4px;--pf-radius-md:8px;--pf-radius-lg:12px;--pf-radius-full:9999px;
+  --pf-shadow-sm:0 1px 2px rgb(0 0 0/.08);--pf-shadow-md:0 4px 12px rgb(0 0 0/.12);--pf-shadow-lg:0 12px 32px rgb(0 0 0/.18);
+  --pf-focus-ring:2px solid var(--pf-color-focus);
+  --cv-bg:#eceef2;--cv-dot:#cfd3db;--cv-ink:#14161a;--cv-page:#fff;--cv-page-2:#f3f4f7;--cv-page-ink:#1c2030;
+  --lp-display:"Bricolage Grotesque Variable","Bricolage Grotesque",var(--pf-font-sans);
+  --lp-mono:"JetBrains Mono Variable","JetBrains Mono",var(--pf-font-mono);
+  --lp-glow:color-mix(in srgb,var(--pf-color-accent) 35%,transparent);
+  --lp-ease:cubic-bezier(.2,.8,.2,1);
+  --v2-fg:#8a3d00;--v2-bg:#ffe9d6;
+  --code-bg:#0b0d11;--code-fg:#d7dce5;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  color-scheme:dark;
+  --pf-color-bg:#0f1115;--pf-color-surface:#181b21;--pf-color-surface-raised:#1e222a;--pf-color-border:#2c313a;
+  --pf-color-text:#e8eaee;--pf-color-text-muted:#a0a7b4;--pf-color-accent:#7c9cff;--pf-color-accent-hover:#9bb3ff;
+  --pf-color-accent-fg:#0b1020;--pf-color-danger:#ff7b6e;--pf-color-focus:#9bb3ff;
+  --pf-status-pending-fg:#ffc766;--pf-status-pending-bg:#3a2a08;
+  --pf-status-in-progress-fg:#9db8ff;--pf-status-in-progress-bg:#16264d;
+  --pf-status-resolved-fg:#7fdc9b;--pf-status-resolved-bg:#10301b;
+  --pf-status-archived-fg:#c3b5f0;--pf-status-archived-bg:#2a2342;
+  --pf-shadow-sm:0 1px 2px rgb(0 0 0/.4);--pf-shadow-md:0 4px 12px rgb(0 0 0/.5);--pf-shadow-lg:0 12px 32px rgb(0 0 0/.6);
+  --cv-bg:#0b0d11;--cv-dot:#222733;--cv-ink:#e8eaee;--cv-page:#161a22;--cv-page-2:#1d222c;--cv-page-ink:#dfe3ec;
+  --v2-fg:#ffb98a;--v2-bg:#3a1f0b;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --pf-color-bg:#0f1115;--pf-color-surface:#181b21;--pf-color-surface-raised:#1e222a;--pf-color-border:#2c313a;
+  --pf-color-text:#e8eaee;--pf-color-text-muted:#a0a7b4;--pf-color-accent:#7c9cff;--pf-color-accent-hover:#9bb3ff;
+  --pf-color-accent-fg:#0b1020;--pf-color-danger:#ff7b6e;--pf-color-focus:#9bb3ff;
+  --pf-status-pending-fg:#ffc766;--pf-status-pending-bg:#3a2a08;
+  --pf-status-in-progress-fg:#9db8ff;--pf-status-in-progress-bg:#16264d;
+  --pf-status-resolved-fg:#7fdc9b;--pf-status-resolved-bg:#10301b;
+  --pf-status-archived-fg:#c3b5f0;--pf-status-archived-bg:#2a2342;
+  --pf-shadow-sm:0 1px 2px rgb(0 0 0/.4);--pf-shadow-md:0 4px 12px rgb(0 0 0/.5);--pf-shadow-lg:0 12px 32px rgb(0 0 0/.6);
+  --cv-bg:#0b0d11;--cv-dot:#222733;--cv-ink:#e8eaee;--cv-page:#161a22;--cv-page-2:#1d222c;--cv-page-ink:#dfe3ec;
+  --v2-fg:#ffb98a;--v2-bg:#3a1f0b;
+}
+
+/* ===== Base ===== */
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:76px}
+body{margin:0;min-height:100vh;background-color:var(--cv-bg);background-image:radial-gradient(var(--cv-dot) 1px,transparent 1px);background-size:20px 20px;color:var(--pf-color-text);font:16px/1.65 var(--pf-font-sans);overflow-x:clip}
+button,input{font:inherit;color:inherit}
+a{color:var(--pf-color-accent)}
+code,kbd,pre{font-family:var(--lp-mono)}
+code{font-size:.88em;padding:1px 6px;border-radius:6px;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);word-break:break-word}
+pre code{padding:0;border:0;background:none;font-size:inherit}
+:focus-visible{outline:var(--pf-focus-ring);outline-offset:2px}
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.skip{position:absolute;left:16px;top:-60px;z-index:200;padding:8px 14px;border-radius:8px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font-weight:600;text-decoration:none}
+.skip:focus{top:12px}
+kbd{display:inline-block;font:600 11.5px/1.5 var(--lp-mono);padding:0 6px;border:1px solid var(--pf-color-border);border-bottom-width:2px;border-radius:4px;background:var(--pf-color-surface);color:var(--pf-color-text);white-space:nowrap}
+h1,h2,h3{font-family:var(--lp-display);color:var(--cv-ink);margin:0;letter-spacing:-.02em}
+h1{font-size:clamp(2rem,6vw,3.2rem);font-weight:800;line-height:1.02;letter-spacing:-.035em}
+h2{font-size:clamp(1.55rem,3.6vw,2.2rem);font-weight:750;line-height:1.1}
+h3{font-size:1.2rem;font-weight:700;margin-top:34px;line-height:1.25}
+p{margin:12px 0}
+ul,ol{margin:10px 0;padding-left:22px}
+li{margin:4px 0}
+.muted{color:var(--pf-color-text-muted)}
+.eyebrow{margin:0 0 10px;font:600 12px/1 var(--lp-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--pf-color-accent)}
+
+/* ===== Barra superior ===== */
+.top{position:sticky;top:0;z-index:60;background:color-mix(in srgb,var(--cv-bg) 84%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid color-mix(in srgb,var(--pf-color-border) 70%,transparent)}
+.top .in{display:flex;align-items:center;gap:10px;height:56px;max-width:1240px;margin:0 auto;padding:0 clamp(16px,3vw,32px)}
+.back{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;border:1px solid var(--pf-color-border);background:var(--pf-color-surface-raised);color:var(--pf-color-text);text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap}
+.back:hover{background:var(--pf-color-surface)}
+.brand{display:inline-flex;align-items:center;gap:8px;color:var(--cv-ink);font:700 16px var(--lp-display);white-space:nowrap}
+.top .sp{flex:1}
+.search{position:relative;display:flex;align-items:center}
+.search input{width:190px;max-width:34vw;height:34px;padding:0 10px 0 32px;border:1px solid var(--pf-color-border);border-radius:99px;background:var(--pf-color-surface-raised);font-size:14px}
+.search input::placeholder{color:var(--pf-color-text-muted)}
+.search svg{position:absolute;left:10px;color:var(--pf-color-text-muted);pointer-events:none}
+.theme{display:flex;border:1px solid var(--pf-color-border);border-radius:99px;overflow:hidden;background:var(--pf-color-surface-raised)}
+.theme button{border:0;background:transparent;padding:5px 10px;cursor:pointer;font-size:12.5px;color:var(--pf-color-text-muted)}
+.theme button[aria-pressed=true]{background:var(--pf-color-text);color:var(--pf-color-bg)}
+.tocbtn{display:none;height:34px;padding:0 12px;border:1px solid var(--pf-color-border);border-radius:99px;background:var(--pf-color-surface-raised);cursor:pointer;font-size:13px;font-weight:600}
+@media (max-width:900px){.tocbtn{display:inline-flex;align-items:center;gap:6px}}
+@media (max-width:640px){.brand span{display:none}.search input{width:120px}.theme button{padding:5px 7px;font-size:11.5px}.back{padding:6px 10px}}
+@media (max-width:420px){.top .in{gap:6px}.search input{width:84px}}
+
+/* ===== Layout ===== */
+.layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:clamp(20px,3vw,44px);max-width:1240px;margin:0 auto;padding:28px clamp(16px,3vw,32px) 60px}
+.toc{position:sticky;top:76px;align-self:start;max-height:calc(100svh - 96px);overflow:auto;padding:14px 8px 14px 0;font-size:14px}
+.toc h2{font:600 12px var(--lp-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--pf-color-text-muted);margin:0 0 8px 12px}
+.toc ol{list-style:none;margin:0;padding:0}
+.toc a{display:flex;gap:8px;align-items:baseline;padding:6px 12px;border-radius:8px;color:var(--pf-color-text-muted);text-decoration:none;border-left:3px solid transparent}
+.toc a b{font:600 11.5px var(--lp-mono);color:var(--pf-color-text-muted)}
+.toc a:hover{background:var(--pf-color-surface-raised);color:var(--pf-color-text)}
+.toc a[aria-current=true]{background:var(--pf-color-surface-raised);color:var(--pf-color-text);border-left-color:var(--pf-color-accent);font-weight:600}
+@media (max-width:900px){
+  .layout{grid-template-columns:minmax(0,1fr);padding-top:16px}
+  .toc{position:fixed;left:0;right:0;top:56px;z-index:55;max-height:calc(100svh - 56px);padding:12px 16px 20px;background:var(--pf-color-bg);border-bottom:1px solid var(--pf-color-border);box-shadow:var(--pf-shadow-lg);display:none}
+  .toc.open{display:block}
+}
+
+/* ===== Contenido ===== */
+.hero{padding:6px 0 18px}
+.hero p.lede{font-size:1.08rem;color:var(--pf-color-text-muted);max-width:62ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:16px;font-size:14px}
+section.sec{background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:16px;padding:clamp(18px,3.4vw,34px);margin:0 0 22px;box-shadow:var(--pf-shadow-sm)}
+section.sec>header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+section.sec>header .n{font:700 13px var(--lp-mono);color:var(--pf-color-accent);padding:2px 9px;border-radius:99px;background:var(--pf-status-in-progress-bg)}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:1px 9px;border-radius:99px;font:600 11.5px/1.7 var(--pf-font-sans);white-space:nowrap;vertical-align:middle}
+.tag.ok{background:var(--pf-status-resolved-bg);color:var(--pf-status-resolved-fg)}
+.tag.v2{background:var(--v2-bg);color:var(--v2-fg)}
+.tag.new{background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg)}
+.steps{list-style:none;padding:0;counter-reset:s;margin:14px 0}
+.steps>li{counter-increment:s;position:relative;padding:2px 0 2px 38px;margin:10px 0}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:99px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 12px/26px var(--lp-mono);text-align:center}
+.saved{margin:16px 0;padding:12px 14px;border-radius:12px;background:var(--pf-color-surface);border:1px solid var(--pf-color-border);border-left:4px solid var(--pf-status-resolved-fg);font-size:14.5px}
+.saved>b{display:block;font:600 11.5px var(--lp-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--pf-status-resolved-fg);margin-bottom:2px}
+.saved p{margin:4px 0}
+.note{margin:16px 0;padding:12px 14px;border-radius:12px;background:var(--pf-status-pending-bg);color:var(--pf-status-pending-fg);font-size:14.5px}
+.note b{color:inherit}
+.note p{margin:4px 0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+@media (max-width:760px){.grid2{grid-template-columns:minmax(0,1fr)}}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
+.tblw{overflow-x:auto;margin:12px 0;border:1px solid var(--pf-color-border);border-radius:12px}
+.tblw .tbl{margin:0;min-width:480px}
+.tbl th,.tbl td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--pf-color-border);vertical-align:top}
+.tbl th{background:var(--pf-color-surface);font:600 12px var(--lp-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--pf-color-text-muted)}
+.tbl tr:last-child td{border-bottom:0}
+.cmd{border-radius:12px;background:var(--code-bg);border:1px solid #232833;overflow:hidden;margin:14px 0;box-shadow:var(--pf-shadow-md)}
+.cmd>header{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 14px;background:#12151b;border-bottom:1px solid #232833;color:#8b93a3;font:11.5px var(--lp-mono)}
+.cmd>header button{margin-left:auto;border:1px solid #2a2f3a;background:transparent;color:#d7dce5;border-radius:6px;padding:2px 10px;font:600 11.5px var(--pf-font-sans);cursor:pointer}
+.cmd>header button:hover{border-color:#4a5163}
+.cmd pre{margin:0;padding:12px 16px;overflow-x:auto;color:var(--code-fg);font:13px/1.7 var(--lp-mono)}
+.cmd .c{color:#6b7385}.cmd .p{color:#7fdc9b}
+.hidden-by-search{display:none!important}
+.nores{display:none;padding:30px;text-align:center;color:var(--pf-color-text-muted);border:1px dashed var(--pf-color-border);border-radius:16px}
+.nores.on{display:block}
+
+/* ===== Ilustraciones ===== */
+.fig{margin:18px 0;padding:16px;border:1px solid var(--pf-color-border);border-radius:14px;background:var(--cv-bg);background-image:radial-gradient(var(--cv-dot) 1px,transparent 1px);background-size:16px 16px}
+.fig figcaption{margin-top:12px;font-size:13px;color:var(--pf-color-text-muted)}
+.fig .row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:center}
+.ex{position:relative;display:inline-block}
+.ex-tag{display:inline-block;padding:0 8px;border-radius:99px;background:var(--pf-color-text);color:var(--pf-color-bg);font:700 10.5px/18px var(--lp-mono);text-transform:uppercase;letter-spacing:.06em}
+/* piezas del panel */
+.panel{display:flex;flex-direction:column;width:100%;max-width:22.5rem;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:12px;box-shadow:var(--pf-shadow-lg);font:14px/1.5 var(--pf-font-sans);color:var(--pf-color-text);text-align:left}
+.p-head{display:flex;align-items:flex-start;gap:10px;padding:11px 10px 9px 12px}
+.p-kind{flex:none;display:grid;place-items:center;min-width:32px;height:32px;padding:0 4px;border-radius:9px;background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg);font:700 11px var(--lp-mono)}
+.p-id{flex:1;min-width:0}
+.p-id b{display:block;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.p-id small{display:block;font:11.5px var(--lp-mono);color:var(--pf-color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ib{display:inline-grid;place-items:center;width:28px;height:28px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-bg);color:var(--pf-color-text-muted);font:600 12px var(--lp-mono)}
+.ib.flat{border-color:transparent;background:transparent}
+.p-tgt{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 12px;background:var(--pf-color-surface);border-block:1px solid var(--pf-color-border)}
+.p-tabs{display:flex;padding:0 6px;border-bottom:1px solid var(--pf-color-border);overflow:hidden}
+.p-tab{flex:1;padding:7px 2px;text-align:center;font-size:12.5px;font-weight:500;color:var(--pf-color-text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+.p-tab.on{color:var(--pf-color-accent);border-bottom-color:var(--pf-color-accent)}
+.p-body{display:flex;flex-direction:column;gap:8px;padding:10px 12px}
+.ta{min-height:3.4rem;padding:8px 10px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-bg);font-size:13.5px}
+.ta i{display:inline-block;width:2px;height:1em;background:var(--pf-color-accent);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.ta i{animation:none}html{scroll-behavior:auto}}
+.dz{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border:1px dashed var(--pf-color-border);border-radius:8px;font-size:12.5px;color:var(--pf-color-text-muted)}
+.dz b{color:var(--pf-color-text)}
+.mini{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-surface-raised);font-size:12px;font-weight:500;color:var(--pf-color-text);white-space:nowrap}
+.mini.pri{background:var(--pf-color-accent);border-color:var(--pf-color-accent);color:var(--pf-color-accent-fg)}
+.mini.on{border-color:var(--pf-color-accent);color:var(--pf-color-accent);background:var(--pf-status-in-progress-bg)}
+.mini.off{opacity:.45}
+.mini.dng{color:var(--pf-color-danger);border-color:color-mix(in srgb,var(--pf-color-danger) 40%,transparent)}
+.p-foot{display:flex;align-items:center;gap:6px;padding:9px 12px;border-top:1px solid var(--pf-color-border);background:var(--pf-color-surface);border-radius:0 0 12px 12px;font-size:11.5px;color:var(--pf-color-text-muted)}
+.p-foot .sp{flex:1}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.chip.pending{background:var(--pf-status-pending-bg);color:var(--pf-status-pending-fg)}
+.chip.prog{background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg)}
+.chip.done{background:var(--pf-status-resolved-bg);color:var(--pf-status-resolved-fg)}
+.chip.grp{background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg)}
+.chg{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 10px;border:1px solid var(--pf-color-border);border-left:3px solid var(--pf-color-accent);border-radius:8px;background:color-mix(in srgb,var(--pf-color-accent) 6%,transparent);font:12px var(--lp-mono)}
+.chg s{opacity:.6}
+.chg.lock{border-left-color:var(--pf-color-border);background:var(--pf-color-surface);color:var(--pf-color-text-muted)}
+.vchip{display:inline-block;padding:0 7px;border-radius:6px;background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg);font:600 12px/20px var(--lp-mono)}
+/* estados */
+.states{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
+.st{display:flex;flex-direction:column;gap:2px;min-width:112px;padding:10px 12px;border:1px solid var(--pf-color-border);border-radius:12px;background:var(--pf-color-surface-raised);font-size:13px}
+.st b{font:700 13px var(--lp-mono)}
+.st.cur{border-color:var(--pf-color-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--pf-color-accent) 18%,transparent)}
+.arrow{color:var(--pf-color-text-muted);font-size:18px}
+/* app de ejemplo */
+.app{position:relative;width:min(100%,340px);background:var(--cv-page);color:var(--cv-page-ink);border:1px solid var(--pf-color-border);border-radius:12px;overflow:hidden;box-shadow:var(--pf-shadow-md);font-size:13px;text-align:left}
+.app .bar{display:flex;align-items:center;gap:5px;height:26px;padding:0 10px;background:var(--cv-page-2);border-bottom:1px solid color-mix(in srgb,var(--cv-page-ink) 10%,transparent);font:10.5px var(--lp-mono)}
+.app .bar i{width:8px;height:8px;border-radius:50%;background:color-mix(in srgb,var(--cv-page-ink) 22%,transparent)}
+.app .bar span{margin-left:6px;opacity:.65}
+.app .ex-tag{position:absolute;right:8px;top:30px;z-index:2}
+.app .body{padding:14px;display:flex;flex-direction:column;gap:10px}
+.app h4{margin:0;font:600 15px var(--lp-display)}
+.app .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.app .cd{position:relative;padding:8px;border:1px solid color-mix(in srgb,var(--cv-page-ink) 16%,transparent);border-radius:8px;font-size:11.5px}
+.app .cd b{display:block;font-size:12px}
+.app .cd span{opacity:.6}
+.sel{outline:2px solid var(--pf-color-accent);outline-offset:1px;background:color-mix(in srgb,var(--pf-color-accent) 12%,transparent)!important}
+.sel-l{position:absolute;bottom:100%;left:-2px;padding:0 6px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:10.5px/17px var(--lp-mono);white-space:nowrap;border-radius:3px 3px 0 0}
+.ghostbox{outline:2px dashed color-mix(in srgb,var(--pf-color-accent) 70%,transparent);outline-offset:1px}
+.ghostbox .sel-l{background:transparent;color:var(--pf-color-accent);border:1px dashed var(--pf-color-accent)}
+.pin{position:absolute;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border:2px solid var(--pf-color-accent-fg);border-radius:99px 99px 99px 4px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 10.5px/1 var(--pf-font-sans);box-shadow:var(--pf-shadow-md)}
+.pin.g{background:var(--pf-status-archived-fg);color:var(--pf-color-bg)}
+.pin.del{background:var(--pf-color-danger)}
+.struck{text-decoration:line-through;opacity:.45;outline:2px dashed var(--pf-color-danger);outline-offset:2px}
+/* escalas */
+.scales{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+@media (max-width:520px){.scales{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.sc{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-surface-raised);font-size:12px}
+.sc b{font:700 13px var(--lp-mono)}
+.sc small{font:11px var(--lp-mono);color:var(--pf-color-text-muted)}
+.sc.on{border-color:var(--pf-color-accent);background:var(--pf-status-in-progress-bg)}
+.sc.off{opacity:.55;border-style:dashed}
+.sc.off small{color:var(--pf-color-danger)}
+/* reordenar */
+.sibs{display:flex;gap:6px}
+.sib{flex:1;padding:8px 6px;text-align:center;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-surface-raised);font:600 11.5px var(--lp-mono)}
+.sib.mv{border-color:var(--pf-color-accent);background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg)}
+/* json */
+.json{margin:0;padding:12px 14px;border-radius:12px;background:var(--pf-color-bg);border:1px solid var(--pf-color-border);font:12px/1.6 var(--lp-mono);overflow-x:auto;color:var(--pf-color-text)}
+.json .k{color:var(--pf-color-accent)}.json .s{color:var(--pf-status-resolved-fg)}
+.tree{margin:12px 0;padding:12px 14px;border:1px solid var(--pf-color-border);border-radius:12px;background:var(--pf-color-bg);font:13px/1.7 var(--lp-mono);overflow-x:auto;white-space:pre}
+.tree .d{color:var(--pf-color-text-muted)}
+/* pie */
+.foot{max-width:1240px;margin:0 auto;padding:26px clamp(16px,3vw,32px) 70px;border-top:1px solid var(--pf-color-border);display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;font-size:14px;color:var(--pf-color-text-muted)}
+.foot a{color:var(--pf-color-text-muted)}
+.foot a:hover{color:var(--pf-color-text)}
+.foot .logo{display:inline-flex;align-items:center}
+.foot .logo img{height:26px;width:auto;display:block}
+.foot .logo .ld{display:none}
+:root[data-theme="dark"] .foot .logo .ll{display:none}
+:root[data-theme="dark"] .foot .logo .ld{display:block}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .foot .logo .ll{display:none}:root:not([data-theme="light"]) .foot .logo .ld{display:block}}
+.foot .r{margin-left:auto}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Saltar al contenido</a>
+
+<header class="top">
+  <div class="in">
+    <a class="back" href="index.html"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 3L5 8l5 5"/></svg>Inicio</a>
+    <span class="brand">
+      <svg width="24" height="24" viewBox="0 0 26 26" aria-hidden="true"><rect x="1.5" y="1.5" width="23" height="23" rx="6" fill="none" stroke="var(--pf-color-accent)" stroke-width="2" stroke-dasharray="4 3"/><path d="M8 7l9 4.2-3.8 1.4L11.8 17z" fill="var(--pf-color-accent)"/></svg>
+      <span>Manual de uso</span>
+    </span>
+    <span class="sp"></span>
+    <label class="search">
+      <span class="sr">Buscar en el manual</span>
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5L14 14"/></svg>
+      <input id="q" type="search" placeholder="Buscar…" autocomplete="off">
+    </label>
+    <div class="theme" role="group" aria-label="Tema">
+      <button type="button" data-theme-btn="light" aria-pressed="false">Claro</button><button type="button" data-theme-btn="dark" aria-pressed="false">Oscuro</button><button type="button" data-theme-btn="auto" aria-pressed="true">Auto</button>
+    </div>
+    <button class="tocbtn" id="tocbtn" type="button" aria-expanded="false" aria-controls="toc">Índice</button>
+  </div>
+</header>
+
+<div class="layout">
+<nav class="toc" id="toc" aria-label="Tabla de contenido">
+  <h2>Contenido</h2>
+  <ol>
+    <li><a href="#instalacion"><b>1</b>Instalación y arranque</a></li>
+    <li><a href="#activar"><b>2</b>Activar la capa</a></li>
+    <li><a href="#apuntar"><b>3</b>Apuntar</a></li>
+    <li><a href="#describir"><b>4</b>Describir</a></li>
+    <li><a href="#eliminar"><b>5</b>Eliminar elemento</a></li>
+    <li><a href="#organizar"><b>6</b>Organizar</a></li>
+    <li><a href="#agentes"><b>7</b>Dashboard, CLI y agentes</a></li>
+    <li><a href="#guardado"><b>8</b>Guardado, límites y ayuda</a></li>
+  </ol>
+</nav>
+
+<main id="main">
+<div class="hero">
+  <p class="eyebrow">Manual de uso</p>
+  <h1>La capa de comentarios, paso a paso.</h1>
+  <p class="lede">Alt+clic sobre tu app en desarrollo, escribe qué cambiar y el comentario queda como un archivo JSON dentro de tu proyecto. Esta guía cubre todo lo que existe y lo que viene en la v2.</p>
+  <div class="legend" role="note">
+    <span><span class="tag ok">Disponible</span> ya está en la rama principal.</span>
+    <span><span class="tag v2">v2</span> rama <code>feat/overlay-v2</code>, aún no en la principal.</span>
+  </div>
+</div>
+
+<!-- ============ 1 ============ -->
+<section class="sec" id="instalacion" data-s>
+  <header><span class="n">1</span><h2>Instalación y arranque</h2><span class="tag ok">Disponible</span></header>
+  <p>Necesitas <b>Node ≥ 22</b> y <b>pnpm</b>. Perfect Front corre en tu máquina; no hay cuenta ni nube.</p>
+  <ol class="steps">
+    <li>Clona el repositorio y entra en la carpeta.</li>
+    <li>Instala dependencias y construye.</li>
+    <li>Desde la <b>raíz de tu proyecto</b> (no la de Perfect Front) ejecuta <code>perfect-front</code> o su alias <code>comment</code>.</li>
+  </ol>
+  <div class="cmd"><header>terminal <button type="button" data-copy>Copiar</button></header><pre><span class="c"># una sola vez</span>
+git clone https://github.com/jorgeguzmanq/perfect-front.git
+cd perfect-front
+pnpm install
+pnpm build
+
+<span class="c"># cada día, en la carpeta de TU proyecto</span>
+perfect-front</pre></div>
+  <p>El comando detecta tu proyecto, arranca tu dev server, levanta el servidor local y un <b>proxy</b> (por defecto en <code>127.0.0.1:7788</code>) que reenvía tu app e inyecta la capa. Abre el navegador en la URL del proxy y se queda vivo en primer plano: <kbd>Ctrl</kbd>+<kbd>C</kbd> apaga todo lo que inició.</p>
+  <p>Si la carpeta solo tiene <code>.html</code> y ningún runner, Perfect Front la sirve con su propio servidor estático (usa <code>index.html</code>, o te pide elegir la página).</p>
+
+  <h3>Opciones</h3>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Opción</th><th>Qué hace</th></tr></thead>
+    <tbody>
+      <tr><td><code>--no-open</code></td><td>No abre el navegador.</td></tr>
+      <tr><td><code>--no-proxy</code></td><td>Sin proxy y, por tanto, sin capa. Úsalo si tu app depende del origen del dev server (cookies, OAuth, CORS).</td></tr>
+      <tr><td><code>--server-port &lt;n&gt;</code></td><td>Puerto del servidor local.</td></tr>
+      <tr><td><code>--detach</code></td><td>Segundo plano: abre el navegador y devuelve la terminal.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Subcomandos</h3>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Comando</th><th>Qué hace</th></tr></thead>
+    <tbody>
+      <tr><td><code>start</code></td><td>Arranca en segundo plano, sin abrir el navegador.</td></tr>
+      <tr><td><code>stop</code></td><td>Detiene lo que inició Perfect Front (dev server propio y proxy). Nunca toca procesos ajenos.</td></tr>
+      <tr><td><code>status</code></td><td>Estado del servidor local, el proyecto y el proxy.</td></tr>
+      <tr><td><code>logs</code></td><td>Salida del dev server y del proxy.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="saved"><b>Qué se guarda</b><p>El estado de ejecución queda en <code>.perfect-front/run/</code> (PID, puerto, URL original; sin tokens). Tu código no se modifica.</p></div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="sec" id="activar" data-s>
+  <header><span class="n">2</span><h2>Activar la capa</h2><span class="tag ok">Disponible</span></header>
+  <p>La capa viene activa pero en <b>reposo</b>: un clic normal no se intercepta y tu app funciona igual.</p>
+  <ul>
+    <li><kbd>Alt</kbd> + clic sobre un elemento: abre el comentario de ese elemento.</li>
+    <li><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>⇧</kbd> + <kbd>C</kbd>: alterna el <b>modo selección</b>; ahí el clic normal comenta. <kbd>Esc</kbd> sale.</li>
+    <li>También puedes usar el botón <b>Comentar</b> del lanzador (esquina inferior derecha).</li>
+  </ul>
+
+  <h3>Estados</h3>
+  <figure class="fig">
+    <div class="states" role="img" aria-label="Ciclo de estados: reposo, eligiendo, editando, guardando, y de vuelta a eligiendo">
+      <div class="st"><b>Reposo</b><span class="muted">Clic normal pasa</span></div><span class="arrow" aria-hidden="true">→</span>
+      <div class="st cur"><b>Eligiendo</b><span class="muted">Marco sigue al cursor</span></div><span class="arrow" aria-hidden="true">→</span>
+      <div class="st"><b>Editando</b><span class="muted">Panel abierto</span></div><span class="arrow" aria-hidden="true">→</span>
+      <div class="st"><b>Guardando</b><span class="muted">Escribe el JSON</span></div>
+    </div>
+    <figcaption>Tras guardar, la capa queda <b>lista para elegir otro elemento</b>, sin volver a activarla. <kbd>Esc</kbd> cancela y regresa a reposo en cualquier punto.</figcaption>
+  </figure>
+  <p>Mientras guardas, el campo se bloquea y el botón muestra «Guardando…». Si el servidor local no responde, tu texto se conserva y puedes pulsar <b>Reintentar</b>. Si intentas guardar vacío, el campo se marca con un error.</p>
+  <div class="note"><p><b>Ojo con Chrome:</b> <kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>C</kbd> abre DevTools en Chrome en algunas configuraciones. Si te pasa, usa el botón <b>Comentar</b> del lanzador.</p></div>
+  <div class="saved"><b>Qué se guarda</b><p>Nada hasta que pulses Guardar (<kbd>Ctrl</kbd>+<kbd>↵</kbd>). Si apagas la capa, se recuerda en el navegador para la próxima visita.</p></div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="sec" id="apuntar" data-s>
+  <header><span class="n">3</span><h2>Apuntar</h2><span class="tag ok">Disponible</span><span class="tag v2">v2: navegación, varios, reordenar, copiar</span></header>
+  <p>Primero decides a qué te refieres. Un comentario puede apuntar a un elemento, a varios o a toda la vista.</p>
+
+  <figure class="fig">
+    <div class="row">
+      <div class="app">
+        <div class="bar"><i></i><i></i><i></i><span>localhost:5173/planes</span></div>
+        <span class="ex-tag">Ejemplo</span>
+        <div class="body">
+          <h4>Elige tu plan</h4>
+          <div class="cards">
+            <div class="cd"><b>Inicial</b><span>Para probar</span></div>
+            <div class="cd sel"><span class="sel-l">div.card.destacado</span><b>Equipo</b><span>Para crecer</span></div>
+            <div class="cd"><b>Empresa</b><span>A medida</span></div>
+          </div>
+        </div>
+        <span class="pin" style="right:30px;top:84px">1</span>
+      </div>
+    </div>
+    <figcaption>Un elemento resaltado con su selector y un pin con el número del comentario.</figcaption>
+  </figure>
+
+  <h3>Navegar por el DOM <span class="tag v2">v2</span></h3>
+  <p>Con el elemento elegido, afina sin volver a hacer clic:</p>
+  <ul>
+    <li><kbd>↑</kbd> sube al <b>padre</b>; <kbd>↓</kbd> baja al primer <b>hijo</b>.</li>
+    <li><kbd>←</kbd> / <kbd>→</kbd> van al <b>hermano</b> anterior o siguiente.</li>
+    <li>Los botones se apagan cuando no hay a dónde ir (por ejemplo, el primer hermano no tiene <kbd>←</kbd>).</li>
+  </ul>
+
+  <h3>Selección múltiple <span class="tag v2">v2</span></h3>
+  <p><kbd>⇧</kbd> + clic suma o quita elementos (o el botón <b>Sumar</b> del panel). Todos viajan en <b>un solo comentario</b>. Aparece una bandeja con un chip por elemento; el chip con borde de acento es el <b>foco</b>. Las flechas mueven solo el foco. En Estilos puedes aplicar «Solo el foco» o «Los N elementos».</p>
+  <p>Con <b>Toda la vista</b> el comentario no apunta a ningún elemento (sirve para «la página se siente apretada»).</p>
+
+  <h3>Reordenar hermanos <span class="tag v2">v2</span></h3>
+  <p>En la pestaña <b>Estructura</b> mueves un elemento entre sus hermanos con «Mover antes» / «Mover después». Es una <b>propuesta</b>: se previsualiza en la página, viaja con el comentario y se puede <b>Deshacer</b>. El código no cambia.</p>
+  <figure class="fig">
+    <div class="sibs" role="img" aria-label="Tres hermanos; el tercero se propone moverlo a la primera posición">
+      <div class="sib mv">3 · Equipo</div><div class="sib">1 · Inicial</div><div class="sib">2 · Empresa</div>
+    </div>
+    <figcaption>Propuesta guardada: «mover de 3 a 1» (posiciones desde 1).</figcaption>
+  </figure>
+
+  <h3>Copiar ubicación <span class="tag v2">v2</span></h3>
+  <p>El botón de copiar de la cabecera del panel abre «Copiar como»:</p>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Formato</th><th>Ejemplo</th><th>Para</th></tr></thead>
+    <tbody>
+      <tr><td>Archivo y línea</td><td><code>src/components/Card.tsx:42</code></td><td>Editor o PR</td></tr>
+      <tr><td>Selector CSS</td><td><code>main &gt; section.plans &gt; div.card</code></td><td>Tests, DevTools</td></tr>
+      <tr><td>Referencia Perfect Front</td><td><code>pf://planes#card</code></td><td>Pegar dentro de otro comentario</td></tr>
+      <tr><td>Markdown</td><td><code>`archivo:línea` · div.card en /planes</code></td><td>Issue o prompt</td></tr>
+      <tr><td>Los N elementos</td><td>una lista con <code>- </code> por elemento</td><td>Solo con varios</td></tr>
+    </tbody>
+  </table></div>
+  <p class="muted">«Archivo:línea» necesita que el elemento lleve <code>data-pf-src</code> (plugin de build, aún no existe); sin él se copian los demás formatos.</p>
+  <div class="saved"><b>Qué se guarda</b><p>Los elementos extra van en <code>extraTargets[]</code> (hasta 19 además del principal); el movimiento, en <code>proposals[]</code> como <code>reorder</code> con <code>from</code> y <code>to</code>. Copiar ubicación no guarda nada: solo copia al portapapeles.</p></div>
+</section>
+
+<!-- ============ 4 ============ -->
+<section class="sec" id="describir" data-s>
+  <header><span class="n">4</span><h2>Describir</h2><span class="tag ok">Disponible</span><span class="tag v2">v2: pestañas</span></header>
+  <p>Aquí dices qué debería cambiar. El comentario de texto está disponible hoy; las pestañas del panel completo son v2.</p>
+
+  <figure class="fig">
+    <div class="row">
+      <div class="panel" role="img" aria-label="Ilustración del panel de comentario con pestañas Comentar, Contenido, Estilos, Estructura y Cola">
+        <div class="p-head"><span class="p-kind">div</span><div class="p-id"><b>Equipo <span class="muted" style="font-weight:400">en Card</span></b><small>src/Card.tsx:42</small></div><span class="ib flat">⧉</span><span class="ib flat">✕</span></div>
+        <div class="p-tgt"><span class="mini on">Este elemento</span><span class="mini">Toda la vista</span><span class="ib">↑</span><span class="ib">↓</span><span class="ib">←</span><span class="ib">→</span><span class="mini">Sumar</span></div>
+        <div class="p-tabs"><span class="p-tab on">Comentar</span><span class="p-tab">Contenido</span><span class="p-tab">Estilos</span><span class="p-tab">Estructura</span><span class="p-tab">Cola</span></div>
+        <div class="p-body">
+          <div class="ta">El título se corta en móvil<i></i></div>
+          <div class="dz"><span><b>Pega</b>, <b>arrastra</b> o</span><span class="mini">Abrir…</span><span class="mini">Capturar ▾</span></div>
+        </div>
+        <div class="p-foot"><span><kbd>Ctrl</kbd><kbd>↵</kbd> guardar · <kbd>Esc</kbd> cancelar</span><span class="sp"></span><span class="mini">Cancelar</span><span class="mini pri">Guardar</span></div>
+      </div>
+    </div>
+    <figcaption>El panel: identidad y copiar arriba, objetivo y navegación, pestañas, y acciones abajo. Ilustración de ejemplo.</figcaption>
+  </figure>
+
+  <h3>Comentario de texto <span class="tag ok">Disponible</span></h3>
+  <ol class="steps">
+    <li>Escribe qué habría que cambiar (hasta 10 000 caracteres).</li>
+    <li>Pulsa <b>Guardar</b> o <kbd>Ctrl</kbd>+<kbd>↵</kbd>.</li>
+  </ol>
+  <div class="saved"><b>Qué se guarda</b><p>El texto, la ruta y URL, el selector (con candidatos), el texto y HTML del elemento, el viewport y el rectángulo. Ver sección 8.</p></div>
+
+  <h3>Contenido e i18n <span class="tag v2">v2</span></h3>
+  <p>La pestaña <b>Contenido</b> edita el texto del elemento y lo pinta en la página mientras escribes; <b>Cancelar</b> lo deshace. Hay tres casos:</p>
+  <div class="grid2">
+    <div class="saved" style="margin:0"><b>Texto fijo</b><p>Escrito directo en el código. Ves «Antes» y «Después».</p></div>
+    <div class="saved" style="margin:0"><b>Clave i18n</b><p>Viene de archivos de idioma. Eliges ES / EN / PT y el alcance: <b>Todas las apariciones</b> o <b>Solo aquí</b> (propone una clave nueva, p. ej. <code>clave_2</code>). Las traducciones que faltan se marcan.</p></div>
+    <div class="saved" style="margin:0"><b>Dinámico</b><p>Mezcla texto y datos. Las <span class="vchip">{variables}</span> están <b>bloqueadas</b>: no se pueden quitar; si falta una, se avisa.</p></div>
+    <div class="saved" style="margin:0"><b>Aviso de longitud</b><p>Si el texto nuevo es más de 25 % más largo, se avisa que puede desbordar el diseño.</p></div>
+  </div>
+  <p>Si no escribes comentario, se genera uno automático del tipo «Cambiar texto de … a …» (regla descrita en el diseño; no verificada en código).</p>
+  <div class="saved"><b>Qué se guarda</b><p>Una propuesta <code>text_fixed</code>, <code>text_dynamic</code> o <code>text_i18n</code> con «antes → después». El proyecto no se modifica.</p></div>
+
+  <h3>Estilos: editable vs. foundation <span class="tag v2">v2</span></h3>
+  <p>La pestaña <b>Estilos</b> separa lo que puedes cambiar de lo que solo se consulta:</p>
+  <figure class="fig">
+    <div class="row">
+      <div class="panel" style="max-width:24rem" role="img" aria-label="Filas de estilo: una editable con antes y después, una foundation de solo lectura">
+        <div class="p-body">
+          <div class="chg"><span>border-radius<br><s>8px</s> → 16px</span><span class="mini">Revertir</span></div>
+          <div class="chg"><span>padding-inline<br>14px</span><span class="mini off">Revertir</span></div>
+          <div class="chg lock"><span>🔒 --pf-color-accent<br>#2f5bea · Foundation (solo lectura)</span><span class="mini">Comentar</span></div>
+        </div>
+      </div>
+    </div>
+    <figcaption><b>Editable</b>: vive en el código del proyecto (módulos CSS, Tailwind, inline). <b>Foundation</b>: tokens, reset y librerías; solo se comenta, no se cambia.</figcaption>
+  </figure>
+  <p>Cada cambio muestra «antes → después» y se ve en <b>vista previa en vivo</b>; <b>Revertir</b> (por fila o todo) o cerrar el panel la deshace. Si una propiedad usa un token, se indica «usa <code>--token</code>».</p>
+  <div class="saved"><b>Qué se guarda</b><p>Una propuesta <code>style</code> con cada propiedad (<code>before → after</code>, origen <code>editable</code> o <code>foundation</code>). El código fuente no se toca.</p></div>
+
+  <h3>Imágenes <span class="tag v2">v2</span></h3>
+  <ul>
+    <li><b>Pegar</b>: <kbd>Ctrl</kbd>+<kbd>V</kbd> con el panel abierto.</li>
+    <li><b>Soltar</b>: arrastra archivos sobre la zona de imágenes («Suelta para adjuntar»).</li>
+    <li><b>Abrir</b>: botón «Abrir…».</li>
+    <li>Hasta <b>20 adjuntos</b> por comentario. Formatos: PNG, JPEG y WebP (el esquema compartido no admite GIF aunque el prototipo lo muestre); hasta 5 MB cada una.</li>
+    <li>Se copian a <code>.perfect-front/attachments/</code> y el JSON guarda <b>rutas relativas al proyecto</b>.</li>
+  </ul>
+  <div class="saved"><b>Qué se guarda</b><p><code>attachments[]</code> (rutas) y <code>attachmentInfo[]</code> con <code>name</code>, <code>source</code> (<code>paste</code>, <code>drop</code>, <code>open</code> o <code>capture</code>), <code>mimeType</code> y <code>bytes</code>.</p></div>
+
+  <h3 id="captura">Captura de nodo <span class="tag v2">v2</span></h3>
+  <p>Una capa propia enmarca el nodo y lo <b>renderiza de nuevo</b> a 1×, 2×, 3× o 4× (no agranda una imagen).</p>
+  <ol class="steps">
+    <li>En el panel: <b>Capturar ▾ → Nodo seleccionado</b>, o <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>S</kbd>.</li>
+    <li>Marca las escalas que quieras. Cada una muestra su <b>tamaño real en px</b> antes de capturar.</li>
+    <li>Con varios nodos elige <b>por separado</b> o <b>juntos</b>.</li>
+    <li>Pulsa <b>Capturar</b>. Si el nodo está fuera de pantalla, la página se <b>desplaza sola</b>; el overlay se oculta durante la captura y no hay parpadeo. No muevas la página mientras dura.</li>
+    <li>Revisa el resultado: <b>Adjuntar</b>, <b>Copiar</b>, <b>Descargar</b> o <b>Capturar de nuevo</b>.</li>
+  </ol>
+  <figure class="fig">
+    <div class="scales" role="img" aria-label="Cuatro escalas de un nodo de 320 por 44 píxeles; todas disponibles">
+      <div class="sc on"><b>1×</b><small>320 × 44 px</small></div>
+      <div class="sc on"><b>2×</b><small>640 × 88 px</small></div>
+      <div class="sc on"><b>3×</b><small>960 × 132 px</small></div>
+      <div class="sc on"><b>4×</b><small>1280 × 176 px</small></div>
+    </div>
+    <div class="scales" style="margin-top:10px" role="img" aria-label="Un nodo de 5000 por 4200 píxeles; 3× y 4× apagadas por superar el límite">
+      <div class="sc on"><b>1×</b><small>5000 × 4200 px</small></div>
+      <div class="sc on"><b>2×</b><small>10000 × 8400 px</small></div>
+      <div class="sc off"><b>3×</b><small>15000 × 12600: ≥ 100 M px</small></div>
+      <div class="sc off"><b>4×</b><small>20000 × 16800: &gt; 16384 px</small></div>
+    </div>
+    <figcaption><span class="ex-tag">Ejemplo</span> arriba, un nodo pequeño; abajo, uno grande con escalas apagadas.</figcaption>
+  </figure>
+  <p><b>Una escala se apaga</b> (con el motivo a la vista) si el resultado pasa de <b>16 384 px por lado</b>, de <b>100 M px</b> en total, o de <b>5 MB tras renderizar</b>. Elige una menor o captura solo una parte.</p>
+  <h4 style="margin:18px 0 4px;font-size:1rem">Copiar y descargar</h4>
+  <ul>
+    <li><b>Copiar al portapapeles</b>: copia la imagen como PNG, lista para pegar en un chat o documento.</li>
+    <li><b>Descargar</b>: guarda <code>pf-&lt;selector&gt;-&lt;escala&gt;x.png</code>; <b>Descargar todas</b> baja cada escala.</li>
+    <li><b>Requisitos</b>: contexto seguro (<code>localhost</code> o <code>127.0.0.1</code>) y la página <b>enfocada</b>. Si el navegador rechaza copiar, usa Descargar.</li>
+  </ul>
+  <div class="note"><p>Imágenes de otro origen sin CORS pueden salir en blanco en la captura.</p></div>
+  <div class="saved"><b>Qué se guarda</b><p>Al <b>Adjuntar</b>, las escalas se copian a <code>.perfect-front/attachments/</code> y quedan atadas al comentario con <code>source: "capture"</code>. Copiar y Descargar no guardan nada en el proyecto.</p></div>
+</section>
+
+<!-- ============ 5 ============ -->
+<section class="sec" id="eliminar" data-s>
+  <header><span class="n">5</span><h2>Eliminar elemento</h2><span class="tag v2">v2</span><span class="tag new">Nuevo</span></header>
+  <p>Para decir «esto sobra» sin escribir nada: el botón <b>Eliminar elemento</b> del panel guarda un comentario con el texto <b>«Eliminar este elemento.»</b>, con una nota opcional que explique por qué.</p>
+  <figure class="fig">
+    <div class="row">
+      <div class="panel" style="max-width:20rem" role="img" aria-label="Panel con el botón Eliminar elemento">
+        <div class="p-body"><div class="ta">Eliminar este elemento.<br><span class="muted">Nota: ya existe en el menú.</span></div></div>
+        <div class="p-foot"><span class="mini dng">Eliminar elemento</span><span class="sp"></span><span class="mini">Cancelar</span><span class="mini pri">Guardar</span></div>
+      </div>
+      <div class="app" style="width:200px">
+        <span class="ex-tag" style="top:30px">Ejemplo</span>
+        <div class="bar"><i></i><i></i><i></i></div>
+        <div class="body"><div class="cd struck" style="position:relative"><b>Banner</b><span>Texto de ejemplo</span><span class="pin del" style="right:-8px;top:-10px">2</span></div></div>
+      </div>
+    </div>
+    <figcaption>El elemento se marca con trazo discontinuo y un pin rojo.</figcaption>
+  </figure>
+  <div class="note"><p><b>Nunca borra código.</b> Es solo un comentario: quien lo lea (tú o un agente) decide cómo aplicarlo.</p></div>
+  <div class="saved"><b>Qué se guarda</b><p>Un comentario normal con el texto «Eliminar este elemento.» (más tu nota) y el objetivo seleccionado.</p></div>
+</section>
+
+<!-- ============ 6 ============ -->
+<section class="sec" id="organizar" data-s>
+  <header><span class="n">6</span><h2>Organizar</h2><span class="tag v2">v2</span></header>
+
+  <h3 style="margin-top:14px">Grupos y cola de lectura</h3>
+  <p>En la pestaña <b>Cola</b> atas el comentario a un <b>grupo</b>: varios comentarios que se entienden juntos, en orden y con contexto. Opciones: <b>Grupo nuevo</b>, <b>Añadir a un grupo</b>, <b>Atar a un comentario…</b> (se coloca justo después del elegido) y <b>Sacar del grupo</b>.</p>
+  <ul>
+    <li><b>Nota de contexto</b>: un texto que explica el objetivo del grupo.</li>
+    <li><b>Entender el grupo antes de actuar</b>: quien ejecute lee la nota y toda la cola, en orden, antes de tocar nada.</li>
+    <li>Con grupo, Guardar pasa a <b>Guardar en la cola</b>. Cada ítem muestra su estado (Pendiente, En curso, Resuelto).</li>
+  </ul>
+  <figure class="fig">
+    <div class="row">
+      <div class="panel" style="max-width:22rem" role="img" aria-label="Cola de lectura del grupo A con tres pasos y nota de contexto">
+        <div class="p-body">
+          <div class="ta" style="min-height:2.6rem;font-size:12.5px">Mantener la rejilla de 3 columnas.</div>
+          <div class="chg" style="grid-template-columns:auto 1fr auto;border-left-color:var(--pf-color-border)"><b>1</b><span>Contenedor de tarjetas</span><span class="chip done">Resuelto</span></div>
+          <div class="chg" style="grid-template-columns:auto 1fr auto"><b>2</b><span>Este comentario (borrador)</span><span class="chip pending">nuevo</span></div>
+          <div class="chg" style="grid-template-columns:auto 1fr auto;border-left-color:var(--pf-color-border)"><b>3</b><span>Botón principal</span><span class="chip prog">En curso</span></div>
+        </div>
+      </div>
+    </div>
+    <figcaption>Cola del grupo «A». Pines del grupo se pintan en otro color y se unen con líneas punteadas en la página.</figcaption>
+  </figure>
+
+  <h3>Cajón de comentarios</h3>
+  <p>Desde el menú del lanzador (<b>Más opciones → Comentarios</b>) se abre el cajón, aparte del editor: pestañas <b>Abiertos</b>, <b>Grupos</b> y <b>Resueltos</b>. Al hacer clic en un ítem vas a su pin. En un grupo, <b>Copiar como brief</b> arma un resumen para pegar.</p>
+  <h3>Pines</h3>
+  <p>Cada comentario deja un pin numerado sobre el elemento: azul si está abierto, verde si está resuelto, otro color si pertenece a un grupo. El conteo aparece en el lanzador.</p>
+  <div class="saved"><b>Qué se guarda</b><p>En el comentario: <code>group: { id, position }</code> (la cola es el orden por <code>position</code>). El nombre, la nota y <code>readFirst</code> viven en el grupo.</p></div>
+</section>
+
+<!-- ============ 7 ============ -->
+<section class="sec" id="agentes" data-s>
+  <header><span class="n">7</span><h2>Dashboard, CLI y agentes</h2><span class="tag ok">Disponible</span></header>
+  <p>El <b>dashboard</b> del servidor local lista tus proyectos y comentarios. Para trabajar sin navegador ni servidor, el CLI opera <b>directo</b> sobre <code>.perfect-front/</code> y no modifica nunca tu código: tú (o tu agente) cambias el código y luego registras la resolución.</p>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Comando</th><th>Efecto</th></tr></thead>
+    <tbody>
+      <tr><td><code>list</code></td><td>Por defecto solo <code>pending</code>. Filtros: <code>--status</code>, <code>--collection</code>, <code>--q</code>.</td></tr>
+      <tr><td><code>show &lt;id&gt;</code></td><td>Datos completos para localizar el elemento.</td></tr>
+      <tr><td><code>claim &lt;id&gt;</code></td><td><code>pending</code> → <code>in_progress</code>.</td></tr>
+      <tr><td><code>resolve &lt;id&gt; --summary "…"</code></td><td>Registra la resolución (<code>--files</code>, <code>--verification</code>, <code>--commit</code>, <code>--by agent|human</code>).</td></tr>
+      <tr><td><code>edit &lt;id&gt; --comment "…"</code></td><td>Cambia el texto del comentario.</td></tr>
+      <tr><td><code>move &lt;id…&gt; --to &lt;colección&gt;</code></td><td>Mueve a una colección existente.</td></tr>
+      <tr><td><code>status &lt;id&gt; &lt;estado&gt;</code></td><td>Cambia el estado. Sin id: estado del servidor.</td></tr>
+      <tr><td><code>ignore</code> / <code>reopen</code></td><td>Marca como ignorado, o vuelve a <code>pending</code>.</td></tr>
+      <tr><td><code>export --format md</code></td><td>Markdown a stdout o a un <code>.md</code> dentro de <code>.perfect-front</code> (<code>--out</code>).</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>&lt;id&gt;</code> acepta el ID completo (<code>pf_</code> + 26 caracteres) o un prefijo único. Con <code>--json</code>, stdout trae un único objeto JSON: <code>{"ok":true,…}</code> o <code>{"ok":false,"error":{"code","message"}}</code>. Para no pisar cambios ajenos usa <code>--expect-updated-at &lt;iso&gt;</code> (alias <code>--rev</code>).</p>
+
+  <h3>Flujo recomendado</h3>
+  <div class="cmd"><header>terminal <button type="button" data-copy>Copiar</button></header><pre>perfect-front list --json
+perfect-front claim &lt;id&gt;
+perfect-front show &lt;id&gt; --json
+<span class="c"># cambia el código y verifica (build, lint, tests)</span>
+perfect-front resolve &lt;id&gt; --summary "qué cambió y por qué" \
+  --files src/a.tsx --verification "pnpm build ok" --by agent</pre></div>
+  <p>Para localizar el elemento, en orden de confianza: <b>ruta</b>, <b>texto</b>, <b>selectores</b>, <b>HTML</b> y, si hay, la <b>captura</b>. Si no lo localizas con confianza, no lo resuelvas: anota el resultado parcial con <code>edit</code> (conservando el texto original) y deja <code>in_progress</code> o <code>pending</code>.</p>
+
+  <h3>Códigos de salida</h3>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Código</th><th>Significado</th></tr></thead>
+    <tbody>
+      <tr><td><code>0</code></td><td>OK</td></tr>
+      <tr><td><code>1</code></td><td>Error interno</td></tr>
+      <tr><td><code>2</code></td><td>Uso o validación (opción inválida, id ambiguo, <code>--out</code> fuera de <code>.perfect-front</code>)</td></tr>
+      <tr><td><code>3</code></td><td>Proyecto o carpeta <code>.perfect-front</code> no encontrados</td></tr>
+      <tr><td><code>4</code> / <code>5</code> / <code>130</code></td><td>Proceso, nada en ejecución, Ctrl+C (los del arranque, no los de comentarios)</td></tr>
+      <tr><td><code>6</code></td><td>Id o colección no encontrados</td></tr>
+      <tr><td><code>7</code></td><td>Conflicto: revisión obsoleta o transición no permitida</td></tr>
+      <tr><td><code>8</code></td><td>Datos ilegibles o error de almacenamiento</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Bloque para tu CLAUDE.md / AGENTS.md</h3>
+  <p>Pégalo en el archivo de instrucciones del proyecto para que tu agente sepa cómo trabajar. El contrato completo está en <code>packages/cli/AGENTS.md</code> del repositorio.</p>
+  <div class="cmd"><header>CLAUDE.md <button type="button" data-copy>Copiar</button></header><pre>## Comentarios visuales (Perfect Front)
+
+Para aplicar comentarios visuales: ejecuta `perfect-front list --json` (solo pendientes;
+`--status in_progress|all` para otros). Por cada comentario: `perfect-front claim &lt;id&gt;`,
+luego `perfect-front show &lt;id&gt; --json` y localiza el elemento por `location.route`,
+`location.text`, `selector`/`selectorCandidates` y `location.html` (si hay `attachments`,
+mira la captura). Cambia el codigo, verifica (build/lint/tests) y registra con
+`perfect-front resolve &lt;id&gt; --summary "..." --files a,b --verification "..." --by agent`.
+Si no localizas el elemento con confianza, NO lo resuelvas: anota el resultado parcial con
+`perfect-front edit &lt;id&gt; --comment "..."` (conservando el texto original) y deja el
+estado en `in_progress` o `pending`.
+Usa `--expect-updated-at &lt;iso&gt;` para no pisar cambios ajenos. Codigos de salida: 0 ok,
+2 uso, 3 sin proyecto, 6 id no encontrado, 7 conflicto/revision obsoleta, 8 datos.
+Contrato completo: packages/cli/AGENTS.md del repo perfect-front.</pre></div>
+</section>
+
+<!-- ============ 8 ============ -->
+<section class="sec" id="guardado" data-s>
+  <header><span class="n">8</span><h2>Guardado, privacidad, límites y ayuda</h2><span class="tag ok">Disponible</span></header>
+
+  <h3 style="margin-top:14px">Dónde se guarda</h3>
+  <p>Todo vive dentro de tu proyecto, en <code>.perfect-front/</code>. <b>Un comentario = un archivo JSON.</b></p>
+  <div class="tree" role="img" aria-label="Árbol de carpetas de .perfect-front"><span class="d">mi-proyecto/</span>
+└─ .perfect-front/
+   ├─ comments/
+   │  ├─ inbox/<b>pf_01K7A….json</b>      <span class="d">← un comentario</span>
+   │  └─ resolved/
+   ├─ attachments/                <span class="d">← imágenes y capturas (v2)</span>
+   ├─ run/                        <span class="d">← process.json, proxy.json, logs</span>
+   └─ project.json                <span class="d">← configuración opcional</span></div>
+  <pre class="json"><span class="k">"id"</span>: <span class="s">"pf_01K7A…"</span>, <span class="k">"status"</span>: <span class="s">"pending"</span>, <span class="k">"scope"</span>: <span class="s">"element"</span>,
+<span class="k">"comment"</span>: <span class="s">"El título se corta en móvil."</span>,
+<span class="k">"location"</span>: { <span class="k">"route"</span>: <span class="s">"/planes"</span>, <span class="k">"selector"</span>: <span class="s">"main &gt; div.card"</span>, … },
+<span class="k">"viewport"</span>: { … }, <span class="k">"attachments"</span>: [ … ], <span class="k">"resolution"</span>: null</pre>
+  <p>Los archivos v1 siguen siendo legibles; la v2 añade <code>sections[]</code>, <code>extraTargets[]</code>, <code>proposals[]</code> y <code>group</code>.</p>
+
+  <h3>Privacidad</h3>
+  <p><b>Sin nube.</b> El servidor local y el proxy escuchan solo en <code>127.0.0.1</code>; no se envía nada a terceros. Puedes versionar <code>.perfect-front/</code> en Git o ignorarlo, según prefieras.</p>
+
+  <h3>Límites conocidos</h3>
+  <ul>
+    <li>El proxy solo reenvía destinos <b>HTTP</b>; con HTTPS no hay capa (se avisa en la terminal).</li>
+    <li>La app se sirve desde otro origen (<code>127.0.0.1:&lt;puerto del proxy&gt;</code>): <code>localStorage</code>, cookies y orígenes permitidos quedan separados. Si dependes de ellos, usa <code>--no-proxy</code>.</li>
+    <li>HTML comprimido pese a quitar <code>accept-encoding</code>, o en UTF-16, no se inyecta.</li>
+    <li>Máximo 20 adjuntos y 5 MB por imagen; reordenar, estilos y contenido son <b>propuestas</b>, nunca cambian el código.</li>
+    <li>La v2 todavía es un prototipo de diseño: algunas piezas descritas aquí aún no tienen código en la rama principal.</li>
+  </ul>
+
+  <h3>Solución de problemas</h3>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Síntoma</th><th>Qué hacer</th></tr></thead>
+    <tbody>
+      <tr><td>No aparece la capa y la terminal dice «SIN CAPA DE COMENTARIOS»</td><td>Lee el motivo y la acción que indica. Revisa que abres la URL del <b>proxy</b>, no la del dev server.</td></tr>
+      <tr><td>El navegador bloquea el script (CSP)</td><td>Si tu app envía <code>Content-Security-Policy</code> con <code>script-src</code> o <code>default-src</code>, permite <code>'self'</code> o desactiva la CSP en desarrollo.</td></tr>
+      <tr><td>Tu dev server usa HTTPS</td><td>El proxy no lo soporta; sirve en HTTP en desarrollo.</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>⇧</kbd>+<kbd>C</kbd> abre DevTools en Chrome</td><td>Usa el botón <b>Comentar</b> del lanzador, o <kbd>Alt</kbd>+clic.</td></tr>
+      <tr><td>«No se pudo guardar: el servidor local no responde»</td><td>Tu texto se conserva. Revisa <code>perfect-front status</code> y pulsa Reintentar.</td></tr>
+      <tr><td>Copiar al portapapeles falla</td><td>Usa <code>localhost</code> o <code>127.0.0.1</code>, enfoca la página y reintenta; o usa Descargar.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<p class="nores" id="nores" role="status">Sin resultados para tu búsqueda.</p>
+</main>
+</div>
+
+<footer class="foot">
+  <a class="logo" href="https://www.jorgegz.com" aria-label="jorgegz.com">
+    <img class="ll" src="assets/jorgegz-logo-light.svg" alt="jorgegz" width="116" height="26">
+    <img class="ld" src="assets/jorgegz-logo-dark.svg" alt="" width="116" height="26">
+  </a>
+  <span>Perfect Front · Manual de uso</span>
+  <span class="r"><a href="index.html">← Inicio</a> · <a href="https://www.jorgegz.com">www.jorgegz.com</a></span>
+</footer>
+
+<script>
+(function(){
+  var root=document.documentElement;
+  /* Tema */
+  var tb=document.querySelectorAll('[data-theme-btn]');
+  function setTheme(m){
+    if(m==='auto')root.removeAttribute('data-theme');else root.setAttribute('data-theme',m);
+    try{if(m==='auto')localStorage.removeItem('pf-theme');else localStorage.setItem('pf-theme',m)}catch(e){}
+    tb.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.themeBtn===m))});
+  }
+  tb.forEach(function(b){b.addEventListener('click',function(){setTheme(b.dataset.themeBtn)})});
+  var cur=root.getAttribute('data-theme');
+  tb.forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.themeBtn===(cur||'auto')))});
+
+  /* Índice móvil */
+  var toc=document.getElementById('toc'),tbn=document.getElementById('tocbtn');
+  function tocSet(o){toc.classList.toggle('open',o);tbn.setAttribute('aria-expanded',String(o))}
+  tbn.addEventListener('click',function(){tocSet(!toc.classList.contains('open'))});
+  toc.addEventListener('click',function(e){if(e.target.closest('a'))tocSet(false)});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')tocSet(false)});
+
+  /* Scrollspy */
+  var links={};toc.querySelectorAll('a').forEach(function(a){links[a.getAttribute('href').slice(1)]=a});
+  var secs=[].slice.call(document.querySelectorAll('section[data-s]'));
+  function spy(){
+    var y=window.scrollY+120,id=secs[0].id;
+    secs.forEach(function(s){if(!s.classList.contains('hidden-by-search')&&s.offsetTop<=y)id=s.id});
+    Object.keys(links).forEach(function(k){if(k===id)links[k].setAttribute('aria-current','true');else links[k].removeAttribute('aria-current')});
+  }
+  window.addEventListener('scroll',spy,{passive:true});spy();
+
+  /* Buscador */
+  var q=document.getElementById('q'),nores=document.getElementById('nores');
+  var texts=secs.map(function(s){return s.textContent.toLowerCase()});
+  function norm(s){return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')}
+  var ntexts=texts.map(norm);
+  q.addEventListener('input',function(){
+    var v=norm(q.value.trim()),shown=0;
+    secs.forEach(function(s,i){
+      var hit=!v||ntexts[i].indexOf(v)>-1;
+      s.classList.toggle('hidden-by-search',!hit);
+      if(links[s.id])links[s.id].parentNode.style.display=hit?'':'none';
+      if(hit)shown++;
+    });
+    nores.classList.toggle('on',shown===0);
+    spy();
+  });
+
+  /* Copiar bloques */
+  document.querySelectorAll('[data-copy]').forEach(function(b){
+    b.addEventListener('click',function(){
+      var pre=b.closest('.cmd').querySelector('pre');
+      var done=function(ok){b.textContent=ok?'¡Copiado!':'Selecciona y copia';setTimeout(function(){b.textContent='Copiar'},1600)};
+      if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(pre.innerText).then(function(){done(true)},function(){done(false)})}
+      else done(false);
+    });
+  });
+})();
+</script>
+</body>
+</html>

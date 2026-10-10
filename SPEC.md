@@ -1,253 +1,253 @@
-# Perfect Front — Especificación de producto y arquitectura
+# Perfect Front — Product and Architecture Specification
 
-## 1. Resumen
+## 1. Summary
 
-Perfect Front es una herramienta local de revisión visual para proyectos web. Permite abrir una aplicación en Chrome, activar una capa de comentarios sobre la página renderizada, seleccionar elementos y registrar observaciones sin modificar el código ni instalar componentes dentro del proyecto observado.
+Perfect Front is a local visual review tool for web projects. It lets you open an application in Chrome, enable a comment layer over the rendered page, select elements, and record observations without modifying the code or installing components inside the project under review.
 
-La experiencia principal comienza desde la raíz de cualquier proyecto:
+The main experience starts from the root of any project:
 
 ```bash
 comment
 ```
 
-El comando detecta el tipo de proyecto, encuentra o inicia su servidor de desarrollo, registra temporalmente la relación entre la URL y la carpeta local, abre la aplicación en Chrome y conecta la extensión de Perfect Front.
+The command detects the project type, finds or starts its development server, temporarily registers the relationship between the URL and the local folder, opens the application in Chrome, and connects the Perfect Front extension.
 
-Cada comentario pertenece al proyecto revisado y se persiste dentro de él como un archivo JSON independiente. Perfect Front no utiliza una base de datos externa como fuente de verdad.
+Each comment belongs to the reviewed project and is persisted inside it as an independent JSON file. Perfect Front does not use an external database as its source of truth.
 
-## 2. Objetivos
+## 2. Goals
 
-Perfect Front debe permitir:
+Perfect Front must allow you to:
 
-1. Ejecutar `comment` desde la raíz de un proyecto.
-2. Detectar proyectos Vite, Next.js, Angular y HTML estático.
-3. Conectarse a un servidor ya levantado o iniciar uno nuevo.
-4. Abrir el proyecto en Chrome.
-5. Alternar entre la vista normal y el modo de comentarios desde una extensión.
-6. Seleccionar cualquier elemento visible sin importar el framework.
-7. Crear comentarios de elemento o de página completa.
-8. Guardar cada comentario dentro del proyecto observado.
-9. Leer, editar, organizar, mover y resolver comentarios desde una aplicación web local.
-10. Permitir que una persona o un agente de código procese comentarios pendientes.
-11. Conservar suficiente contexto para volver a encontrar el elemento aunque la aplicación cambie parcialmente.
-12. Funcionar sin agregar imports, plugins o componentes a la aplicación observada.
+1. Run `comment` from a project root.
+2. Detect Vite, Next.js, Angular, and static HTML projects.
+3. Connect to a server that is already running or start a new one.
+4. Open the project in Chrome.
+5. Toggle between the normal view and comment mode from an extension.
+6. Select any visible element regardless of framework.
+7. Create element-level or full-page comments.
+8. Save each comment inside the reviewed project.
+9. Read, edit, organize, move, and resolve comments from a local web application.
+10. Let a person or a coding agent process pending comments.
+11. Keep enough context to find the element again even if the application changes partially.
+12. Work without adding imports, plugins, or components to the observed application.
 
-## 3. Principios del producto
+## 3. Product principles
 
-### 3.1 El proyecto es dueño de sus comentarios
+### 3.1 The project owns its comments
 
-Los comentarios viven en la carpeta del proyecto que se está revisando. La extensión y el servidor local solo los crean, leen y organizan.
+Comments live in the folder of the project being reviewed. The extension and the local server only create, read, and organize them.
 
-Esto permite:
+This allows you to:
 
-- mantener el feedback junto al código;
-- procesarlo con cualquier editor o agente;
-- decidir si se versiona con Git o se ignora;
-- transportar el proyecto sin perder sus comentarios;
-- evitar una cuenta, nube o base de datos obligatoria.
+- keep feedback next to the code;
+- process it with any editor or agent;
+- decide whether to version it with Git or ignore it;
+- move the project without losing its comments;
+- avoid a mandatory account, cloud, or database.
 
-### 3.2 Un comentario es un archivo
+### 3.2 A comment is a file
 
-No se utilizará un único `comments.json` con un arreglo gigante. Cada comentario tendrá su propio archivo JSON.
+A single `comments.json` with a giant array will not be used. Each comment gets its own JSON file.
 
-Beneficios:
+Benefits:
 
-- no se necesitan delimitadores de texto;
-- mover un comentario equivale a mover un archivo;
-- se reducen los conflictos de escritura y de Git;
-- un agente puede procesar comentarios individualmente;
-- los adjuntos y el historial pueden relacionarse mediante un ID estable.
+- no text delimiters are needed;
+- moving a comment is the same as moving a file;
+- write and Git conflicts are reduced;
+- an agent can process comments individually;
+- attachments and history can be linked through a stable ID.
 
-### 3.3 La extensión es la capa de interacción
+### 3.3 The extension is the interaction layer
 
-La extensión de Chrome selecciona elementos y captura contexto. No administra procesos ni escribe directamente en el filesystem.
+The Chrome extension selects elements and captures context. It does not manage processes or write directly to the filesystem.
 
-### 3.4 El servidor local es el puente
+### 3.4 The local server is the bridge
 
-Un proceso local de Node.js relaciona URLs con carpetas, administra servidores de desarrollo y realiza las operaciones de filesystem.
+A local Node.js process maps URLs to folders, manages development servers, and performs filesystem operations.
 
-### 3.5 El dashboard es una web
+### 3.5 The dashboard is a web app
 
-Perfect Front no requiere Electron. La administración de proyectos y comentarios ocurre en una aplicación web local servida por el propio proceso de Perfect Front.
+Perfect Front does not require Electron. Project and comment management happens in a local web application served by the Perfect Front process itself.
 
-## 4. Arquitectura general
+## 4. System architecture
 
 ```text
 ┌─────────────────────────────────────────────────────────────────┐
 │ Chrome                                                          │
 │                                                                 │
 │  ┌─────────────────────┐      ┌───────────────────────────────┐ │
-│  │ Aplicación revisada │      │ Dashboard de Perfect Front    │ │
+│  │ Reviewed application│      │ Perfect Front dashboard       │ │
 │  │ localhost:5173      │      │ localhost:45800               │ │
 │  │                     │      │                               │ │
-│  │ + overlay inyectado │      │ proyectos y comentarios      │ │
+│  │ + injected overlay  │      │ projects and comments         │ │
 │  └──────────┬──────────┘      └───────────────┬───────────────┘ │
-│             │ Extensión MV3                   │ HTTP/WebSocket   │
+│             │ MV3 extension                   │ HTTP/WebSocket   │
 └─────────────┼─────────────────────────────────┼─────────────────┘
               └────────────────┬────────────────┘
                                ▼
                    ┌────────────────────────┐
-                   │ Servidor local         │
+                   │ Local server           │
                    │ Perfect Front          │
                    │                        │
-                   │ procesos · API · FS    │
+                   │ processes · API · FS   │
                    └───────────┬────────────┘
                                ▼
                    ┌────────────────────────┐
-                   │ Raíz del proyecto      │
+                   │ Project root           │
                    │ .perfect-front/        │
                    └────────────────────────┘
 ```
 
-### 4.1 Componentes
+### 4.1 Components
 
-#### CLI `comment`
+#### `comment` CLI
 
-Responsabilidades:
+Responsibilities:
 
-- usar el directorio actual como raíz por defecto;
-- localizar la raíz real si se ejecuta desde un subdirectorio;
-- detectar framework, gestor de paquetes y comando de desarrollo;
-- detectar un servidor existente;
-- iniciar el servidor local de Perfect Front si no está activo;
-- iniciar el servidor del proyecto cuando sea necesario;
-- registrar proyecto, proceso, puerto y URL;
-- abrir Chrome o imprimir la URL;
-- ofrecer comandos para listar, mover y resolver comentarios.
+- use the current directory as the default root;
+- locate the real root when run from a subdirectory;
+- detect the framework, package manager, and development command;
+- detect an existing server;
+- start the Perfect Front local server if it is not running;
+- start the project server when needed;
+- register the project, process, port, and URL;
+- open Chrome or print the URL;
+- provide commands to list, move, and resolve comments.
 
-#### Servidor local
+#### Local server
 
-Responsabilidades:
+Responsibilities:
 
-- servir el dashboard;
-- exponer una API HTTP local;
-- emitir cambios por WebSocket o Server-Sent Events;
-- mantener el registro de proyectos de la sesión;
-- iniciar, observar y detener procesos hijos;
-- escribir comentarios de forma atómica;
-- validar todas las rutas antes de acceder al filesystem;
-- aceptar peticiones únicamente desde orígenes locales autorizados.
+- serve the dashboard;
+- expose a local HTTP API;
+- emit changes over WebSocket or Server-Sent Events;
+- keep the registry of projects for the session;
+- start, observe, and stop child processes;
+- write comments atomically;
+- validate all paths before accessing the filesystem;
+- accept requests only from authorized local origins.
 
-#### Extensión de Chrome
+#### Chrome extension
 
-Responsabilidades:
+Responsibilities:
 
-- detectar si la pestaña corresponde a un proyecto registrado;
-- alternar modo normal y modo comentarios;
-- inyectar el overlay usando Manifest V3;
-- aislar su interfaz dentro de Shadow DOM;
-- resaltar el elemento bajo el cursor;
-- capturar contexto DOM y visual;
-- enviar comentarios al servidor local;
-- enlazar al dashboard y al proyecto activo.
+- detect whether the tab belongs to a registered project;
+- toggle between normal mode and comment mode;
+- inject the overlay using Manifest V3;
+- isolate its interface inside Shadow DOM;
+- highlight the element under the cursor;
+- capture DOM and visual context;
+- send comments to the local server;
+- link to the dashboard and the active project.
 
 #### Overlay
 
-Responsabilidades:
+Responsibilities:
 
-- selección de elementos;
-- navegación entre elemento, padre e hijo;
-- comentario sobre elemento o vista completa;
-- captura de selector, texto, HTML y geometría;
-- formulario de comentario;
-- confirmación de guardado;
-- no interferir con eventos de la aplicación cuando esté desactivado.
+- element selection;
+- navigation between element, parent, and child;
+- comments on an element or the entire view;
+- capture of selector, text, HTML, and geometry;
+- comment form;
+- save confirmation;
+- not interfering with application events while disabled.
 
 #### Dashboard
 
-Responsabilidades:
+Responsibilities:
 
-- listar proyectos conocidos y activos;
-- iniciar, detener y reiniciar proyectos administrados;
-- abrir sus URLs;
-- mostrar logs básicos;
-- listar comentarios por colección y estado;
-- leer y editar comentarios;
-- mover comentarios entre colecciones;
-- marcar comentarios como pendientes, en progreso, resueltos o ignorados;
-- abrir la ruta relacionada con un comentario;
-- visualizar captura, selector y contexto HTML;
-- exportar reportes opcionales.
+- list known and active projects;
+- start, stop, and restart managed projects;
+- open their URLs;
+- show basic logs;
+- list comments by collection and status;
+- read and edit comments;
+- move comments between collections;
+- mark comments as pending, in progress, resolved, or ignored;
+- open the route related to a comment;
+- display the screenshot, selector, and HTML context;
+- export optional reports.
 
-## 5. Flujo principal
+## 5. Main flow
 
-### 5.1 Inicio desde un proyecto
+### 5.1 Starting from a project
 
 ```powershell
-cd Z:\Dev\mi-proyecto-vite
+cd Z:\Dev\my-vite-project
 comment
 ```
 
-Perfect Front debe:
+Perfect Front must:
 
-1. Resolver `Z:\Dev\mi-proyecto-vite` como raíz.
-2. Leer la configuración local si existe.
-3. Detectar que el proyecto utiliza Vite.
-4. Detectar `pnpm`, `npm`, `yarn` o `bun` mediante el lockfile y `packageManager`.
-5. Buscar un servidor compatible ya activo.
-6. Ejecutar, si hace falta, el script `dev` del proyecto.
-7. Esperar hasta que la URL responda.
-8. Registrar la relación entre URL y raíz local.
-9. Abrir la URL en Chrome.
-10. Informar a la extensión que la pestaña pertenece al proyecto.
+1. Resolve `Z:\Dev\my-vite-project` as the root.
+2. Read the local configuration if it exists.
+3. Detect that the project uses Vite.
+4. Detect `pnpm`, `npm`, `yarn`, or `bun` from the lockfile and `packageManager`.
+5. Look for a compatible server that is already running.
+6. Run the project's `dev` script if needed.
+7. Wait until the URL responds.
+8. Register the relationship between the URL and the local root.
+9. Open the URL in Chrome.
+10. Tell the extension that the tab belongs to the project.
 
-Salida esperada:
+Expected output:
 
 ```text
 Perfect Front
 
-✓ Proyecto: mi-proyecto-vite
-✓ Detectado: Vite + React
-✓ Comando: pnpm dev
-✓ Aplicación: http://localhost:5173
-✓ Comentarios: .perfect-front/comments/inbox/
+✓ Project: my-vite-project
+✓ Detected: Vite + React
+✓ Command: pnpm dev
+✓ Application: http://localhost:5173
+✓ Comments: .perfect-front/comments/inbox/
 ✓ Dashboard: http://localhost:45800
 
-Abriendo Chrome…
+Opening Chrome…
 ```
 
-### 5.2 Creación de un comentario
+### 5.2 Creating a comment
 
-1. El usuario abre el popup de la extensión.
-2. Activa “Comentar esta página”.
-3. El overlay comienza a inspeccionar elementos.
-4. El usuario selecciona un elemento.
-5. Escribe el comentario.
-6. La extensión captura el contexto.
-7. Envía el payload al servidor local.
-8. El servidor identifica el proyecto mediante la URL y el registro de sesión.
-9. Valida que la raíz sea una carpeta registrada.
-10. Crea un ID estable.
-11. Escribe el JSON de forma atómica en `inbox/`.
-12. Notifica al dashboard.
-13. La extensión confirma el guardado.
+1. The user opens the extension popup.
+2. They turn on “Comment on this page”.
+3. The overlay starts inspecting elements.
+4. The user selects an element.
+5. They write the comment.
+6. The extension captures the context.
+7. It sends the payload to the local server.
+8. The server identifies the project from the URL and the session registry.
+9. It validates that the root is a registered folder.
+10. It creates a stable ID.
+11. It writes the JSON atomically into `inbox/`.
+12. It notifies the dashboard.
+13. The extension confirms the save.
 
-### 5.3 Resolución
+### 5.3 Resolution
 
-Un comentario puede resolverse manualmente o mediante un agente.
+A comment can be resolved manually or by an agent.
 
-Flujo esperado:
+Expected flow:
 
 ```text
 pending → in_progress → resolved → archived
 ```
 
-Al resolverlo se debe registrar:
+When resolving, the following must be recorded:
 
-- fecha de resolución;
-- resumen del cambio;
-- archivos modificados, si se conocen;
-- identidad opcional del responsable;
-- notas de verificación;
-- commit opcional.
+- resolution date;
+- summary of the change;
+- modified files, if known;
+- optional identity of the person responsible;
+- verification notes;
+- optional commit.
 
-El JSON se mueve a la colección `resolved/` o a la colección configurada por el usuario.
+The JSON is moved to the `resolved/` collection or to the collection configured by the user.
 
-## 6. Persistencia
+## 6. Persistence
 
-### 6.1 Estructura por proyecto
+### 6.1 Per-project structure
 
 ```text
-mi-proyecto/
+my-project/
 └── .perfect-front/
     ├── project.json
     ├── comments/
@@ -264,16 +264,16 @@ mi-proyecto/
         └── pf_01K7B.png
 ```
 
-Las carpetas bajo `comments/` son colecciones. `inbox`, `resolved` y `archived` existen por defecto. El usuario puede crear otras, como `mobile`, `checkout` o `release-2`.
+Folders under `comments/` are collections. `inbox`, `resolved`, and `archived` exist by default. The user can create others, such as `mobile`, `checkout`, or `release-2`.
 
-### 6.2 Configuración del proyecto
+### 6.2 Project configuration
 
-Ejemplo de `.perfect-front/project.json`:
+Example `.perfect-front/project.json`:
 
 ```json
 {
   "version": 1,
-  "name": "Mi proyecto",
+  "name": "My project",
   "command": "pnpm dev",
   "url": "http://localhost:5173",
   "defaultCollection": "inbox",
@@ -283,11 +283,11 @@ Ejemplo de `.perfect-front/project.json`:
 }
 ```
 
-Todos los campos, excepto `version`, pueden ser creados automáticamente. La configuración explícita tiene prioridad sobre la detección.
+All fields except `version` can be created automatically. Explicit configuration takes precedence over detection.
 
-### 6.3 Esquema de comentario
+### 6.3 Comment schema
 
-Ejemplo de `.perfect-front/comments/inbox/pf_01K7A.json`:
+Example `.perfect-front/comments/inbox/pf_01K7A.json`:
 
 ```json
 {
@@ -296,22 +296,22 @@ Ejemplo de `.perfect-front/comments/inbox/pf_01K7A.json`:
   "status": "pending",
   "collection": "inbox",
   "scope": "element",
-  "comment": "Este botón debe ocupar todo el ancho en móvil.",
+  "comment": "This button should take the full width on mobile.",
   "project": {
-    "name": "Mi proyecto",
+    "name": "My project",
     "relativeRoot": "."
   },
   "location": {
     "url": "http://localhost:5173/pricing",
     "route": "/pricing",
-    "title": "Precios",
+    "title": "Pricing",
     "selector": "main > section.pricing button.buy",
     "selectorCandidates": [
       "[data-testid=\"buy-button\"]",
       "main > section.pricing button.buy"
     ],
-    "text": "Comprar",
-    "html": "<button class=\"buy\">Comprar</button>",
+    "text": "Buy",
+    "html": "<button class=\"buy\">Buy</button>",
     "componentHint": null
   },
   "viewport": {
@@ -341,62 +341,62 @@ Ejemplo de `.perfect-front/comments/inbox/pf_01K7A.json`:
 }
 ```
 
-### 6.4 Comentario de vista completa
+### 6.4 Full-view comment
 
-Cuando `scope` sea `view`, `selector`, `html` y `elementRect` pueden ser nulos. La ruta, el viewport, la captura y el comentario siguen siendo obligatorios según la configuración.
+When `scope` is `view`, `selector`, `html`, and `elementRect` may be null. The route, the viewport, the screenshot, and the comment remain required according to the configuration.
 
-### 6.5 Resolución
+### 6.5 Resolution
 
-Ejemplo del bloque `resolution`:
+Example of the `resolution` block:
 
 ```json
 {
   "resolvedAt": "2026-10-03T17:10:00.000Z",
   "resolvedBy": "codex",
-  "summary": "Se aplicó ancho completo al botón en el breakpoint móvil.",
+  "summary": "Applied full width to the button at the mobile breakpoint.",
   "filesChanged": [
     "src/components/BuyButton.tsx"
   ],
   "verification": [
     "pnpm test",
-    "verificación visual a 390x844"
+    "visual check at 390x844"
   ],
   "commit": null
 }
 ```
 
-### 6.6 Operaciones atómicas
+### 6.6 Atomic operations
 
-Para evitar archivos parciales:
+To avoid partial files:
 
-1. escribir en un archivo temporal dentro de `.perfect-front/`;
-2. validar el JSON resultante;
-3. renombrar el archivo temporal sobre el destino;
-4. emitir el evento de actualización después del rename.
+1. write to a temporary file inside `.perfect-front/`;
+2. validate the resulting JSON;
+3. rename the temporary file over the destination;
+4. emit the update event after the rename.
 
-## 7. Movimiento y organización
+## 7. Moving and organizing
 
-Mover un comentario significa mover físicamente su JSON entre colecciones.
+Moving a comment means physically moving its JSON between collections.
 
 ```text
-Antes:
+Before:
 .perfect-front/comments/inbox/pf_01K7A.json
 
-Después:
+After:
 .perfect-front/comments/mobile/pf_01K7A.json
 ```
 
-Durante la operación:
+During the operation:
 
-1. se conserva el ID;
-2. se actualizan `collection` y `updatedAt`;
-3. los adjuntos no se duplican;
-4. no quedan dos copias del comentario;
-5. el dashboard recibe un evento de movimiento.
+1. the ID is preserved;
+2. `collection` and `updatedAt` are updated;
+3. attachments are not duplicated;
+4. no two copies of the comment remain;
+5. the dashboard receives a move event.
 
-El dashboard debe permitir movimiento individual y por lote.
+The dashboard must support individual and batch moves.
 
-Comandos previstos:
+Planned commands:
 
 ```bash
 comment list
@@ -406,11 +406,11 @@ comment collection create checkout
 comment collection list
 ```
 
-## 8. Markdown y exportaciones
+## 8. Markdown and exports
 
-JSON es la única fuente de verdad. Markdown no se mantiene en paralelo porque produciría duplicación y desincronización.
+JSON is the only source of truth. Markdown is not maintained in parallel because it would cause duplication and drift.
 
-Se podrá generar un reporte cuando se necesite:
+A report can be generated when needed:
 
 ```bash
 comment export --format md
@@ -418,102 +418,102 @@ comment export --format md --collection inbox
 comment export --format json
 ```
 
-Ejemplo de salida:
+Example output:
 
 ```text
 .perfect-front/exports/comments-2026-10-03.md
 ```
 
-Editar el reporte no debe alterar los comentarios originales. Una futura función de importación deberá ser explícita y validar IDs.
+Editing the report must not alter the original comments. A future import feature must be explicit and validate IDs.
 
-## 9. Detección de proyectos
+## 9. Project detection
 
-### 9.1 Prioridad
+### 9.1 Priority
 
 1. `.perfect-front/project.json`.
-2. Campo `packageManager` de `package.json`.
+2. The `packageManager` field of `package.json`.
 3. Lockfiles.
-4. Archivos característicos del framework.
-5. Scripts de `package.json`.
-6. Configuración interactiva como último recurso.
+4. Framework-specific files.
+5. `package.json` scripts.
+6. Interactive configuration as a last resort.
 
 ### 9.2 Vite
 
-Indicadores:
+Indicators:
 
-- dependencia `vite`;
-- `vite.config.ts`, `.js`, `.mts` o `.mjs`;
-- script `dev` que ejecuta Vite.
+- `vite` dependency;
+- `vite.config.ts`, `.js`, `.mts`, or `.mjs`;
+- `dev` script that runs Vite.
 
-Comando típico:
+Typical command:
 
 ```bash
 pnpm dev
 ```
 
-Perfect Front no debe modificar `vite.config.*`, `main.*` ni el árbol de componentes.
+Perfect Front must not modify `vite.config.*`, `main.*`, or the component tree.
 
 ### 9.3 Next.js
 
-Indicadores:
+Indicators:
 
-- dependencia `next`;
+- `next` dependency;
 - `next.config.*`;
-- script `dev` que ejecuta `next dev`.
+- `dev` script that runs `next dev`.
 
 ### 9.4 Angular
 
-Indicadores:
+Indicators:
 
 - `angular.json`;
-- dependencia `@angular/core`;
-- script que ejecuta `ng serve`.
+- `@angular/core` dependency;
+- script that runs `ng serve`.
 
-### 9.5 HTML estático
+### 9.5 Static HTML
 
-Si existe `index.html` y no se identifica un framework ejecutable, Perfect Front levanta un servidor estático propio. No debe alterar los archivos HTML.
+If `index.html` exists and no runnable framework is identified, Perfect Front starts its own static server. It must not alter the HTML files.
 
-**Reglas de selección:**
+**Selection rules:**
 
-- `index.html` siempre será la página servida si existe.
-- Si no existe `index.html` y hay múltiples archivos HTML en la raíz, Perfect Front:
-  - mostrará un selector interactivo al usuario (`--page`, `--choose`);
-  - recordará la selección en `.perfect-front/project.json` solo con confirmación explícita del usuario.
+- `index.html` is always the served page if it exists.
+- If `index.html` does not exist and there are multiple HTML files in the root, Perfect Front:
+  - shows an interactive selector to the user (`--page`, `--choose`);
+  - remembers the selection in `.perfect-front/project.json` only with explicit user confirmation.
 
-### 9.6 Servidor existente
+### 9.6 Existing server
 
-Si el servidor ya está levantado:
+If the server is already running:
 
-- no debe iniciarse otro proceso;
-- debe registrarse como proceso externo;
-- `comment stop` no debe terminar procesos externos salvo una opción explícita;
-- el usuario puede proporcionar la URL:
+- another process must not be started;
+- it must be registered as an external process;
+- `comment stop` must not terminate external processes unless an explicit option is given;
+- the user can provide the URL:
 
 ```bash
 comment --url http://localhost:4000
 ```
 
-## 10. Descubrimiento de servidores
+## 10. Server discovery
 
-La extensión no es la fuente de verdad de los procesos locales.
+The extension is not the source of truth for local processes.
 
-El servidor local conoce con certeza:
+The local server knows with certainty:
 
-- procesos iniciados por Perfect Front;
-- URL declarada por configuración;
-- puertos confirmados durante el inicio;
-- proyectos registrados en la sesión.
+- processes started by Perfect Front;
+- the URL declared by configuration;
+- ports confirmed during startup;
+- projects registered in the session.
 
-La extensión descubre servidores locales de Perfect Front automáticamente:
+The extension discovers local Perfect Front servers automatically:
 
-- escanea puertos 45800–45820;
-- consulta `GET /api/health` en cada puerto;
-- obtiene la lista de proyectos con `GET /api/projects` en servidores vivos;
-- al tocar un proyecto en el popup, abre su URL en una nueva pestaña (enfocando la existente si ya está abierta).
+- it scans ports 45800–45820;
+- it queries `GET /api/health` on each port;
+- it gets the project list with `GET /api/projects` on live servers;
+- when a project is tapped in the popup, it opens its URL in a new tab (focusing the existing one if already open).
 
-No hay emparejamiento por código ni asociación interactiva. El servidor identifica la extensión únicamente por su origen (`chrome-extension://<EXTENSION_ID>`), que el navegador impone y una página web no puede falsificar.
+There is no code pairing or interactive association. The server identifies the extension solely by its origin (`chrome-extension://<EXTENSION_ID>`), which the browser enforces and a web page cannot forge.
 
-## 11. CLI previsto
+## 11. Planned CLI
 
 ```bash
 comment
@@ -540,24 +540,24 @@ comment --no-open
 
 ### 11.1 `comment`
 
-Comando principal. Equivale a detectar, registrar, iniciar o conectar, y abrir.
+Main command. Equivalent to detect, register, start or connect, and open.
 
-### 11.1.1 Modo de ejecución
+### 11.1.1 Execution mode
 
-El proceso `perfect-front` se ejecuta en **primer plano**. Ctrl+C apaga completamente:
+The `perfect-front` process runs in the **foreground**. Ctrl+C shuts down everything:
 
-- todos los servidores iniciados por Perfect Front;
-- el dashboard;
-- el propio servidor local;
-- los procesos de desarrollo del proyecto (si fueron iniciados por Perfect Front).
+- all servers started by Perfect Front;
+- the dashboard;
+- the local server itself;
+- the project's development processes (if they were started by Perfect Front).
 
-El usuario debe confirmar explícitamente si hay comentarios pendientes no guardados.
+The user must explicitly confirm if there are unsaved pending comments.
 
 ### 11.2 `comment resolve`
 
-Sin ID, puede abrir una selección interactiva de pendientes. Con ID, marca el comentario como resuelto después de solicitar o recibir los datos de resolución necesarios.
+Without an ID, it can open an interactive selection of pending comments. With an ID, it marks the comment as resolved after requesting or receiving the required resolution data.
 
-Para integración con agentes, deberá existir una salida legible por máquina:
+For agent integration, a machine-readable output must exist:
 
 ```bash
 comment list --status pending --json
@@ -565,15 +565,15 @@ comment show pf_01K7A --json
 comment resolve pf_01K7A --summary "..." --file src/App.tsx
 ```
 
-## 12. API local inicial
+## 12. Initial local API
 
-Base sugerida:
+Suggested base:
 
 ```text
 http://127.0.0.1:45800
 ```
 
-Rutas conceptuales:
+Conceptual routes:
 
 ```text
 GET    /api/health
@@ -593,188 +593,188 @@ POST   /api/projects/:id/collections
 GET    /api/events
 ```
 
-La API no debe aceptar rutas absolutas enviadas por el overlay. Debe recibir un `projectId` y resolver internamente la raíz registrada.
+The API must not accept absolute paths sent by the overlay. It must receive a `projectId` and resolve the registered root internally.
 
-## 13. Extensión de Chrome
+## 13. Chrome extension
 
 ### 13.1 Manifest V3
 
-Permisos mínimos previstos:
+Planned minimum permissions:
 
 - `activeTab`;
 - `scripting`;
 - `storage`;
-- permisos opcionales para hosts locales cuando sean necesarios.
+- optional permissions for local hosts when needed.
 
-No se debe pedir acceso global a todos los sitios si el flujo puede funcionar mediante autorización temporal de la pestaña activa.
+Global access to all sites must not be requested if the flow can work through temporary authorization of the active tab.
 
-### 13.2 Estados
-
-```text
-OFF        vista normal
-SELECTING  inspección visual activa
-EDITING    formulario de comentario abierto
-SAVING     envío al servidor local
-SAVED      confirmación breve
-ERROR      error recuperable
-```
-
-### 13.3 Aislamiento
-
-La UI del overlay debe vivir en un Shadow Root. Sus estilos no deben depender del CSS del sitio. Debe usar una capa superior controlada y evitar bloquear la aplicación cuando el modo esté apagado.
-
-### 13.4 Atajos iniciales
-
-Los atajos serán configurables. Propuesta inicial:
+### 13.2 States
 
 ```text
-Alt + C       activar o desactivar comentarios
-Escape        cancelar selección o cerrar formulario
-Enter         guardar cuando el formulario está activo
+OFF        normal view
+SELECTING  visual inspection active
+EDITING    comment form open
+SAVING     sending to the local server
+SAVED      brief confirmation
+ERROR      recoverable error
 ```
 
-Los atajos no deben ejecutarse mientras el usuario escribe, salvo Escape y las combinaciones explícitas.
+### 13.3 Isolation
 
-### 13.5 Capa de comentarios por defecto
+The overlay UI must live in a Shadow Root. Its styles must not depend on the site's CSS. It must use a controlled top layer and avoid blocking the application when the mode is off.
 
-La capa de comentarios está **activa por defecto** en las páginas de proyectos registrados. El popup dispone de un switch global para encenderla o apagarla (preferencia persistente en `storage.local`). Al apagarla:
+### 13.4 Initial shortcuts
 
-- el overlay se oculta completamente;
-- los atajos no se ejecutan;
-- permite interactuar con la página normalmente sin interferencias.
+Shortcuts will be configurable. Initial proposal:
 
-La activación/desactivación es instantánea mediante mensajes entre content script y service worker.
+```text
+Alt + C       enable or disable comments
+Escape        cancel selection or close the form
+Enter         save when the form is active
+```
 
-### 13.6 Selección y localización futura
+Shortcuts must not fire while the user is typing, except Escape and explicit combinations.
 
-El MVP será agnóstico al framework y utilizará DOM. Debe conservar múltiples pistas:
+### 13.5 Comment layer on by default
 
-- atributos `data-testid`, `id` y ARIA;
-- selector CSS estructural;
-- texto normalizado;
+The comment layer is **on by default** on pages of registered projects. The popup has a global switch to turn it on or off (a persistent preference in `storage.local`). When turned off:
+
+- the overlay is completely hidden;
+- shortcuts do not run;
+- the page can be used normally without interference.
+
+Toggling is instant through messages between the content script and the service worker.
+
+### 13.6 Selection and future localization
+
+The MVP will be framework-agnostic and will use the DOM. It must keep multiple hints:
+
+- `data-testid`, `id`, and ARIA attributes;
+- structural CSS selector;
+- normalized text;
 - tag name;
-- fragmento HTML;
-- ruta;
-- geometría aproximada;
-- captura.
+- HTML fragment;
+- route;
+- approximate geometry;
+- screenshot.
 
-En fases posteriores se podrán incorporar adaptadores para localizar el archivo fuente en React, Angular u otros frameworks. Esa capacidad no es requisito del primer MVP.
+In later phases, adapters may be added to locate the source file in React, Angular, or other frameworks. This capability is not a requirement of the first MVP.
 
 ## 14. Dashboard
 
-### 14.1 Organización visual
+### 14.1 Visual layout
 
 ```text
-┌ Proyectos ──────┬ Comentarios ───────────────┬ Detalle ─────────────┐
-│ ContentOEP   7  │ Inicio                 3   │ Reducir espacio      │
-│ ACME          2 │ Planes                 4   │                      │
-│ Portfolio     0 │ Login                  2   │ captura y contexto   │
-│                 │                           │ estado y acciones     │
+┌ Projects ───────┬ Comments ──────────────────┬ Detail ──────────────┐
+│ ContentOEP   7  │ Home                   3   │ Reduce spacing       │
+│ ACME          2 │ Plans                  4   │                      │
+│ Portfolio     0 │ Login                  2   │ screenshot & context │
+│                 │                           │ status and actions    │
 └─────────────────┴───────────────────────────┴───────────────────────┘
 ```
 
-El preview o contexto del comentario debe ser protagonista. Los paneles laterales podrán plegarse. La interfaz no debe convertirse en una cuadrícula genérica de tarjetas.
+The comment's preview or context must be the protagonist. The side panels may collapse. The interface must not turn into a generic card grid.
 
-### 14.2 Capacidades mínimas
+### 14.2 Minimum capabilities
 
-- selección de proyecto;
-- estado del servidor;
-- enlace para abrir la aplicación;
-- selector de colección;
-- búsqueda por texto, ruta e ID;
-- filtros por estado;
-- editor de comentario;
-- movimiento entre colecciones;
-- resolución y reapertura;
-- captura de pantalla;
-- visualización segura del HTML como texto;
-- actualización en tiempo real.
+- project selection;
+- server status;
+- link to open the application;
+- collection selector;
+- search by text, route, and ID;
+- status filters;
+- comment editor;
+- moving between collections;
+- resolving and reopening;
+- screenshot;
+- safe display of HTML as text;
+- real-time updates.
 
-## 15. Seguridad
+## 15. Security
 
-Perfect Front puede escribir en repositorios y ejecutar comandos, por lo que debe tratarse como herramienta local privilegiada.
+Perfect Front can write to repositories and run commands, so it must be treated as a privileged local tool.
 
-Reglas mínimas:
+Minimum rules:
 
-1. Escuchar por defecto únicamente en `127.0.0.1`.
-2. No aceptar conexiones desde la LAN salvo configuración explícita.
-3. Reconocer la extensión oficial por su ID fijo (`Origin: chrome-extension://<EXTENSION_ID>`), impuesto por el navegador. Sin token para ese rol; solo puede consultar health, listar proyectos, comentarios y eventos.
-4. Emitir un token de sesión local al iniciar para CLI y dashboard; requerido para registrar proyectos, controlar procesos y funciones administrativas. Cualquier otro origen de extensión recibe 403.
-5. Validar `Origin` y `Host`.
-6. No recibir rutas de filesystem arbitrarias desde páginas observadas.
-7. Resolver todos los destinos debajo de la raíz registrada.
-8. Rechazar traversals como `../` y enlaces que escapen de la raíz.
-9. Sanitizar HTML y mostrarlo como código, nunca ejecutarlo.
-10. Limitar tamaños de comentarios, HTML y capturas.
-11. No ejecutar scripts enviados por una página o un comentario.
-12. Diferenciar procesos iniciados por Perfect Front de procesos externos.
+1. Listen only on `127.0.0.1` by default.
+2. Do not accept LAN connections unless explicitly configured.
+3. Recognize the official extension by its fixed ID (`Origin: chrome-extension://<EXTENSION_ID>`), enforced by the browser. No token for that role; it can only query health and list projects, comments, and events.
+4. Issue a local session token at startup for the CLI and dashboard; required to register projects, control processes, and use administrative functions. Any other extension origin receives 403.
+5. Validate `Origin` and `Host`.
+6. Do not receive arbitrary filesystem paths from observed pages.
+7. Resolve all destinations under the registered root.
+8. Reject traversals such as `../` and links that escape the root.
+9. Sanitize HTML and display it as code, never execute it.
+10. Limit the sizes of comments, HTML, and screenshots.
+11. Do not run scripts sent by a page or a comment.
+12. Distinguish processes started by Perfect Front from external processes.
 
-Los mensajes provenientes de content scripts deben considerarse no confiables y validarse de nuevo en el servidor local.
+Messages coming from content scripts must be considered untrusted and validated again on the local server.
 
-### 15.1 Modelo de confianza
+### 15.1 Trust model
 
-No hay emparejamiento por código. El servidor reconoce a la extensión oficial únicamente por su ID fijo (`OFFICIAL_EXTENSION_ID` en `packages/shared/src/messages.ts`). El origen `chrome-extension://<ID>` es impuesto por el navegador y una página web no puede falsificarlo.
+There is no code pairing. The server recognizes the official extension solely by its fixed ID (`OFFICIAL_EXTENSION_ID` in `packages/shared/src/messages.ts`). The `chrome-extension://<ID>` origin is enforced by the browser and a web page cannot forge it.
 
-**Riesgo residual aceptado:** Un proceso local ejecutado por el mismo usuario (no navegador) podría forjar el header `Origin` para acceder a endpoints de solo lectura (health, listar proyectos, comentarios, eventos). Este proceso ya posee los privilegios del usuario sobre los archivos del proyecto, por lo que el riesgo adicional es mínimo. Endpoints administrativos (registrar, controlar procesos) requieren token de sesión.
+**Accepted residual risk:** A local process run by the same user (not a browser) could forge the `Origin` header to access read-only endpoints (health, list projects, comments, events). That process already has the user's privileges over the project files, so the additional risk is minimal. Administrative endpoints (register, control processes) require a session token.
 
-**IDs de desarrollo:** Solo por configuración explícita en `PF_EXTENSION_IDS` (variable de entorno o archivo `.perfect-front/config.json`). No se detectan automáticamente.
+**Development IDs:** Only through explicit configuration in `PF_EXTENSION_IDS` (environment variable or `.perfect-front/config.json` file). They are not detected automatically.
 
-## 16. Manejo de procesos
+## 16. Process management
 
-Cada proceso administrado debe registrar:
+Each managed process must record:
 
-- ID del proyecto;
+- project ID;
 - PID;
-- comando y argumentos separados;
-- directorio de trabajo;
-- hora de inicio;
-- URL confirmada;
-- puerto;
-- estado;
-- últimas líneas de salida;
-- si fue iniciado por Perfect Front.
+- command and arguments, separated;
+- working directory;
+- start time;
+- confirmed URL;
+- port;
+- status;
+- last lines of output;
+- whether it was started by Perfect Front.
 
-El servidor debe terminar solo los procesos que inició, salvo confirmación explícita para un proceso externo.
+The server must terminate only the processes it started, unless there is explicit confirmation for an external process.
 
-Al cerrar Perfect Front se definirá una política configurable:
+When closing Perfect Front, a configurable policy will be defined:
 
-- mantener servidores activos;
-- detener los servidores iniciados por Perfect Front;
-- preguntar desde el dashboard.
+- keep servers running;
+- stop the servers started by Perfect Front;
+- ask from the dashboard.
 
-## 17. Compatibilidad y límites iniciales
+## 17. Initial compatibility and limits
 
-### Incluido en el MVP
+### Included in the MVP
 
-- Windows como plataforma primaria;
-- Chrome o navegadores Chromium compatibles;
-- proyectos Vite;
+- Windows as the primary platform;
+- Chrome or compatible Chromium browsers;
+- Vite projects;
 - Next.js;
 - Angular;
-- HTML estático;
-- servidores locales HTTP;
-- comentarios de elemento y vista;
-- JSON individual por comentario;
-- colecciones físicas;
-- dashboard local;
-- exportación Markdown.
+- static HTML;
+- local HTTP servers;
+- element and view comments;
+- one JSON per comment;
+- physical collections;
+- local dashboard;
+- Markdown export.
 
-### Fuera del MVP
+### Out of the MVP
 
-- edición automática de clases o contenido;
-- modificación directa del código desde el overlay;
-- React Fiber y resolución precisa de componentes;
-- source maps avanzados;
-- sincronización en la nube;
-- colaboración multiusuario;
-- autenticación remota;
-- publicación obligatoria en Chrome Web Store;
-- soporte garantizado para iframes cross-origin;
-- aplicaciones remotas que no tengan una carpeta local asociada.
+- automatic editing of classes or content;
+- direct code modification from the overlay;
+- React Fiber and precise component resolution;
+- advanced source maps;
+- cloud sync;
+- multi-user collaboration;
+- remote authentication;
+- mandatory publication on the Chrome Web Store;
+- guaranteed support for cross-origin iframes;
+- remote applications that have no associated local folder.
 
-## 18. Estructura futura del repositorio
+## 18. Future repository structure
 
-El repositorio está inicialmente vacío salvo esta especificación. Al implementar, la estructura propuesta es:
+The repository is initially empty except for this specification. When implemented, the proposed structure is:
 
 ```text
 perfect-front/
@@ -792,129 +792,133 @@ perfect-front/
 └── package.json
 ```
 
-Una alternativa válida es iniciar con menos paquetes y separar responsabilidades cuando el código lo justifique. La arquitectura lógica es obligatoria; la fragmentación física exacta puede evolucionar.
+A valid alternative is to start with fewer packages and split responsibilities when the code justifies it. The logical architecture is mandatory; the exact physical fragmentation may evolve.
 
-## 19. Fases de implementación
+## 19. Implementation phases
 
-### Fase 1 — Núcleo local
+### Phase 1 — Local core
 
-- CLI `comment`;
-- detección de raíz;
-- detección de Vite;
-- servidor local;
-- registro de proyecto;
-- almacenamiento de un JSON por comentario;
-- endpoints de comentarios;
-- dashboard mínimo de lectura.
+- `comment` CLI;
+- root detection;
+- Vite detection;
+- local server;
+- project registration;
+- one-JSON-per-comment storage;
+- comment endpoints;
+- minimal read-only dashboard.
 
-### Fase 2 — Extensión y overlay
+### Phase 2 — Extension and overlay
 
-- extensión Manifest V3 cargable como unpacked;
-- activación por pestaña;
-- overlay con Shadow DOM;
-- selección de elemento;
-- creación de comentario;
-- captura opcional;
-- actualización en tiempo real.
+- Manifest V3 extension loadable as unpacked;
+- per-tab activation;
+- overlay with Shadow DOM;
+- element selection;
+- comment creation;
+- optional capture;
+- real-time updates.
 
-### Fase 3 — Gestión completa
+### Phase 3 — Full management
 
-- edición;
-- colecciones;
-- movimiento individual y por lote;
-- resolución, reapertura e ignorado;
-- búsqueda y filtros;
-- exportación Markdown;
-- navegación desde comentario hasta la ruta.
+- editing;
+- collections;
+- individual and batch moves;
+- resolving, reopening, and ignoring;
+- search and filters;
+- Markdown export;
+- navigation from a comment to its route.
 
-### Fase 4 — Más tipos de proyecto
+### Phase 4 — More project types
 
 - Next.js;
 - Angular;
-- HTML estático;
-- servidores existentes y configuración manual;
-- detección mejorada de URL y puerto.
+- static HTML;
+- existing servers and manual configuration;
+- improved URL and port detection.
 
-### Fase 5 — Integración con agentes
+### Phase 5 — Agent integration
 
-- salida CLI JSON;
-- comandos no interactivos;
-- contrato para tomar y resolver comentarios;
-- registro de archivos modificados y verificaciones;
-- adaptadores opcionales para localizar archivos fuente.
+- JSON CLI output;
+- non-interactive commands;
+- contract for claiming and resolving comments;
+- recording of modified files and verifications;
+- optional adapters to locate source files.
 
-## 20. Criterios de aceptación del primer MVP
+## 20. Acceptance criteria for the first MVP
 
-El MVP se considera funcional cuando:
+The MVP is considered functional when:
 
-1. En un proyecto Vite nuevo, ejecutar `comment` inicia o detecta Vite.
-2. Se abre la aplicación en Chrome.
-3. La extensión puede activar y desactivar el overlay.
-4. Se puede seleccionar un elemento y escribir un comentario.
-5. Se crea exactamente un archivo JSON válido en `comments/inbox/`.
-6. El dashboard muestra el comentario sin recargar manualmente.
-7. El comentario puede editarse.
-8. Puede moverse a otra colección sin duplicarse.
-9. Puede marcarse como resuelto y conservar datos de resolución.
-10. Reiniciar Perfect Front no pierde proyectos configurados ni comentarios.
-11. La aplicación Vite no requiere cambios de código o configuración.
-12. Perfect Front no escribe fuera de `.perfect-front/` salvo acciones futuras explícitamente autorizadas.
+1. In a new Vite project, running `comment` starts or detects Vite.
+2. The application opens in Chrome.
+3. The extension can enable and disable the overlay.
+4. An element can be selected and a comment written.
+5. Exactly one valid JSON file is created in `comments/inbox/`.
+6. The dashboard shows the comment without a manual reload.
+7. The comment can be edited.
+8. It can be moved to another collection without being duplicated.
+9. It can be marked as resolved and keep its resolution data.
+10. Restarting Perfect Front does not lose configured projects or comments.
+11. The Vite application requires no code or configuration changes.
+12. Perfect Front does not write outside `.perfect-front/` except for explicitly authorized future actions.
 
-## 21. Decisiones confirmadas
+## 21. Confirmed decisions
 
-### Arquitectura y producto
+### Architecture and product
 
-- El producto funciona en el navegador, no en Electron.
-- Existe una extensión de Chrome para alternar la capa de comentarios.
-- Existe un servidor Node.js local para procesos y filesystem.
-- Existe un dashboard web local en un puerto estable.
-- El comando principal se llama `comment`.
-- `comment` se ejecuta desde la raíz del proyecto.
-- Vite es una compatibilidad prioritaria.
-- No se modifica la aplicación observada para instalar el overlay.
-- Los comentarios viven dentro del proyecto observado.
-- JSON es la fuente de verdad.
-- Cada comentario vive en un archivo JSON separado.
-- Las colecciones son carpetas físicas.
-- Mover un comentario mueve su archivo, sin copiarlo.
-- Markdown es una exportación opcional, no almacenamiento paralelo.
-- La primera versión comenta; no edita automáticamente el código visual.
+- The product runs in the browser, not in Electron.
+- A Chrome extension exists to toggle the comment layer.
+- A local Node.js server exists for processes and the filesystem.
+- A local web dashboard exists on a stable port.
+- The main command is called `comment`.
+- `comment` is run from the project root.
+- Vite is a priority compatibility target.
+- The observed application is not modified to install the overlay.
+- Comments live inside the observed project.
+- JSON is the source of truth.
+- Each comment lives in a separate JSON file.
+- Collections are physical folders.
+- Moving a comment moves its file, without copying it.
+- Markdown is an optional export, not parallel storage.
+- The first version comments; it does not automatically edit the visual code.
 
-### Decisiones técnicas confirmadas durante implementación
+### Technical decisions confirmed during implementation
 
-| Decisión | Elección | Motivo |
+| Decision | Choice | Rationale |
 |---|---|---|
-| Servidor HTTP | Hono + @hono/node-server | Ligero, Web Standards, proceso local Node. |
-| Bundler (extensión MV3 y dashboard) | Vite | Mismo bundler para toda la toolchain. |
-| Canal de eventos | Server-Sent Events (SSE) | Simplicidad unidireccional, sin necesidad bidireccional identificada. |
-| Validación de esquemas | Zod 4 con tipos inferidos | Sintaxis declarativa, inferencia de tipos en packages/shared. |
-| Testing unitario e integración | Vitest | Ecosistema moderno, soporte TypeScript. |
-| Testing E2E | Playwright | Pendiente de implementación (fase 7). |
-| Orquestación de monorepo | pnpm recursivo | Sin Turbo por ahora; escalable cuando sea necesario. |
-| Linter | ESLint flat config + typescript-eslint | TypeScript 6.x (v7 no es soportada aún por typescript-eslint). |
-| Estilos de UI | packages/design-tokens | Fuente única: tokens CSS (--pf-*), clases utilitarias (.pf-*), aislamiento Shadow DOM en overlay. |
-| CLI en desarrollo | node --import tsx | Hasta que exista build optimizado (fase 11). |
-| Autenticación de extensión | ID fijo + Origin, sin token | Navegador impone `Origin: chrome-extension://<ID>` no falsificable por web; rol extensión sin privilegios administrativos. |
-| Descubrimiento de servidores | Escaneo puertos 45800–45820, GET /api/health | Sin emparejamiento por código; automático, descentralizado. |
-| Capa de comentarios | Activa por defecto, switch global persistente | Mejora UX en páginas registradas; usuario elige desactivar. |
-| HTML estático | index.html prioritario; selector si múltiples | Determinismo sin configuración manual cuando existe index.html. |
-| Modo de ejecución | Primer plano, Ctrl+C apaga todo | Simplicidad operacional; sin demonización inicial. |
+| HTTP server | Hono + @hono/node-server | Lightweight, Web Standards, local Node process. |
+| Bundler (MV3 extension and dashboard) | Vite | Same bundler for the whole toolchain. |
+| Event channel | Server-Sent Events (SSE) | One-way simplicity, no bidirectional need identified. |
+| Schema validation | Zod 4 with inferred types | Declarative syntax, type inference in packages/shared. |
+| Unit and integration testing | Vitest | Modern ecosystem, TypeScript support. |
+| E2E testing | Playwright | Pending implementation (phase 7). |
+| Monorepo orchestration | Recursive pnpm | No Turbo for now; scalable when needed. |
+| Linter | ESLint flat config + typescript-eslint | TypeScript 6.x (v7 is not yet supported by typescript-eslint). |
+| UI styles | packages/design-tokens | Single source: CSS tokens (--pf-*), utility classes (.pf-*), Shadow DOM isolation in the overlay. |
+| CLI in development | node --import tsx | Until an optimized build exists (phase 11). |
+| Extension authentication | Fixed ID + Origin, no token | The browser enforces `Origin: chrome-extension://<ID>`, which the web cannot forge; the extension role has no administrative privileges. |
+| Server discovery | Port scan 45800–45820, GET /api/health | No code pairing; automatic, decentralized. |
+| Comment layer | On by default, persistent global switch | Better UX on registered pages; the user chooses to turn it off. |
+| Static HTML | index.html first; selector if multiple | Determinism without manual configuration when index.html exists. |
+| Execution mode | Foreground, Ctrl+C shuts everything down | Operational simplicity; no initial daemonization. |
 
-## 22. Decisiones pendientes para la implementación
+## 22. Open decisions for implementation
 
-Estas decisiones no bloquean la especificación conceptual, pero deben cerrarse antes o durante el scaffold:
+These decisions do not block the conceptual specification, but must be settled before or during scaffolding:
 
-1. Nombre publicable del paquete npm y disponibilidad del binario `comment`.
-2. Puerto fijo definitivo o estrategia de fallback si `45800` está ocupado.
-3. ✓ **Resuelto:** Uso de Server-Sent Events (SSE) como canal de eventos.
-4. ✓ **Resuelto:** Framework exacto del dashboard: React + Vite.
-5. ✓ **Resuelto:** Herramienta de build de la extensión: Vite.
-6. Política predeterminada de `.gitignore` para `.perfect-front/`.
-7. Si las capturas se habilitan por defecto.
-8. Estrategia de identificación estable de proyectos entre sesiones.
-9. Comportamiento cuando una colección se renombra mientras el dashboard está abierto.
-10. Forma de distribución inicial de la extensión: unpacked, paquete ZIP o Chrome Web Store.
+1. Publishable npm package name and availability of the `comment` binary.
+2. Final fixed port or fallback strategy if `45800` is taken.
+3. ✓ **Resolved:** Use Server-Sent Events (SSE) as the event channel.
+4. ✓ **Resolved:** Exact dashboard framework: React + Vite.
+5. ✓ **Resolved:** Extension build tool: Vite.
+6. Default `.gitignore` policy for `.perfect-front/`.
+7. Whether screenshots are enabled by default.
+8. Strategy for stable project identification across sessions.
+9. Behavior when a collection is renamed while the dashboard is open.
+10. Initial extension distribution: unpacked, ZIP package, or Chrome Web Store.
 
-## 23. Visión posterior
+## 23. Future vision
 
-Después del MVP, Perfect Front puede convertirse en una capa común de comunicación entre la interfaz renderizada y herramientas de desarrollo. Adaptadores opcionales podrían localizar componentes y archivos fuente, abrir el editor en una línea concreta o entregar comentarios estructurados a agentes. Estas capacidades deben construirse sobre el formato estable de comentarios, sin reemplazarlo ni acoplar el núcleo a un framework específico.
+After the MVP, Perfect Front can become a common communication layer between the rendered interface and development tools. Optional adapters could locate components and source files, open the editor at a specific line, or deliver structured comments to agents. These capabilities must be built on top of the stable comment format, without replacing it or coupling the core to a specific framework.
+
+---
+
+> **Status:** v2 overlay schema (§6.3) lives on branch `feat/overlay-v2` and is not yet merged.

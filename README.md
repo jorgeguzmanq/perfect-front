@@ -2,44 +2,44 @@
 
 # Perfect Front
 
-**Revisión visual local para proyectos web.**
-Abre tu app, toca un elemento, di qué cambiar. Cada comentario queda como un archivo JSON dentro de tu proyecto, listo para que una persona o un agente de código lo procese.
+**Local visual review for web projects.**
+Open your app, tap an element, say what should change. Each comment lands as a JSON file inside your project, ready for a person or a coding agent to process.
 
-[Sitio](https://jorgeguzmanq.github.io/perfect-front/) · [Prototipo de la capa v2](https://jorgeguzmanq.github.io/perfect-front/overlay-layer-v2.html) · [Especificación](./SPEC.md) · [Plan](./PLAN.md)
+[Site](https://jorgeguzmanq.github.io/perfect-front/) · [Usage manual](https://jorgeguzmanq.github.io/perfect-front/manual.html) · [Specification](./SPEC.md) · [Plan](./PLAN.md)
 
 </div>
 
 ---
 
-## Por qué
+## Why
 
-El feedback visual suele vivir lejos del código: capturas en un chat, notas sueltas, tickets sin contexto. Perfect Front lo captura **donde ocurre** (en la página renderizada) y lo guarda **donde se usa** (en la carpeta del proyecto).
+Visual feedback usually lives far from the code: screenshots in a chat, loose notes, tickets with no context. Perfect Front captures it **where it happens** (on the rendered page) and stores it **where it is used** (in the project folder).
 
-- **Sin tocar tu app.** No hay imports, plugins ni componentes que agregar al proyecto observado.
-- **Cualquier framework.** Vite, Next.js, Angular o HTML estático.
-- **El proyecto es dueño de sus comentarios.** Un comentario = un archivo en `.perfect-front/`. Sin nube, sin cuenta, sin base de datos externa.
-- **Pensado para agentes.** CLI con salida `--json` estable, bloqueo optimista y códigos de salida documentados.
-- **Contexto suficiente para reencontrar el elemento:** selector, archivo y línea, ruta, y captura opcional.
+- **No changes to your app.** No imports, plugins, or components to add to the observed project.
+- **Any framework.** Vite, Next.js, Angular, or static HTML.
+- **The project owns its comments.** One comment = one file in `.perfect-front/`. No cloud, no account, no external database.
+- **Built for agents.** CLI with stable `--json` output, optimistic locking, and documented exit codes.
+- **Enough context to find the element again:** selector, file and line, route, and an optional screenshot.
 
-## Cómo funciona
+## How it works
 
 ```text
- tu dev server ──► proxy local ──► navegador
-                     │  inyecta /__pf/overlay.js
-                     ▼
-               servidor local ──► <proyecto>/.perfect-front/*.json
-                     ▲
-        dashboard · CLI · agentes
+ your dev server ──► local proxy ──► browser
+                       │  injects /__pf/overlay.js
+                       ▼
+                 local server ──► <project>/.perfect-front/*.json
+                       ▲
+          dashboard · CLI · agents
 ```
 
-1. `perfect-front` (alias `comment`) detecta el proyecto, inicia o reutiliza su dev server y levanta el servidor local.
-2. Un proxy se coloca delante del dev server e inyecta la capa de comentarios en el HTML.
-3. Alt+clic sobre un elemento (o <kbd>Ctrl/Cmd</kbd>+<kbd>Mayús</kbd>+<kbd>C</kbd>) abre el editor.
-4. El comentario se guarda como JSON en el proyecto. El dashboard y la CLI permiten leerlo, organizarlo y resolverlo.
+1. `perfect-front` (alias `comment`) detects the project, starts or reuses its dev server, and brings up the local server.
+2. A proxy sits in front of the dev server and injects the comment layer into the HTML.
+3. Alt+click on an element (or <kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>) opens the editor.
+4. The comment is saved as JSON in the project. The dashboard and the CLI let you read, organize, and resolve it.
 
-## Inicio rápido
+## Quick start
 
-Requisitos: **Node.js ≥ 22** y **pnpm ≥ 11**.
+Requirements: **Node.js ≥ 22** and **pnpm ≥ 11**.
 
 ```bash
 git clone https://github.com/jorgeguzmanq/perfect-front.git
@@ -48,28 +48,37 @@ pnpm install
 pnpm build
 ```
 
-Desde la raíz del proyecto que quieras revisar:
+From the root of the project you want to review:
 
 ```bash
-perfect-front            # o: comment
+perfect-front            # or: comment
 ```
 
-Opciones útiles: `--no-open`, `--no-proxy`, `--server-port <n>`, `--detach`. Subcomandos: `start`, `stop`, `status`, `logs`, `list`, `show`, `claim`, `resolve`, `export`. Detalle en [`packages/cli`](./packages/cli/README.md).
+Useful options: `--no-open`, `--no-proxy`, `--server-port <n>`, `--detach`. Subcommands: `start`, `stop`, `status`, `logs`, `list`, `show`, `claim`, `resolve`, `export`. Details in [`packages/cli`](./packages/cli/README.md). The full walkthrough is in the [Usage manual](https://jorgeguzmanq.github.io/perfect-front/manual.html).
 
-### Flujo en la capa
+### In-layer flow
 
-| Acción | Resultado |
+| Action | Result |
 |---|---|
-| Alt+clic / <kbd>Ctrl/Cmd+Mayús+C</kbd> | Modo selección |
-| ↑ / ↓ | Padre / hijo del elemento |
-| <kbd>Ctrl/Cmd+Enter</kbd> | Guardar |
-| **Guardar** | Se guarda y queda listo para elegir **otro** elemento, sin pasos extra |
-| **Eliminar elemento** | Guarda un comentario «Eliminar este elemento.» (con nota opcional) |
-| <kbd>Esc</kbd> | Salir |
+| Alt+click / <kbd>Ctrl/Cmd+Shift+C</kbd> | Selection mode |
+| ↑ / ↓ | Parent / child of the element |
+| <kbd>Ctrl/Cmd+Enter</kbd> | Save |
+| **Save** | Saves, and the layer is ready to pick **another** element with no extra steps |
+| **Delete element** | Saves a "delete this element" comment (with an optional note); it never edits your code |
+| **Capture ▾ → Selected node** / <kbd>Alt+Shift+S</kbd> | Node capture at 1×–4× (one or several scales), showing the real pixel size of each |
+| Paste / drop / **Open…** | Attach images (up to 20 per comment) |
+| <kbd>Esc</kbd> | Exit |
 
-## Trabajar con agentes de código
+Capture details:
 
-Los comentarios se procesan sin servidor ni navegador:
+- Each scale is **re-rendered** at that pixel density, not upscaled from a smaller image.
+- Capture is flicker-free: the layer hides itself while capturing so it never appears in the image.
+- Captures can be **copied to the clipboard** or **downloaded** as PNG, and attached to the comment like any other image.
+- A single comment can hold **several sections**, so one note can cover different parts of the page.
+
+## Working with coding agents
+
+Comments are processed without a server or a browser:
 
 ```bash
 perfect-front list --json
@@ -77,46 +86,50 @@ perfect-front claim <id>
 perfect-front resolve <id>
 ```
 
-El contrato completo y un bloque para pegar en el `CLAUDE.md` de tu proyecto están en [`packages/cli/AGENTS.md`](./packages/cli/AGENTS.md).
+The full contract and a block to paste into your project's `CLAUDE.md` are in [`packages/cli/AGENTS.md`](./packages/cli/AGENTS.md).
 
-## Estructura
+## Repository layout
 
 ```text
-apps/dashboard            Centro web de proyectos y comentarios
-apps/extension            Extensión Chrome (Manifest V3)
-packages/cli              Binario perfect-front / comment
-packages/local-server     API local, eventos y procesos
-packages/proxy            Proxy que inyecta la capa
-packages/overlay          Capa visual inyectada en las páginas
-packages/project-detector Detección de frameworks, comandos y puertos
-packages/comment-storage  Persistencia de comentarios y colecciones
-packages/shared           Contratos y esquemas compartidos
-packages/design-tokens    Tokens y estilos base
+apps/dashboard            Web hub for projects and comments
+apps/extension            Chrome extension (Manifest V3)
+packages/cli              perfect-front / comment binary
+packages/local-server     Local API, events, and processes
+packages/proxy            Proxy that injects the layer
+packages/overlay          Visual layer injected into pages
+packages/project-detector Framework, command, and port detection
+packages/comment-storage  Comment and collection persistence
+packages/shared           Shared contracts and schemas
+packages/design-tokens    Tokens and base styles
 ```
 
-## Hoja de ruta: capa v2
+## Roadmap: overlay v2
 
-Un [prototipo interactivo](https://jorgeguzmanq.github.io/perfect-front/overlay-layer-v2.html) define la siguiente versión de la capa. Su regla: **cada zona responde una sola pregunta**, y las funciones aparecen solo cuando tienen sentido.
+Branch: `feat/overlay-v2` (not yet merged). Its rule: **every zone answers a single question**, and features appear only when they make sense. The [Usage manual](https://jorgeguzmanq.github.io/perfect-front/manual.html) shows the layer in action.
 
-| Verbo | Pregunta | Funciones |
+| Verb | Question | Features |
 |---|---|---|
-| **Apuntar** | ¿A qué nodos me refiero? | navegación en 4 direcciones, selección múltiple, reordenar hermanos, copiar ubicación |
-| **Describir** | ¿Qué debería cambiar? | texto e i18n, **imágenes** (pegar, soltar, abrir), estilos propuestos |
-| **Organizar** | ¿Con qué otros se entiende? | grupos, cola de lectura, cajón de comentarios |
+| **Point** | Which nodes do I mean? | 4-direction navigation, multi-select, reorder siblings (as a proposal), copy location |
+| **Describe** | What should change? | text and i18n proposals (before → after), **images** (paste, drop, open; up to 20), node capture 1×–4×, style proposals, several sections per comment |
+| **Organize** | Which others does it belong with? | groups, reading queue, comments drawer |
 
-Principios: los cambios se **proponen** (antes → después) y nunca modifican el código; todo es previsualizable y reversible; los estilos distinguen entre *editable* y *foundation* según el origen de cada regla.
+Principles: changes are **proposed** (before → after) and never modify your code; everything is previewable and reversible; styles distinguish *editable* from *foundation* depending on where each rule comes from.
 
-## Desarrollo
+## Development
 
 ```bash
-pnpm dev          # servidores de desarrollo
+pnpm dev          # development servers
 pnpm typecheck
 pnpm lint
 pnpm test
 ```
 
-Más en [`CONTRIBUTING.md`](./CONTRIBUTING.md). Las decisiones de producto y arquitectura viven en [`SPEC.md`](./SPEC.md).
+More in [`CONTRIBUTING.md`](./CONTRIBUTING.md). Product and architecture decisions live in [`SPEC.md`](./SPEC.md).
 
-## Estado
+## Status
 
-En desarrollo activo. El CLI, el servidor local, el proxy, la capa, el dashboard y la extensión funcionan; la capa v2 está en diseño.
+Under active development. The CLI, local server, proxy, layer, dashboard, and extension work; overlay v2 is on the `feat/overlay-v2` branch and is not yet merged.
+
+---
+
+Made by Jorge Guzmán — https://www.jorgegz.com
