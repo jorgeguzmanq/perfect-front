@@ -21,6 +21,21 @@ function quote(text: string): string {
     .join("\n");
 }
 
+function describeProposal(p: VisualComment["proposals"][number]): string {
+  const on = p.targetSelector ?? "elemento principal";
+  switch (p.kind) {
+    case "text_fixed":
+    case "text_dynamic":
+      return `Texto en ${on}: "${p.before}" -> "${p.after}"`;
+    case "text_i18n":
+      return `i18n ${p.key} (${on}): ${p.locales.map((l) => `${l.locale}: "${l.before ?? ""}" -> "${l.after}"`).join("; ")}`;
+    case "style":
+      return `Estilo en ${on}: ${p.changes.map((c) => `${c.property} ${c.before} -> ${c.after} [${c.origin}]`).join("; ")}`;
+    case "reorder":
+      return `Reordenar ${on}: mover de ${p.from} a ${p.to}`;
+  }
+}
+
 function renderComment(c: VisualComment): string {
   const lines: string[] = [];
   lines.push(`### ${c.id}`);

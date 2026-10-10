@@ -9,6 +9,7 @@ export interface PinComment {
   comment: string;
   location: { route: string; selector: string | null; selectorCandidates?: string[] };
   elementRect?: unknown;
+  group?: { id: string; position: number } | null;
   createdAt?: string;
 }
 

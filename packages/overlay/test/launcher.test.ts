@@ -162,9 +162,9 @@ describe('lanzador', () => {
     expect(api.state).toBe('EDITING');
   });
 
-  it('el lanzador se oculta durante la captura', async () => {
+  it('el lanzador NO se oculta durante la captura (sin parpadeo)', async () => {
     vi.resetModules();
-    let during = '';
+    let during = 'sin-llamar';
     vi.doMock('../src/capture', () => ({
       captureViewport: vi.fn(async () => {
         during = lhost()!.style.visibility;
@@ -175,11 +175,16 @@ describe('lanzador', () => {
     api = mod.bootPage({ token: 't', base: '/__pf', fetch: okFetch() });
     click(document.getElementById('b1')!, { altKey: true });
     const sr = ohost()!.shadowRoot!;
-    (sr.querySelector('#pf-ov-shot') as HTMLInputElement).checked = true;
-    (sr.querySelector('textarea') as HTMLTextAreaElement).value = 'x';
+    const ta = sr.querySelector('textarea') as HTMLTextAreaElement;
+    ta.value = 'x';
+    ta.dispatchEvent(new Event('input', { bubbles: true }));
+    (sr.querySelector('[aria-label="Captura de la página"]') as HTMLButtonElement).click();
+    await vi.waitFor(() => expect(during).toBe(''));
+    expect(lhost()!.style.visibility).toBe('');
+    await new Promise((r) => setTimeout(r, 20));
     Array.from(sr.querySelectorAll('button')).find((b) => b.textContent === 'Guardar')!.click();
     await vi.waitFor(() => expect(api!.state).toBe('SELECTING'));
-    expect(during).toBe('hidden');
+    expect(during).toBe('');
     expect(lhost()!.style.visibility).toBe('');
   });
 });

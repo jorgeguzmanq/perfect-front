@@ -1,7 +1,16 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import http from "node:http";
 import net from "node:net";
-import { CommentCreatedDataSchema, CreateCommentRequestSchema, PerfectFrontError, toErrorData } from "@perfect-front/shared";
+import {
+  CommentCreatedDataSchema,
+  CreateCommentRequestSchema,
+  CreateGroupRequestSchema,
+  PerfectFrontError,
+  ReorderGroupRequestSchema,
+  UpdateCommentRequestSchema,
+  UpdateGroupRequestSchema,
+  toErrorData,
+} from "@perfect-front/shared";
 import type { ErrorCode, PerfectFrontErrorData } from "@perfect-front/shared";
 import { buildSnippet, injectSnippet } from "./inject";
 
@@ -131,8 +140,8 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
 
   // --- cliente del servidor local ----------------------------------------------------------------------------
 
-  const callLocal = async (method: "GET" | "POST", body?: string): Promise<Record<string, unknown>> => {
-    const url = `${localServer.baseUrl.replace(/\/+$/, "")}/api/projects/${encodeURIComponent(projectId)}/comments`;
+  const callLocal = async (method: "GET" | "POST" | "PATCH" | "DELETE", body?: string, sub = "/comments"): Promise<Record<string, unknown>> => {
+    const url = `${localServer.baseUrl.replace(/\/+$/, "")}/api/projects/${encodeURIComponent(projectId)}${sub}`;
     let r: Response;
     try {
       r = await fetch(url, {
@@ -175,8 +184,33 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       comment: o.comment,
       location: { route: loc.route, selector: loc.selector ?? null, selectorCandidates: loc.selectorCandidates ?? [] },
       elementRect: o.elementRect ?? null,
+      group: o.group ?? null,
       createdAt: o.createdAt,
     };
+  };
+
+  /** Rutas dinámicas de grupos y PATCH de comentario; el id debe ser un token simple (sin `/`, `.` ni `%`). */
+  const ID = "([A-Za-z0-9_-]{1,128})";
+  type Dyn = { sub: string; schema?: { safeParse(v: unknown): { success: boolean; data?: unknown; error?: unknown } }; status: number };
+  const dynamicRoute = (pathname: string, method: string): Dyn | "method" | null => {
+    let m: RegExpExecArray | null;
+    if (pathname === "/__pf/groups") {
+      if (method === "GET") return { sub: "/groups", status: 200 };
+      if (method === "POST") return { sub: "/groups", schema: CreateGroupRequestSchema, status: 201 };
+      return "method";
+    }
+    if ((m = new RegExp(`^/__pf/groups/${ID}/reorder$`).exec(pathname))) {
+      return method === "POST" ? { sub: `/groups/${m[1]}/reorder`, schema: ReorderGroupRequestSchema, status: 200 } : "method";
+    }
+    if ((m = new RegExp(`^/__pf/groups/${ID}$`).exec(pathname))) {
+      if (method === "PATCH") return { sub: `/groups/${m[1]}`, schema: UpdateGroupRequestSchema, status: 200 };
+      if (method === "DELETE") return { sub: `/groups/${m[1]}`, status: 200 };
+      return "method";
+    }
+    if ((m = new RegExp(`^/__pf/comments/${ID}$`).exec(pathname))) {
+      return method === "PATCH" ? { sub: `/comments/${m[1]}`, schema: UpdateCommentRequestSchema, status: 200 } : "method";
+    }
+    return null;
   };
 
   const readBody = (req: http.IncomingMessage): Promise<Buffer> =>
@@ -222,6 +256,31 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       "/__pf/comments": "GET",
       "/__pf/comment": "POST",
     };
+    const dyn = Object.hasOwn(routes, pathname) ? null : dynamicRoute(pathname, method);
+    if (dyn === "method") return sendError(res, new PerfectFrontError("invalid_request", "Método no permitido"), 405);
+    if (dyn) {
+      if (!originAllowed(req)) return sendError(res, new PerfectFrontError("forbidden_origin", "Origen no permitido"));
+      if (!tokenValid(req)) return sendError(res, new PerfectFrontError("unauthorized", "Token del proxy ausente o inválido"));
+      try {
+        let payload: string | undefined;
+        if (dyn.schema) {
+          const raw = await readBody(req);
+          let parsedJson: unknown;
+          try {
+            parsedJson = JSON.parse(raw.toString("utf8"));
+          } catch {
+            throw new PerfectFrontError("invalid_request", "El cuerpo no es JSON válido");
+          }
+          const parsed = dyn.schema.safeParse(parsedJson);
+          if (!parsed.success) throw parsed.error;
+          payload = JSON.stringify(parsed.data);
+        }
+        const json = await callLocal(method as "GET" | "POST" | "PATCH" | "DELETE", payload, dyn.sub);
+        return sendJson(res, dyn.status, json);
+      } catch (e) {
+        return sendError(res, e);
+      }
+    }
     const allowed = Object.hasOwn(routes, pathname) ? routes[pathname] : undefined;
     if (!allowed) return sendError(res, new PerfectFrontError("not_found", "Ruta no encontrada"));
     if (method !== allowed) {

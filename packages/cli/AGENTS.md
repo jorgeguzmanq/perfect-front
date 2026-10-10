@@ -22,9 +22,14 @@ Binario: `perfect-front` (alias `comment`). Sin instalacion global: `node Z:\Dev
 | `move <id...> --to <coleccion>` | Mueve a una coleccion existente. |
 | `status <id> pending\|in_progress\|ignored\|archived` | Cambia el estado (para resolver usa `resolve`). `status` sin id es el estado del servidor. |
 | `ignore <id>` / `reopen <id>` | `ignored`; o vuelve a `pending` (limpia la resolucion y regresa a la coleccion por defecto si estaba en resolved/archived). |
+| `prompt [--copy] [--project <ruta>] [--json]` (alias `agent-prompt`) | Reimprime el PROMPT para pegar a un agente (rutas reales, como revisar/investigar/resolver). Sin servidor. Fuente unica: `buildAgentPrompt` en `src/agent-prompt.ts`; no se duplica aqui. |
 | `export --format md [--status s] [--collection c] [--out archivo.md]` | Markdown a stdout, o a un `.md` DENTRO de `.perfect-front` (relativo a esa carpeta; traversal, rutas externas y otras extensiones se rechazan con 2). |
 
 Bloqueo optimista: en `edit`, `move`, `resolve`, `ignore`, `reopen`, `claim` y `status` se puede pasar `--expect-updated-at <iso>` (alias `--rev`) con el `updatedAt` que leiste en `show`/`list`. Si el comentario cambio, falla con codigo 7 (`stale_revision`) sin modificar nada: vuelve a leerlo con `show` y decide de nuevo. (La comprobacion y la escritura no son atomicas entre procesos: reduce, no elimina, la carrera.)
+
+## Prompt para el agente
+
+`perfect-front` / `start` / `--detach` imprimen tras el resumen de arranque un bloque `───── PROMPT PARA TU AGENTE ─────` ... `───── FIN ─────` con los datos de la sesion (raiz, `.perfect-front`, adjuntos, `groups.json`, URL del proyecto y original). Con `--json` NO se imprime el bloque: el JSON de arranque trae el campo `agentPrompt` (texto). `--no-agent-prompt` lo omite. Nunca incluye el token del servidor ni `discovery.json`. Se genera solo en `buildAgentPrompt` (`src/agent-prompt.ts`).
 
 ## Codigos de salida (estables)
 

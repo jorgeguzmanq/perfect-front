@@ -7,6 +7,7 @@ export type {
   ListResult,
   MoveResult,
 } from "./service";
+export { GroupStorage } from "./groups";
 export { FsRepository } from "./repository";
 export { PF_DIR, STORAGE_LIMITS, isInside } from "./paths";
 export { renderMarkdown } from "./markdown";

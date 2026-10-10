@@ -145,6 +145,9 @@ export class FsRepository {
   get configFile(): string {
     return path.join(this.pfDir, "project.json");
   }
+  get groupsFile(): string {
+    return path.join(this.pfDir, "groups.json");
+  }
   attachmentFile(name: string): string {
     return path.join(this.pfDir, "attachments", assertPlainFileName(name));
   }

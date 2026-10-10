@@ -87,6 +87,13 @@ const key$ = (k: string, init: Record<string, unknown> = {}, t: EventTarget = do
 };
 const pick = (id: string) => fire(document.getElementById(id)!, 'click');
 const textarea = () => q<HTMLTextAreaElement>('textarea')!;
+/** El editor v2 lee el borrador del evento `input` (no del valor a pelo): se simula la escritura. */
+const typeIn = (v: string) => {
+  const ta = textarea();
+  ta.value = v;
+  ta.dispatchEvent(new Event('input', { bubbles: true }));
+};
+const camBtn = () => q<HTMLButtonElement>('[aria-label="Captura de la página"]');
 
 describe('estados', () => {
   it('OFF -> SELECTING -> EDITING -> SAVING -> SAVED -> OFF', async () => {
@@ -98,7 +105,7 @@ describe('estados', () => {
     expect(o.state).toBe('SELECTING');
     pick('b1');
     expect(o.state).toBe('EDITING');
-    textarea().value = 'cambiar color';
+    typeIn('cambiar color');
     btn('Guardar').click();
     expect(o.state).toBe('SAVING');
     await flush();
@@ -185,7 +192,7 @@ describe('selección', () => {
     key$('ArrowUp');
     key$('Enter');
     expect(o.state).toBe('EDITING');
-    expect(q('.pf-ov-code')!.textContent).toBe('#mid');
+    expect(q('.pf-ov-sub')!.textContent).toBe('#mid');
   });
 
   it('Escape en SELECTING desactiva', () => {
@@ -201,7 +208,7 @@ describe('selección', () => {
     const { o, onSubmit } = make();
     o.enable();
     pick('pth');
-    textarea().value = 'icono feo';
+    typeIn('icono feo');
     btn('Guardar').click();
     await flush();
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -219,7 +226,7 @@ describe('edición y guardado', () => {
     pick('b1');
     expect(o.state).toBe('EDITING');
     expect(sr().activeElement).toBe(textarea());
-    textarea().value = '  más grande  ';
+    typeIn('  más grande  ');
     btn('Guardar').click();
     await flush();
     const req = onSubmit.mock.calls[0]![0];
@@ -241,7 +248,7 @@ describe('edición y guardado', () => {
     o.enable();
     btn('Comentar la vista').click();
     expect(o.state).toBe('EDITING');
-    textarea().value = 'todo está raro';
+    typeIn('todo está raro');
     btn('Guardar').click();
     await flush();
     const req = onSubmit.mock.calls[0]![0];
@@ -258,10 +265,11 @@ describe('edición y guardado', () => {
     const { o, onSubmit } = make();
     o.enable();
     pick('b1');
-    textarea().value = 'x';
+    typeIn('x');
     key$('Enter', { ctrlKey: true }, textarea());
     key$('Enter', { metaKey: true }, textarea());
-    btn('Guardar').click();
+    // Con el guardado en curso el botón pasa a «Guardando…» y deshabilitado: no hay segundo envío posible.
+    expect(btn('Guardar')).toBeUndefined();
     await flush();
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(o.state).toBe('SELECTING');
@@ -284,23 +292,29 @@ describe('edición y guardado', () => {
     const { o, onSubmit } = make();
     o.enable();
     pick('b1');
-    textarea().value = 'descartar';
+    typeIn('descartar');
     key$('Escape', {}, textarea());
     expect(o.state).toBe('SELECTING');
     expect(q('textarea')).toBeNull();
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('accesibilidad: dialog, label, alert y región aria-live', () => {
+  it('accesibilidad: dialog, tablist, label, aria-live y alert solo cuando hay error', async () => {
     page();
     const { o } = make();
     o.enable();
     pick('b1');
     expect(q('[role="dialog"]')).not.toBeNull();
+    expect(q('[role="tablist"]')).not.toBeNull();
+    expect(q('[role="tabpanel"]')).not.toBeNull();
     const label = q<HTMLLabelElement>('label')!;
     expect(label.htmlFor).toBe(textarea().id);
-    expect(q('[role="alert"]')).not.toBeNull();
     expect(q('[aria-live="polite"]')).not.toBeNull();
+    // v2: el role=alert aparece al haber error (ya no hay un contenedor vacío permanente).
+    expect(q('[role="alert"]')).toBeNull();
+    btn('Guardar').click();
+    await flush();
+    expect(q('[role="alert"]')).not.toBeNull();
   });
 
   it('si onSubmit falla: ERROR, conserva el texto y permite reintentar', async () => {
@@ -309,7 +323,7 @@ describe('edición y guardado', () => {
     onSubmit.mockRejectedValueOnce(new Error('sin servidor'));
     o.enable();
     pick('b1');
-    textarea().value = 'texto largo importante';
+    typeIn('texto largo importante');
     btn('Guardar').click();
     expect(o.state).toBe('SAVING');
     await flush();
@@ -323,19 +337,21 @@ describe('edición y guardado', () => {
     expect(o.state).toBe('SELECTING');
   });
 
-  it('un payload inválido no llega a onSubmit', async () => {
+  it('un comentario por encima del límite se recorta a 10.000 y el payload sigue siendo válido', async () => {
+    // v1 devolvía ERROR por payload inválido; en v2 composeComment recorta al límite antes de validar.
     page();
     const { o, onSubmit } = make();
     o.enable();
     pick('b1');
-    textarea().value = 'x';
     textarea().maxLength = 100000;
-    textarea().value = 'x'.repeat(10_001);
+    typeIn('x'.repeat(10_001));
     btn('Guardar').click();
     await flush();
-    expect(onSubmit).not.toHaveBeenCalled();
-    expect(o.state).toBe('ERROR');
-    expect(textarea().value.length).toBe(10_001);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    const req = onSubmit.mock.calls[0]![0];
+    expect(req.comment.length).toBe(10_000);
+    expect(CreateCommentRequestSchema.safeParse(req).success).toBe(true);
+    expect(o.state).toBe('SELECTING');
   });
 
   it('disable durante SAVING ignora el resultado tardío', async () => {
@@ -344,7 +360,7 @@ describe('edición y guardado', () => {
     const { o, states } = make({ onSubmit: () => new Promise((r) => (resolve = r)) });
     o.enable();
     pick('b1');
-    textarea().value = 'a';
+    typeIn('a');
     btn('Guardar').click();
     o.disable();
     resolve(ok);
@@ -360,7 +376,7 @@ describe('captura opcional', () => {
     const { o } = make();
     o.enable();
     pick('b1');
-    expect(btn('Adjuntar captura')).toBeUndefined();
+    expect(camBtn()).toBeNull();
   });
 
   it('solo captura por acción explícita y la adjunta', async () => {
@@ -370,14 +386,19 @@ describe('captura opcional', () => {
     o.enable();
     pick('b1');
     expect(onRequestCapture).not.toHaveBeenCalled();
-    btn('Adjuntar captura').click();
+    camBtn()!.click();
+    await flush();
     await flush();
     expect(onRequestCapture).toHaveBeenCalledTimes(1);
     expect(hostEl()!.style.visibility).toBe('');
-    textarea().value = 'con captura';
+    typeIn('con captura');
     btn('Guardar').click();
     await flush();
-    expect(onSubmit.mock.calls[0]![0].screenshot?.mimeType).toBe('image/png');
+    // v2: la captura viaja como un adjunto más (uploads, source 'capture'), ya no en `screenshot`.
+    const up = onSubmit.mock.calls[0]![0].uploads;
+    expect(up).toHaveLength(1);
+    expect(up[0]!.source).toBe('capture');
+    expect(up[0]!.mimeType).toBe('image/png');
   });
 });
 
@@ -396,7 +417,7 @@ describe('limpieza', () => {
       expect(live.size).toBeGreaterThan(listenersBefore);
       fire(document.getElementById('b1')!, 'mousemove');
       pick('b1');
-      textarea().value = 'x';
+      typeIn('x');
       btn('Guardar').click();
       await flush();
       o[how]();

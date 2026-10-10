@@ -341,6 +341,17 @@ Example `.perfect-front/comments/inbox/pf_01K7A.json`:
 }
 ```
 
+#### v2 schema (`version: 2`)
+
+The example above is v1. v1 stays readable and is migrated on read (new fields empty, loose attachments). v2 adds the following, all required on disk:
+
+- `sections[]` (≤20): `{ id, title, text, attachments[] }`. `comment` remains the main text.
+- `attachments[]` (≤20 in total) remains the canonical list of `attachments/<file>` paths; `attachmentInfo[]` stores `{ path, name, source: paste|drop|open|capture, mimeType, bytes }`. An image is relocated between sections by changing the paths in `sections[].attachments` (each path in a single section; no section = loose). The file is never moved or deleted by a PATCH.
+- `extraTargets[]` (≤19): the rest of a multi-selection; the primary element stays in `location`/`elementRect`.
+- `proposals[]` (≤50): proposals that **never modify the observed project**; they travel with the comment. Types: `text_fixed`, `text_dynamic` (fixed variables, which must be preserved), `text_i18n` (per-language changes; `scope: one` requires `newKey`), `style` (`before→after` changes with `origin: editable|foundation`; foundation is reference-only) and `reorder` ("move from N to M", 1-based, `from ≠ to`).
+- `group: { id, position } | null`: membership in a reading group. Name, note and `readFirst` live on the group (`ReadingGroup`); the queue is the order by `position`.
+- `location.source` and each proposal/target may carry `{ file, line }` for "copy location" (formats `file`, `selector`, `pf`, `markdown`).
+
 ### 6.4 Full-view comment
 
 When `scope` is `view`, `selector`, `html`, and `elementRect` may be null. The route, the viewport, the screenshot, and the comment remain required according to the configuration.
@@ -921,4 +932,4 @@ After the MVP, Perfect Front can become a common communication layer between the
 
 ---
 
-> **Status:** v2 overlay schema (§6.3) lives on branch `feat/overlay-v2` and is not yet merged.
+> **Status:** the v2 overlay schema (§6.3) is merged into `main`.

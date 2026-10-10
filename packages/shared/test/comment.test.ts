@@ -7,7 +7,7 @@ import {
   VisualCommentSchema,
   PerfectFrontEventSchema,
 } from "../src/index";
-import { specComment, specConfig, specResolution } from "./fixtures";
+import { specComment, specCommentV2, specConfig, specResolution } from "./fixtures";
 
 describe("ProjectConfig", () => {
   it("acepta el ejemplo de SPEC", () => {
@@ -23,20 +23,24 @@ describe("ProjectConfig", () => {
   });
 });
 
-describe("VisualComment", () => {
-  it("acepta el ejemplo de SPEC", () => {
-    expect(VisualCommentSchema.safeParse(specComment()).success).toBe(true);
+describe("VisualComment (v2)", () => {
+  it("acepta el ejemplo de SPEC en su forma v2", () => {
+    expect(VisualCommentSchema.safeParse(specCommentV2()).success).toBe(true);
+  });
+
+  it("rechaza la forma v1 directa: el esquema actual solo acepta version 2", () => {
+    expect(VisualCommentSchema.safeParse(specComment()).success).toBe(false);
   });
 
   it("roundtrip JSON sin pérdida", () => {
-    const parsed = VisualCommentSchema.parse(specComment());
+    const parsed = VisualCommentSchema.parse(specCommentV2());
     const again = VisualCommentSchema.parse(JSON.parse(JSON.stringify(parsed)));
     expect(again).toEqual(parsed);
-    expect(JSON.parse(JSON.stringify(again))).toEqual(specComment());
+    expect(JSON.parse(JSON.stringify(again))).toEqual(specCommentV2());
   });
 
   it("acepta scope view con selector/html/rect nulos", () => {
-    const c = specComment();
+    const c = specCommentV2();
     c.scope = "view";
     c.location.selector = null;
     c.location.html = null;
@@ -45,14 +49,14 @@ describe("VisualComment", () => {
   });
 
   it("rechaza scope element sin selector", () => {
-    const c = specComment();
+    const c = specCommentV2();
     c.location.selector = null;
     expect(VisualCommentSchema.safeParse(c).success).toBe(false);
   });
 
   it("acepta resolución de SPEC", () => {
     expect(ResolutionSchema.safeParse(specResolution).success).toBe(true);
-    const c = specComment();
+    const c = specCommentV2();
     c.status = "resolved";
     c.collection = "resolved";
     c.resolution = specResolution;
@@ -60,7 +64,7 @@ describe("VisualComment", () => {
   });
 
   it("rechaza resolución con estado pending", () => {
-    const c = specComment();
+    const c = specCommentV2();
     c.resolution = specResolution;
     expect(VisualCommentSchema.safeParse(c).success).toBe(false);
   });
@@ -76,10 +80,11 @@ describe("VisualComment", () => {
     ["adjunto", (c: any) => (c.attachments = ["../../secret.png"])],
     ["propiedad extra", (c: any) => (c.extra = true)],
     ["viewport", (c: any) => (c.viewport.width = -1)],
-    ["version", (c: any) => (c.version = 2)],
+    ["version futura", (c: any) => (c.version = 3)],
+    ["version v1 con campos v2", (c: any) => (c.version = 1)],
     ["comentario vacío", (c: any) => (c.comment = "")],
   ])("rechaza %s inválido", (_n, mutate) => {
-    const c = specComment();
+    const c = specCommentV2();
     mutate(c);
     expect(VisualCommentSchema.safeParse(c).success).toBe(false);
   });

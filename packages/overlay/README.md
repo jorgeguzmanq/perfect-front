@@ -15,3 +15,14 @@ Capa de comentarios que el proxy inyecta en la página (mundo principal, mismo o
 ## Estilos
 
 Solo variables `--pf-*` y clases `.pf-*` de `@perfect-front/design-tokens` (ver su `CONSUMERS.md`).
+
+## Estado v2 (prototipo)
+
+La capa v2 solo existe como prototipo estático en `.design/overlay-layer.html` (ver `.design/v2-inventory.md`). Según ese inventario:
+
+- Los `data-act` no tienen manejador y no hay `keydown`, `paste`, `drop` ni carga de imágenes. Atajos, arrastre, pegado, guardado y menú de copiar solo se ven como estados.
+- Las pestañas Contenido, Estilos, Estructura y Cola muestran la UI de propuestas y grupos, pero no ejecutan cambios.
+- El límite de 20 adjuntos aparece solo en texto; el prototipo no tiene contador ni bloqueo.
+- El prototipo muestra GIF como formato admitido. El esquema de `shared` admite solo PNG, JPEG y WebP.
+
+Los contratos que enviaría esta capa (secciones, adjuntos, `extraTargets`, `proposals`, `group`) están en `packages/shared/README.md`. Este README no documenta código de `src/` de v2.

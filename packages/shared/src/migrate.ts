@@ -1,9 +1,9 @@
-import { VisualCommentSchema, type VisualComment } from "./comment";
+import { COMMENT_VERSION, VisualCommentSchema, VisualCommentV1Schema, type VisualComment } from "./comment";
 import { ProjectConfigSchema, type ProjectConfig } from "./config";
 import { PerfectFrontError, zodDetails } from "./errors";
 
 /** Versión más reciente que este paquete entiende, por tipo de documento. */
-export const LATEST_COMMENT_VERSION = 1;
+export const LATEST_COMMENT_VERSION = COMMENT_VERSION;
 export const LATEST_CONFIG_VERSION = 1;
 
 function readVersion(input: unknown, label: string): number {
@@ -29,11 +29,21 @@ function unsupported(label: string, v: number, latest: number): PerfectFrontErro
   );
 }
 
-/** Migra un comentario desconocido a la versión actual y lo valida. v1 es identidad. */
+/**
+ * Migra un comentario desconocido a la versión actual (2) y lo valida.
+ * v1 → v2: añade sections/attachmentInfo/extraTargets/proposals vacíos y group null; el resto no cambia.
+ * Los adjuntos v1 quedan sueltos (sin sección) y sin metadatos.
+ */
 export function migrateComment(input: unknown): VisualComment {
   const v = readVersion(input, "Comentario");
-  if (v !== 1) throw unsupported("Comentario", v, LATEST_COMMENT_VERSION);
-  const r = VisualCommentSchema.safeParse(input);
+  if (v !== 1 && v !== 2) throw unsupported("Comentario", v, LATEST_COMMENT_VERSION);
+  let doc = input;
+  if (v === 1) {
+    const r1 = VisualCommentV1Schema.safeParse(input);
+    if (!r1.success) throw new PerfectFrontError("invalid_data", "Comentario inválido", zodDetails(r1.error));
+    doc = { ...r1.data, version: COMMENT_VERSION, attachmentInfo: [], sections: [], extraTargets: [], proposals: [], group: null };
+  }
+  const r = VisualCommentSchema.safeParse(doc);
   if (!r.success) throw new PerfectFrontError("invalid_data", "Comentario inválido", zodDetails(r.error));
   return r.data;
 }

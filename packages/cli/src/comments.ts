@@ -132,7 +132,7 @@ function isDir(p: string): boolean {
 }
 
 /** Raiz del proyecto: `findRoot` y, si ahi no hay `.perfect-front`, el ancestro mas cercano que la tenga. */
-function locateRoot(cwd: string): string {
+export function locateRoot(cwd: string, opts: { requirePf?: boolean } = {}): string {
   let root: string | null;
   try {
     root = findRoot(cwd).root;
@@ -140,6 +140,7 @@ function locateRoot(cwd: string): string {
     root = null;
   }
   if (root && isDir(path.join(root, PF_DIR))) return root;
+  if (root && opts.requirePf === false) return root;
   for (let d = path.resolve(cwd); ; ) {
     if (isDir(path.join(d, PF_DIR))) return d;
     const parent = path.dirname(d);

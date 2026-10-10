@@ -1,10 +1,22 @@
-import { CreateCommentRequestSchema, LIMITS, ScreenshotUploadSchema } from '@perfect-front/shared';
+import { ScreenshotUploadSchema } from '@perfect-front/shared';
+import { createCaptureController, type CaptureController } from './capture-ui';
 import { HOST_ATTR, isPfNode } from './constants';
-import { buildRequest, snapshotElement, type ElementSnapshot } from './context';
-import { icon, type IconName } from './icons';
-import { reactComponents } from './react';
+import { describe, h } from './dom';
+import { isGripEvent } from './drag-panel';
+import { createEditor, type EditorHandle } from './editor';
+import type { Scope } from './editor-ctx';
+import type { GroupBinding } from './groups';
+import { Selection } from './selection';
 import { injectStylesIntoShadowRoot } from './styles';
-import type { OverlayHandle, OverlayOptions, OverlayState, ScreenshotUpload, SubmitResult } from './types';
+import type {
+  CapturedShot,
+  OverlayHandle,
+  OverlayOptions,
+  OverlayState,
+  ScreenshotUpload,
+  ShotAttachPort,
+  SubmitResult,
+} from './types';
 
 /**
  * Modo del Shadow Root. Se deja 'open' a propósito: permite inspeccionarlo con DevTools,
@@ -30,55 +42,6 @@ const BLOCKED_EVENTS = [
   'dragstart',
 ] as const;
 
-function h<K extends keyof HTMLElementTagNameMap>(
-  doc: Document,
-  tag: K,
-  cls?: string,
-  text?: string,
-): HTMLElementTagNameMap[K] {
-  const node = doc.createElement(tag);
-  if (cls) node.className = cls;
-  if (text !== undefined) node.textContent = text;
-  return node;
-}
-
-function describe(el: Element): string {
-  const id = el.getAttribute('id');
-  const cls = (el.getAttribute('class') ?? '').split(/\s+/).filter(Boolean).slice(0, 2);
-  return el.localName + (id ? `#${id}` : '') + cls.map((c) => `.${c}`).join('');
-}
-
-type Tab = 'comment' | 'levels';
-type Scope = 'element' | 'view';
-
-interface Panel {
-  root: HTMLElement;
-  textarea: HTMLTextAreaElement;
-  error: HTMLElement;
-  save: HTMLButtonElement;
-  cancel: HTMLButtonElement;
-  capture: HTMLButtonElement | null;
-  captureInfo: HTMLElement | null;
-  shotBox: HTMLInputElement | null;
-  chip: HTMLElement;
-  src: HTMLElement;
-  name: HTMLElement;
-  chain: HTMLElement;
-  up: HTMLButtonElement;
-  down: HTMLButtonElement;
-  tabComment: HTMLButtonElement;
-  tabLevels: HTMLButtonElement;
-  levelsBadge: HTMLElement;
-  paneComment: HTMLElement;
-  paneLevels: HTMLElement;
-  levelsList: HTMLElement;
-  segElement: HTMLButtonElement;
-  segView: HTMLButtonElement;
-  footChip: HTMLElement;
-  footPath: HTMLElement;
-}
-
-const fileLabel = (src: string) => src.replace(/^.*[\\/]/, '');
 
 export function createOverlay(opts: OverlayOptions): OverlayHandle {
   const doc = opts.document ?? document;
@@ -97,16 +60,21 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
   let tip: HTMLElement | null = null;
   let live: HTMLElement | null = null;
   let toolbar: HTMLElement | null = null;
-  let panel: Panel | null = null;
-  let savedPanel: HTMLElement | null = null;
+  let extraMarks: HTMLElement[] = [];
+  let insertMark: HTMLElement | null = null;
+  /** Captura de nodos (marco + escalas + resultado). Vive en la capa del overlay; se libera en unmount. */
+  let capture: CaptureController | null = null;
+  let captureNodes: Element[] = [];
 
+  /** Editor v2 (panel con pestañas). Existe solo en EDITING / SAVING / ERROR. */
+  let editor: EditorHandle | null = null;
+  const sel = new Selection();
+  let pendingBinding: GroupBinding | null = null;
+
+  /** Elemento resaltado en modo selección (en edición manda `editor.focusEl`). */
   let current: Element | null = null;
   let childStack: Element[] = [];
-  let snap: ElementSnapshot | null = null;
-  let scope: Scope = 'element';
-  let tab: Tab = 'comment';
   let draft = '';
-  let screenshot: ScreenshotUpload | null = null;
   let capturing = false;
   let prevFocus: Element | null = null;
   let returnFocus: Element | null = null;
@@ -155,6 +123,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     }
   };
 
+
   // --- Resaltado -------------------------------------------------------------
 
   function updateTip() {
@@ -164,20 +133,53 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     tip.textContent = state === 'SELECTING' ? 'clic para comentar' : 'Alt+clic para comentar';
   }
 
+  const box = (mark: HTMLElement, r: DOMRect) => {
+    mark.hidden = false;
+    mark.style.top = `${r.top}px`;
+    mark.style.left = `${r.left}px`;
+    mark.style.width = `${r.width}px`;
+    mark.style.height = `${r.height}px`;
+  };
+
   const placeHighlight = () => {
-    if (!highlight || !highlightLabel) return;
-    if (!current || !current.isConnected) {
+    if (!highlight || !highlightLabel || !layer) return;
+    const main = editor ? editor.focusEl : current;
+    if (!main || !main.isConnected) {
       highlight.hidden = true;
-      updateTip();
-      return;
+    } else {
+      box(highlight, main.getBoundingClientRect());
+      highlightLabel.textContent = describe(main);
     }
-    const r = current.getBoundingClientRect();
-    highlight.hidden = false;
-    highlight.style.top = `${r.top}px`;
-    highlight.style.left = `${r.left}px`;
-    highlight.style.width = `${r.width}px`;
-    highlight.style.height = `${r.height}px`;
-    highlightLabel.textContent = describe(current);
+    // Resto de los nodos de una multiselección (marcas en el shadow DOM propio; la página no se toca).
+    const extra = editor ? editor.nodes.filter((n) => n !== main && n.isConnected) : [];
+    while (extraMarks.length < extra.length) {
+      const m = h(doc, 'div', 'pf-ov-highlight pf-ov-highlight--extra');
+      layer.appendChild(m);
+      extraMarks.push(m);
+    }
+    extraMarks.forEach((m, i) => {
+      const n = extra[i];
+      if (n) box(m, n.getBoundingClientRect());
+      else m.hidden = true;
+    });
+    // Línea de inserción de la propuesta de reordenar.
+    const ins = editor?.reorderIndicator() ?? null;
+    if (ins?.el.isConnected) {
+      if (!insertMark) {
+        insertMark = h(doc, 'div', 'pf-ov-insert');
+        insertMark.style.position = 'fixed';
+        insertMark.style.height = '3px';
+        insertMark.style.borderRadius = '2px';
+        insertMark.style.background = 'var(--pf-color-accent)';
+        insertMark.style.pointerEvents = 'none';
+        layer.appendChild(insertMark);
+      }
+      const r = ins.el.getBoundingClientRect();
+      insertMark.hidden = false;
+      insertMark.style.left = `${r.left}px`;
+      insertMark.style.width = `${r.width}px`;
+      insertMark.style.top = `${(ins.side === 'before' ? r.top : r.bottom) - 1}px`;
+    } else if (insertMark) insertMark.hidden = true;
     updateTip();
   };
 
@@ -187,11 +189,12 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
   };
 
   const placePanel = () => {
-    if (!panel) return;
-    const p = panel.root;
-    if (snap && scope === 'element' && current?.isConnected) {
+    if (!editor || editor.movable.isMoved()) return;
+    const p = editor.root;
+    const el = editor.focusEl;
+    if (el?.isConnected && editor.scope === 'element') {
       p.classList.remove('pf-ov-panel--view');
-      const r = current.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
       const vw = win?.innerWidth ?? 0;
       const vh = win?.innerHeight ?? 0;
       const top = Math.max(0, Math.min(r.bottom, vh - p.offsetHeight));
@@ -203,6 +206,11 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
       p.style.top = '';
       p.style.left = '';
     }
+  };
+
+  const refocus = () => {
+    placeHighlight();
+    placePanel();
   };
 
   // --- Montaje / desmontaje -----------------------------------------------------
@@ -225,6 +233,13 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     live.setAttribute('aria-live', 'polite');
     layer.append(highlight, tip, live);
     shadow.appendChild(layer);
+    capture = createCaptureController({
+      doc,
+      layer,
+      attach: attachShots,
+      announce,
+      onShotCard: (card) => opts.onShotCard?.(card),
+    });
     // Los eventos de teclado escritos en el overlay no deben llegar a los handlers (burbuja) de la página.
     for (const t of ['keydown', 'keyup', 'keypress']) {
       listen(layer, t, (e) => e.stopPropagation());
@@ -232,20 +247,24 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     doc.documentElement.appendChild(host);
   };
 
+
   const unmount = () => {
     for (const fn of cleanups) fn();
     cleanups = [];
+    capture?.destroy(); // libera sus listeners de scroll/resize y quita la capa de captura
+    capture = null;
+    captureNodes = [];
+    editor?.destroy(); // revierte las vistas previas aplicadas a la página
+    editor = null;
     host?.remove();
     const restore = prevFocus;
-    host = layer = highlight = highlightLabel = tip = live = toolbar = savedPanel = null;
-    panel = null;
+    host = layer = highlight = highlightLabel = tip = live = toolbar = insertMark = null;
+    extraMarks = [];
     current = null;
     hoverTarget = null;
-    snap = null;
-    scope = 'element';
-    tab = 'comment';
+    sel.clear();
+    pendingBinding = null;
     draft = '';
-    screenshot = null;
     capturing = false;
     childStack = [];
     prevFocus = null;
@@ -256,10 +275,12 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
   const clearUi = () => {
     toolbar?.remove();
     toolbar = null;
-    panel?.root.remove();
-    panel = null;
-    savedPanel?.remove();
-    savedPanel = null;
+    editor?.destroy();
+    editor = null;
+    for (const m of extraMarks) m.remove();
+    extraMarks = [];
+    insertMark?.remove();
+    insertMark = null;
   };
 
   // --- Vistas por estado ------------------------------------------------------------
@@ -267,10 +288,8 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
   /** Capa activa sin interceptar la página (solo modo `passive`). */
   const showIdle = () => {
     clearUi();
-    snap = null;
-    scope = 'element';
+    sel.clear();
     draft = '';
-    screenshot = null;
     childStack = [];
     setCurrent(null);
     setState('IDLE');
@@ -278,9 +297,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
 
   const showSelecting = () => {
     clearUi();
-    snap = null;
-    scope = 'element';
-    screenshot = null;
+    sel.clear();
     setCurrent(null);
     childStack = [];
     if (!layer) return;
@@ -296,7 +313,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     const viewBtn = h(doc, 'button', 'pf-btn', 'Comentar la vista');
     viewBtn.type = 'button';
     listen(viewBtn, 'click', () => {
-      snap = null;
+      sel.clear();
       setCurrent(null);
       showEditing();
     });
@@ -310,365 +327,55 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     announce('Modo selección activo. Elige un elemento o comenta la vista.');
   };
 
-  const setError = (msg: string) => {
-    if (!panel) return;
-    panel.error.textContent = msg;
-    panel.textarea.setAttribute('aria-invalid', msg ? 'true' : 'false');
-    if (msg) announce(msg);
-  };
-
-  const setBusy = (busy: boolean) => {
-    if (!panel) return;
-    panel.textarea.disabled = busy;
-    panel.save.disabled = busy;
-    panel.root.querySelectorAll<HTMLButtonElement>('[data-pf-remove]').forEach((b) => (b.disabled = busy));
-    panel.cancel.disabled = busy;
-    if (panel.capture) panel.capture.disabled = busy;
-    if (panel.shotBox) panel.shotBox.disabled = busy;
-    panel.root.setAttribute('aria-busy', busy ? 'true' : 'false');
-  };
-
-  // --- Contexto del panel (cabecera, título, ruta, niveles) ---------------------------
-
-  const firstChild = (el: Element): Element | null => Array.from(el.children).find((c) => !isPfNode(c)) ?? null;
-
-  const parentOf = (el: Element | null): Element | null => {
-    const p = el?.parentElement ?? null;
-    return p && p !== doc.documentElement ? p : null;
-  };
-
-  const ancestorsOf = (el: Element): Element[] => {
-    const out: Element[] = [];
-    for (let c: Element | null = el; c && c !== doc.documentElement; c = c.parentElement) out.unshift(c);
-    return out;
-  };
-
-  const renderContext = () => {
-    const p = panel;
-    if (!p) return;
-    const el = snap && current ? current : null;
-    const isElement = scope === 'element' && el !== null;
-    const route = doc.location.pathname || '/';
-    const comps = snap?.components ?? null;
-
-    p.chip.textContent = isElement ? el.localName : 'vista';
-    const srcText = isElement ? (snap!.src ? fileLabel(snap!.src) : snap!.selector) : route;
-    p.src.textContent = srcText;
-    p.src.title = isElement && snap!.src ? snap!.src : srcText;
-    p.name.textContent = isElement ? (comps?.[0] ?? describe(el)) : 'Toda la vista';
-    p.chain.textContent = isElement && comps && comps.length > 1 ? `en ${comps.slice(1).join(' < ')}` : '';
-    p.chain.hidden = !p.chain.textContent;
-
-    p.up.disabled = !el || !parentOf(el);
-    p.down.disabled = !el || !firstChild(el);
-
-    p.segElement.disabled = !snap;
-    p.segElement.setAttribute('aria-pressed', String(isElement));
-    p.segView.setAttribute('aria-pressed', String(!isElement));
-
-    p.footChip.textContent = p.chip.textContent;
-    const chainPath = isElement
-      ? (comps?.join(' < ') ??
-        ancestorsOf(el)
-          .slice(-4)
-          .map((n) => n.localName)
-          .join(' > '))
-      : '';
-    p.footPath.textContent = [route, chainPath].filter(Boolean).join(' · ');
-
-    // Niveles (solo lectura): ancestros del elemento, navegables.
-    p.levelsList.textContent = '';
-    if (!el) {
-      p.levelsBadge.textContent = '0';
-      p.levelsList.appendChild(h(doc, 'li', 'pf-ov-hint', 'Sin elemento seleccionado.'));
-      return;
-    }
-    const chain = ancestorsOf(el);
-    p.levelsBadge.textContent = String(chain.length);
-    chain.forEach((n, i) => {
-      const li = h(doc, 'li');
-      const b = h(doc, 'button', 'pf-ov-level');
-      b.type = 'button';
-      b.style.paddingInlineStart = `calc(var(--pf-space-2) + ${Math.min(i, 12)} * var(--pf-space-2))`;
-      const comp = reactComponents(n)?.[0];
-      b.textContent = comp ? `${describe(n)} · ${comp}` : describe(n);
-      if (n === el) b.setAttribute('aria-current', 'true');
-      listen(b, 'click', () => {
-        if (n !== current) selectElement(n, false);
-        p.levelsList.querySelector<HTMLElement>('[aria-current="true"]')?.focus();
-      });
-      li.appendChild(b);
-      p.levelsList.appendChild(li);
-    });
-  };
-
-  const setTab = (t: Tab) => {
-    tab = t;
-    const p = panel;
-    if (!p) return;
-    p.paneComment.hidden = t !== 'comment';
-    p.paneLevels.hidden = t !== 'levels';
-    for (const [b, name] of [
-      [p.tabComment, 'comment'],
-      [p.tabLevels, 'levels'],
-    ] as const) {
-      b.setAttribute('aria-selected', String(t === name));
-      b.tabIndex = t === name ? 0 : -1;
-      b.classList.toggle('pf-ov-tab--on', t === name);
-    }
-  };
-
-  const setScope = (s: Scope) => {
-    if (s === 'element' && !snap) return;
-    scope = s;
-    renderContext();
-    placePanel();
-    announce(s === 'element' ? 'Comentario sobre este elemento.' : 'Comentario sobre toda la vista.');
-  };
-
-  /** Selecciona un elemento (flechas, niveles o Alt+clic) conservando el borrador. */
-  const selectElement = (el: Element, keepStack: boolean) => {
-    if (keepStack) {
-      if (current && current !== el) childStack.push(current);
-    } else childStack = [];
-    current = el;
-    snap = snapshotElement(el);
-    scope = 'element';
-    placeHighlight();
-    renderContext();
-    placePanel();
-    announce(`Elemento seleccionado: ${panel?.name.textContent ?? describe(el)}.`);
-  };
-
-  const goParent = () => {
-    const parent = parentOf(current);
-    if (current && parent) selectElement(parent, true);
-  };
-
-  const goChild = () => {
-    if (!current) return;
-    const back = childStack.pop();
-    const viaStack =
-      back && current.contains(back) && back !== current
-        ? Array.from(current.children).find((c) => c === back || c.contains(back))
-        : undefined;
-    const next = viaStack ?? firstChild(current);
-    if (!next) return;
-    current = next;
-    snap = snapshotElement(next);
-    scope = 'element';
-    placeHighlight();
-    renderContext();
-    placePanel();
-    announce(`Elemento seleccionado: ${panel?.name.textContent ?? describe(next)}.`);
-  };
-
-  const iconBtn = (label: string, name: IconName, onClick: () => void) => {
-    const b = h(doc, 'button', 'pf-ov-iconbtn');
-    b.type = 'button';
-    b.setAttribute('aria-label', label);
-    b.title = label;
-    b.appendChild(icon(doc, name));
-    listen(b, 'click', onClick);
-    return b;
-  };
-
+  /** Monta el editor v2 con la selección actual (vacía = toda la vista). */
   const showEditing = () => {
     clearUi();
     if (!layer) return;
-    if (!snap) scope = 'view';
     if (!returnFocus) {
       const a = doc.activeElement;
       returnFocus = a && !isPfNode(a) && a !== doc.body ? a : null;
     }
-    const root = h(doc, 'div', 'pf-ov-panel');
-    root.setAttribute('role', 'dialog');
-    root.setAttribute('aria-modal', 'false');
-    root.setAttribute('aria-labelledby', 'pf-ov-title');
-
-    // Cabecera: etiqueta, archivo:línea (o selector), padre/hijo, selección, borrar, cerrar.
-    const chip = h(doc, 'span', 'pf-chip pf-chip--in_progress pf-ov-tag');
-    const src = h(doc, 'span', 'pf-ov-code pf-ov-src');
-    const up = iconBtn('Elemento padre (flecha arriba)', 'up', () => goParent());
-    const down = iconBtn('Elemento hijo (flecha abajo)', 'down', () => goChild());
-    const pickBtn = iconBtn('Elegir otro elemento', 'select', () => {
-      if (panel) draft = panel.textarea.value;
-      showSelecting();
+    const scope: Scope = sel.size > 0 ? 'element' : 'view';
+    const my = session;
+    current = null;
+    const ed = createEditor({
+      doc,
+      layer,
+      selection: sel,
+      scope,
+      draft,
+      groups: opts.groups ?? null,
+      binding: pendingBinding,
+      requestCapture: opts.onRequestCapture ? requestCapture : null,
+      requestNodeCapture: () => void startCapture(),
+      onSubmit: async (req) => {
+        if (capturing) throw new Error('Espera a que termine la captura.');
+        setState('SAVING');
+        try {
+          return await opts.onSubmit(req);
+        } catch (err) {
+          if (my === session && !destroyed) setState('ERROR');
+          throw err;
+        }
+      },
+      onSaved: (res) => {
+        if (my !== session || destroyed) return;
+        showSaved(res);
+      },
+      onClose: () => cancelEditing(),
+      onPanelReset: () => placePanel(),
+      onPick: (d) => {
+        draft = d;
+        showSelecting();
+      },
+      onFocusChange: refocus,
+      announce,
     });
-    const clearBtn = iconBtn('Borrar el borrador', 'trash', () => {
-      if (!panel) return;
-      panel.textarea.value = '';
-      draft = '';
-      screenshot = null;
-      if (panel.shotBox) panel.shotBox.checked = false;
-      if (panel.captureInfo) panel.captureInfo.textContent = '';
-      setError('');
-      panel.textarea.focus();
-      announce('Borrador borrado.');
-    });
-    const closeBtn = iconBtn('Cerrar (Esc)', 'close', () => cancelEditing());
-    const tools = h(doc, 'div', 'pf-ov-tools');
-    tools.append(up, down, pickBtn, clearBtn, closeBtn);
-    const head = h(doc, 'div', 'pf-ov-head');
-    head.append(chip, src, tools);
-
-    const name = h(doc, 'h2', 'pf-ov-title');
-    name.id = 'pf-ov-title';
-    const chain = h(doc, 'p', 'pf-ov-chain');
-    const titleRow = h(doc, 'div', 'pf-ov-titlerow');
-    titleRow.append(name, chain);
-
-    // Pestañas (Diseño y Contenido quedan para una iteración posterior).
-    const tabs = h(doc, 'div', 'pf-ov-tabs');
-    tabs.setAttribute('role', 'tablist');
-    tabs.setAttribute('aria-label', 'Secciones del panel');
-    const mkTab = (id: string, label: string, ic: IconName) => {
-      const b = h(doc, 'button', 'pf-ov-tab');
-      b.type = 'button';
-      b.id = id;
-      b.setAttribute('role', 'tab');
-      b.append(icon(doc, ic), h(doc, 'span', undefined, label));
-      return b;
-    };
-    const tabLevels = mkTab('pf-ov-tab-levels', 'Niveles', 'layers');
-    const levelsBadge = h(doc, 'span', 'pf-ov-badge', '0');
-    tabLevels.appendChild(levelsBadge);
-    const tabComment = mkTab('pf-ov-tab-comment', 'Comentar', 'comment');
-    tabs.append(tabLevels, tabComment);
-    tabLevels.setAttribute('aria-controls', 'pf-ov-pane-levels');
-    tabComment.setAttribute('aria-controls', 'pf-ov-pane-comment');
-    listen(tabLevels, 'click', () => setTab('levels'));
-    listen(tabComment, 'click', () => setTab('comment'));
-    listen(tabs, 'keydown', (e) => {
-      const k = (e as KeyboardEvent).key;
-      if (k !== 'ArrowLeft' && k !== 'ArrowRight' && k !== 'Home' && k !== 'End') return;
-      e.preventDefault();
-      const next: Tab = tab === 'comment' ? 'levels' : 'comment';
-      setTab(next);
-      (next === 'comment' ? tabComment : tabLevels).focus();
-    });
-
-    // Pestaña Comentar.
-    const paneComment = h(doc, 'div', 'pf-ov-pane');
-    paneComment.id = 'pf-ov-pane-comment';
-    paneComment.setAttribute('role', 'tabpanel');
-    paneComment.setAttribute('aria-labelledby', 'pf-ov-tab-comment');
-
-    const seg = h(doc, 'div', 'pf-ov-seg');
-    seg.setAttribute('role', 'group');
-    seg.setAttribute('aria-label', 'Alcance del comentario');
-    const segElement = h(doc, 'button', 'pf-ov-segbtn', 'Este elemento');
-    segElement.type = 'button';
-    const segView = h(doc, 'button', 'pf-ov-segbtn', 'Toda la vista');
-    segView.type = 'button';
-    listen(segElement, 'click', () => setScope('element'));
-    listen(segView, 'click', () => setScope('view'));
-    seg.append(segElement, segView);
-
-    const field = h(doc, 'div', 'pf-ov-field');
-    const label = h(doc, 'label', 'pf-ov-sr-only', 'Comentario');
-    label.htmlFor = 'pf-ov-comment';
-    const textarea = h(doc, 'textarea', 'pf-input pf-ov-textarea');
-    textarea.id = 'pf-ov-comment';
-    textarea.required = true;
-    textarea.maxLength = LIMITS.comment;
-    textarea.rows = 5;
-    textarea.placeholder = 'Qué habría que cambiar acá…';
-    textarea.value = draft;
-    textarea.setAttribute('aria-describedby', 'pf-ov-hint pf-ov-error');
-    listen(textarea, 'input', () => (draft = textarea.value));
-    const hint = h(doc, 'p', 'pf-ov-hint', 'Ctrl/Cmd + Enter para guardar. Esc para cancelar.');
-    hint.id = 'pf-ov-hint';
-    field.append(label, textarea, hint);
-
-    const error = h(doc, 'p', 'pf-ov-error');
-    error.id = 'pf-ov-error';
-    error.setAttribute('role', 'alert');
-
-    const foot = h(doc, 'p', 'pf-ov-foot');
-    const footChip = h(doc, 'span', 'pf-chip pf-chip--in_progress pf-ov-tag');
-    const footPath = h(doc, 'span', 'pf-ov-path');
-    foot.append(footChip, footPath);
-
-    const actions = h(doc, 'div', 'pf-ov-actions');
-    let capture: HTMLButtonElement | null = null;
-    let captureInfo: HTMLElement | null = null;
-    let shotBox: HTMLInputElement | null = null;
-    let shotRow: HTMLElement | null = null;
-    if (opts.onRequestCapture && passive) {
-      shotRow = h(doc, 'label', 'pf-ov-check');
-      shotBox = h(doc, 'input');
-      shotBox.type = 'checkbox';
-      shotBox.id = 'pf-ov-shot';
-      shotRow.append(shotBox, h(doc, 'span', undefined, 'Incluir captura'));
-    } else if (opts.onRequestCapture) {
-      capture = h(doc, 'button', 'pf-btn', 'Adjuntar captura');
-      capture.type = 'button';
-      captureInfo = h(doc, 'p', 'pf-ov-hint');
-      captureInfo.setAttribute('role', 'status');
-      listen(capture, 'click', () => void requestCapture());
-    }
-    const cancel = h(doc, 'button', 'pf-btn', 'Cancelar');
-    cancel.type = 'button';
-    listen(cancel, 'click', () => cancelEditing());
-    const save = h(doc, 'button', 'pf-btn pf-btn--primary', 'Guardar');
-    save.type = 'button';
-    listen(save, 'click', () => void submit());
-    const remove = h(doc, 'button', 'pf-btn', 'Eliminar elemento');
-    remove.type = 'button';
-    remove.setAttribute('data-pf-remove', '');
-    remove.title = 'Guarda un comentario pidiendo eliminar este elemento (la nota es opcional)';
-    listen(remove, 'click', () => void submit(true));
-    if (capture) actions.appendChild(capture);
-    actions.append(cancel, remove, save);
-
-    paneComment.append(seg, field, error);
-    if (captureInfo) paneComment.appendChild(captureInfo);
-    if (shotRow) paneComment.appendChild(shotRow);
-    paneComment.append(foot, actions);
-
-    // Pestaña Niveles (solo lectura).
-    const paneLevels = h(doc, 'div', 'pf-ov-pane');
-    paneLevels.id = 'pf-ov-pane-levels';
-    paneLevels.setAttribute('role', 'tabpanel');
-    paneLevels.setAttribute('aria-labelledby', 'pf-ov-tab-levels');
-    const levelsList = h(doc, 'ul', 'pf-ov-levels');
-    levelsList.setAttribute('aria-label', 'Ancestros del elemento');
-    paneLevels.appendChild(levelsList);
-
-    root.append(head, titleRow, tabs, paneComment, paneLevels);
-    layer.appendChild(root);
-    panel = {
-      root,
-      textarea,
-      error,
-      save,
-      cancel,
-      capture,
-      captureInfo,
-      shotBox,
-      chip,
-      src,
-      name,
-      chain,
-      up,
-      down,
-      tabComment,
-      tabLevels,
-      levelsBadge,
-      paneComment,
-      paneLevels,
-      levelsList,
-      segElement,
-      segView,
-      footChip,
-      footPath,
-    };
-    renderContext();
-    setTab('comment');
-    placePanel();
+    pendingBinding = null;
+    editor = ed;
+    refocus();
     setState('EDITING');
-    textarea.focus();
+    ed.root.querySelector<HTMLElement>('textarea')?.focus();
     announce(scope === 'element' ? 'Editando comentario del elemento.' : 'Editando comentario de la vista.');
   };
 
@@ -683,103 +390,57 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     if (passive) restoreFocus(f);
   };
 
-  /** Oculta el host, captura y lo vuelve a mostrar. Devuelve la captura o null si falló. */
-  const captureNow = async (p: Panel): Promise<ScreenshotUpload | null> => {
+  /**
+   * Captura la vista y devuelve la imagen (o null si falló). No se oculta nada: la captura excluye los
+   * nodos propios con el filtro isPfNode, así que no hay parpadeo.
+   */
+  const requestCapture = async (): Promise<ScreenshotUpload | null> => {
+    if (!opts.onRequestCapture || capturing || (state !== 'EDITING' && state !== 'ERROR')) return null;
     const my = session;
     capturing = true;
-    // El overlay se oculta durante la captura para no contaminarla.
-    if (host) host.style.visibility = 'hidden';
     try {
-      const shot = ScreenshotUploadSchema.parse(await opts.onRequestCapture!());
-      return my !== session || panel !== p ? null : shot;
+      const shot = ScreenshotUploadSchema.parse(await opts.onRequestCapture());
+      return my !== session ? null : shot;
     } catch {
       return null;
     } finally {
-      if (my === session) {
-        capturing = false;
-        if (host) host.style.visibility = '';
-      }
+      if (my === session) capturing = false;
     }
   };
 
-  const requestCapture = async () => {
-    if (!opts.onRequestCapture || !panel || capturing || (state !== 'EDITING' && state !== 'ERROR')) return;
-    const p = panel;
-    const my = session;
-    if (p.capture) p.capture.disabled = true;
-    const shot = await captureNow(p);
-    if (my !== session || panel !== p) return;
-    if (shot) {
-      screenshot = shot;
-      if (p.captureInfo) p.captureInfo.textContent = 'Captura adjunta.';
-      announce('Captura adjunta.');
-    } else {
-      screenshot = null;
-      setError('No se pudo capturar la pantalla. Puedes guardar sin captura.');
-    }
-    if (p.capture) p.capture.disabled = (state as OverlayState) === 'SAVING';
+  // --- Captura de nodos (Alt+Mayús+S) -------------------------------------------------------
+
+  /** Nodos a capturar: la selección del editor, o el nodo resaltado / bajo el cursor. */
+  const captureTargets = (): Element[] => {
+    const picked = editor ? editor.nodes.filter((n) => n.isConnected) : [];
+    if (picked.length) return [...picked];
+    const one = current ?? hoverTarget;
+    return one?.isConnected && !isPfNode(one) ? [one] : [];
   };
 
-  const REMOVE_PREFIX = 'Eliminar este elemento.';
+  /** «Adjuntar N»: si aún no hay editor abre uno con los nodos capturados y deja que reciba las imágenes. */
+  const attachShots = (shots: readonly CapturedShot[]): { added: number; error?: string } => {
+    if (!editor) {
+      const [first, ...rest] = captureNodes.filter((n) => n.isConnected);
+      if (!first) return { added: 0, error: 'El nodo ya no está en la página.' };
+      sel.set(first);
+      for (const n of rest) sel.add(n);
+      showEditing();
+    }
+    const port = editor as unknown as Partial<ShotAttachPort> | null;
+    if (!port?.attachShots) return { added: 0, error: 'El editor todavía no admite adjuntar capturas.' };
+    return port.attachShots(shots);
+  };
 
-  const submit = async (remove = false) => {
-    if ((state !== 'EDITING' && state !== 'ERROR') || !panel || capturing) return;
-    const p = panel;
-    if (remove && (scope !== 'element' || !snap)) {
-      setError('Elige un elemento para marcarlo como eliminar.');
-      return;
+  const startCapture = (): boolean => {
+    if (!capture || state === 'OFF' || state === 'SAVING') return false;
+    const nodes = captureTargets();
+    if (!nodes.length) {
+      announce('Elige un nodo para capturarlo.');
+      return false;
     }
-    const note = p.textarea.value.trim();
-    const text = remove ? (note ? `${REMOVE_PREFIX} ${note}` : REMOVE_PREFIX) : note;
-    if (!text) {
-      setError('Escribe un comentario antes de guardar.');
-      p.textarea.focus();
-      return;
-    }
-    const my = session;
-    if (p.shotBox) {
-      if (p.shotBox.checked && opts.onRequestCapture) {
-        setError('');
-        setBusy(true);
-        announce('Capturando la pantalla…');
-        const shot = await captureNow(p);
-        if (my !== session || destroyed || panel !== p) return;
-        setBusy(false);
-        if (!shot) {
-          p.shotBox.checked = false;
-          setError(
-            'No se pudo capturar la pantalla. Se desmarcó «Incluir captura»; vuelve a guardar para enviarlo sin ella.',
-          );
-          p.save.focus();
-          return;
-        }
-        screenshot = shot;
-      } else screenshot = null;
-    }
-    const raw = buildRequest(doc, text, scope === 'element' ? snap : null) as Record<string, unknown>;
-    if (screenshot) raw.screenshot = screenshot;
-    const parsed = CreateCommentRequestSchema.safeParse(raw);
-    if (!parsed.success) {
-      setState('ERROR');
-      setError(`El comentario no es válido: ${parsed.error.issues[0]?.message ?? 'datos incorrectos'}.`);
-      return;
-    }
-    setError('');
-    setState('SAVING');
-    setBusy(true);
-    announce('Guardando comentario…');
-    try {
-      const res = await opts.onSubmit(parsed.data);
-      if (my !== session || destroyed) return;
-      showSaved(res);
-    } catch (err) {
-      if (my !== session || destroyed || panel !== p) return;
-      setState('ERROR');
-      setBusy(false);
-      const detail = err instanceof Error && err.message ? ` ${err.message}` : '';
-      setError(`No se pudo guardar.${detail} Tu comentario se conservó; inténtalo de nuevo.`);
-      p.textarea.focus();
-    }
+    captureNodes = nodes;
+    return capture.open(nodes);
   };
 
   const showSaved = (res: SubmitResult) => {
@@ -833,11 +494,14 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     }
   };
 
+
   const onBlocked = (e: Event) => {
     if (state === 'OFF' || isOwn(e)) return;
-    const mod = passive && (e as MouseEvent).altKey === true;
+    const me = e as MouseEvent;
+    const mod = passive && me.altKey === true;
     const editing = state === 'EDITING' || state === 'ERROR';
-    const picking = state === 'SELECTING' || (mod && (state === 'IDLE' || editing));
+    // En edición, Alt+clic (modo pasivo) o Shift+clic eligen/suman elementos; el clic normal es de la página.
+    const picking = state === 'SELECTING' || (mod && (state === 'IDLE' || editing)) || (editing && me.shiftKey === true);
     if (!picking) return;
     e.preventDefault();
     e.stopPropagation();
@@ -845,12 +509,10 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     const el = e.type === 'click' ? elementTarget(e) : null;
     if (!el) return;
     if (editing) {
-      selectElement(el, false);
+      editor?.pickElement(el, me.shiftKey === true);
       return;
     }
-    setCurrent(el);
-    snap = snapshotElement(el);
-    scope = 'element';
+    sel.set(el);
     showEditing();
   };
 
@@ -862,18 +524,33 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     );
   };
 
+
   const onKeyUp = (e: Event) => {
     if ((e as KeyboardEvent).key === 'Alt' && state === 'IDLE' && current) setCurrent(null);
   };
 
   const onKeyDown = (e: Event) => {
     const k = e as KeyboardEvent;
-    if (state === 'OFF') return;
+    if (state === 'OFF' || isGripEvent(k)) return;
     const stop = () => {
       k.preventDefault();
       k.stopPropagation();
       k.stopImmediatePropagation();
     };
+    // Con la captura abierta, Esc la cierra y el resto de teclas son suyas (no del editor).
+    if (capture?.active) {
+      if (k.key === 'Escape') {
+        stop();
+        capture.close();
+      }
+      return;
+    }
+    // Alt+Mayús+S: capturar el nodo seleccionado (code: en Mac Alt+Mayús+S no produce «s»).
+    if (k.altKey && k.shiftKey && !k.ctrlKey && !k.metaKey && k.code === 'KeyS') {
+      stop();
+      startCapture();
+      return;
+    }
     // Atajo de SPEC §9.5: Ctrl/Cmd+Mayús+C alterna el modo selección (clic normal = comentar).
     if (passive && (k.ctrlKey || k.metaKey) && k.shiftKey && (k.key === 'c' || k.key === 'C')) {
       if (state === 'IDLE' || state === 'SELECTING' || state === 'EDITING' || state === 'ERROR') {
@@ -886,6 +563,12 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
       if (k.key === 'Alt' && hoverTarget?.isConnected) setCurrent(hoverTarget);
       return;
     }
+    if (editor) {
+      // Editor v2: Esc, Ctrl/Cmd+Enter y flechas las interpreta el editor; en SAVING no se atiende nada.
+      if (state === 'SAVING') return;
+      if (editor.handleKey(k, { own: isOwn(e), typing: typingInField(e) })) stop();
+      return;
+    }
     if (k.key === 'Escape') {
       if (state === 'SAVING') return;
       stop();
@@ -893,20 +576,6 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
         if (passive) showIdle();
         else handle.disable();
       } else if (state === 'SAVED') closeSaved();
-      else cancelEditing();
-      return;
-    }
-    if (k.key === 'Enter' && (k.ctrlKey || k.metaKey) && (state === 'EDITING' || state === 'ERROR')) {
-      stop();
-      void submit();
-      return;
-    }
-    if ((state === 'EDITING' || state === 'ERROR') && (k.key === 'ArrowUp' || k.key === 'ArrowDown')) {
-      if (k.altKey || (isOwn(e) && !typingInField(e))) {
-        stop();
-        if (k.key === 'ArrowUp') goParent();
-        else goChild();
-      }
       return;
     }
     if (state !== 'SELECTING' || isOwn(e)) return;
@@ -930,8 +599,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     } else if (k.key === 'Enter' || k.key === ' ') {
       stop();
       if (current) {
-        snap = snapshotElement(current);
-        scope = 'element';
+        sel.set(current);
         showEditing();
       }
     }
@@ -942,7 +610,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     if (state === 'IDLE') showSelecting();
     else if (state === 'SELECTING') showIdle();
     else if (state === 'EDITING' || state === 'ERROR') {
-      if (panel) draft = panel.textarea.value;
+      if (editor) draft = editor.draft;
       showSelecting();
     }
   };
@@ -955,8 +623,8 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     for (const t of BLOCKED_EVENTS) listen(doc, t, onBlocked, true);
     listen(doc, 'keydown', onKeyDown, true);
     if (passive) listen(doc, 'keyup', onKeyUp, true);
-    listen(doc, 'scroll', () => (placeHighlight(), placePanel()), true);
-    if (win) listen(win, 'resize', () => (placeHighlight(), placePanel()));
+    listen(doc, 'scroll', refocus, true);
+    if (win) listen(win, 'resize', refocus);
     if (passive) showIdle();
     else showSelecting();
   };
@@ -970,6 +638,12 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
       setState('OFF');
     },
     toggleSelecting,
+    captureSelectedNodes: startCapture,
+    startInGroup(groupId) {
+      if (state === 'OFF' || state === 'EDITING' || state === 'SAVING' || state === 'ERROR') return;
+      pendingBinding = { groupId, afterId: null };
+      if (state === 'IDLE') showSelecting();
+    },
     destroy() {
       destroyed = true;
       handle.disable();

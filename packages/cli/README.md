@@ -14,6 +14,35 @@ Codigos de salida: 0 ok, 1 interno, 2 uso, 3 proyecto, 4 proceso, 5 no activo, 6
 
 Opciones utiles: `--no-open`, `--no-server` (solo dev server; sin servidor local tampoco hay proxy), `--no-proxy` (sin proxy ni capa), `--server-port <n>`, `--detach` (segundo plano, abre el navegador y regresa). Subcomandos que siguen existiendo: `start` (segundo plano, sin abrir navegador), `status`, `stop`, `restart`, `logs`, `open`, `server start|stop|status|logs`. `server stop` y `stop` solo terminan procesos iniciados por Perfect Front (PID + hora de inicio verificados); `stop` tambien detiene el proxy administrado.
 
+## Prompt para el agente
+
+Tras el resumen de arranque, `perfect-front` (primer plano), `start`, `--detach` y `restart` imprimen un bloque delimitado con un prompt listo para pegar a un agente de código (Claude Code, Codex...):
+
+```
+───── PROMPT PARA TU AGENTE ─────
+...texto del prompt...
+───── FIN ─────
+```
+
+- Con `--json` no se imprime el bloque: el JSON de arranque trae el campo `agentPrompt` (texto plano). stdout sigue siendo un único objeto JSON válido.
+- `--no-agent-prompt` omite el bloque y, con `--json`, el campo `agentPrompt`.
+- El contenido, las reglas de uso y los comandos que el prompt recomienda están en [AGENTS.md](./AGENTS.md#prompt-para-el-agente) (sección «Prompt para el agente»). Fuente única: `buildAgentPrompt` en `src/agent-prompt.ts`.
+- Nunca incluye el token del servidor local ni el contenido de `discovery.json`.
+
+### Subcomando `prompt`
+
+`perfect-front prompt` (alias `perfect-front agent-prompt`) reimprime el mismo prompt cuando se necesite. No necesita servidor ni navegador; si no hay nada corriendo, la URL aparece como no disponible.
+
+```
+perfect-front prompt [--copy] [--project <ruta>] [--cwd <dir>] [--json]
+```
+
+- `--project <ruta>`: raíz (o subcarpeta) del proyecto; por defecto, el directorio actual.
+- `--cwd <dir>`: directorio de trabajo base.
+- `--copy`: además lo copia al portapapeles. En Windows usa `clip.exe` y, si falla, `powershell Set-Clipboard`; en macOS, `pbcopy`; en Linux, `wl-copy` y luego `xclip`. Si ningún método funciona, el prompt se imprime igual y se avisa por stderr (`Aviso: no se pudo copiar al portapapeles...`). Si funciona, se confirma por stderr (solo sin `--json`).
+- `--json`: `{"ok":true,"command":"prompt","root","url","targetUrl","copied","agentPrompt"}`.
+- Códigos de salida: 0 ok, 2 uso (argumentos inválidos o posicionales extra), 3 proyecto no encontrado.
+
 ## Proxy y capa de comentarios
 
 Cuando el dev server (o el servidor estatico) esta listo, el CLI arranca `@perfect-front/proxy` delante: escucha en `127.0.0.1:7788` (si esta ocupado, el siguiente libre), reenvia todo al destino real e inyecta `<script src="/__pf/overlay.js">` en el HTML. La capa habla con el servidor local a traves del proxy en el mismo origen (`/__pf/*`), sin extension. El proyecto se registra con `url` = URL del proxy (conservando la ruta/pagina elegida en estatico) y `targetUrl` = URL original; el navegador se abre en la URL del proxy. Tambien tras reiniciar el servidor local, el registro conserva ambas.
