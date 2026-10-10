@@ -143,9 +143,11 @@ export function bootPage(opts: BootOptions): PfApi {
   const loadComments = async (): Promise<PinComment[]> => {
     const res = await doFetch(`${base}/comments`, { headers: headers() });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const body = (await res.json()) as { ok?: boolean; comments?: unknown };
-    if (!body || body.ok === false || !Array.isArray(body.comments)) throw new Error('respuesta inválida');
-    const list = body.comments.filter(
+    // El proxy responde { ok, data: { comments } }; se acepta también { ok, comments } (forma plana).
+    const body = (await res.json()) as { ok?: boolean; comments?: unknown; data?: { comments?: unknown } };
+    const rows = body?.data?.comments ?? body?.comments;
+    if (!body || body.ok === false || !Array.isArray(rows)) throw new Error('respuesta inválida');
+    const list = rows.filter(
       (c): c is PinComment =>
         !!c &&
         typeof c === 'object' &&

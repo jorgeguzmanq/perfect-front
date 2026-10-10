@@ -285,6 +285,28 @@ describe('interacción', () => {
 });
 
 describe('pines y contador', () => {
+  it('«Eliminar elemento» guarda un comentario de eliminar, con nota opcional', async () => {
+    const f = makeFetch();
+    boot(f);
+    fire(document.getElementById('b1')!, 'click', { altKey: true });
+    typeIn(q<HTMLTextAreaElement>('textarea')!, 'ya no hace falta');
+    btn('Eliminar elemento').click();
+    await flush();
+    const body = JSON.parse(String(f.mock.calls.find((c) => String(c[0]).endsWith('/comment'))![1]!.body));
+    expect(body.comment).toBe('Eliminar este elemento. ya no hace falta');
+    expect(body.scope).toBe('element');
+  });
+
+  it('lee la respuesta real del proxy { ok, data: { comments } }', async () => {
+    const f = vi.fn<typeof fetch>(async (input) => {
+      const url = String(input);
+      if (url.endsWith('/comments')) return json({ ok: true, data: { comments: [comment()] } });
+      return json({ ok: false, error: { code: 'not_found', message: 'nope' } }, 404);
+    });
+    boot(f);
+    await vi.waitFor(() => expect(pins().length).toBe(1));
+  });
+
   it('dibuja pines desde GET /comments, cuenta los no ubicables y manda X-PF-Token', async () => {
     const f = makeFetch([
       comment(),

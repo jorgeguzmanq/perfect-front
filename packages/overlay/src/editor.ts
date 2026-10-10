@@ -611,8 +611,12 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     save.disabled = ctx.busy;
     save.textContent = ctx.busy ? 'Guardando…' : ctx.binding ? 'Guardar en la cola' : 'Guardar';
     onc(save, 'click', () => void doSave());
+    const remove = tbtn('pf-btn', 'Eliminar elemento', () => void doSave(true));
+    remove.disabled = ctx.busy;
+    remove.title = 'Guarda un comentario pidiendo eliminar este elemento (la nota es opcional)';
+    remove.setAttribute('data-pf-remove', '');
     const bar = mk('div', 'pf-ov-actions');
-    bar.append(keys, cancel, save);
+    bar.append(keys, cancel, ...(isView() ? [] : [remove]), save);
     box.appendChild(bar);
     root.setAttribute('aria-busy', String(ctx.busy));
   }
@@ -688,9 +692,19 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     }
   }
 
-  async function doSave(): Promise<void> {
+  const REMOVE_PREFIX = 'Eliminar este elemento.';
+
+  async function doSave(remove = false): Promise<void> {
     if (ctx.busy || destroyed) return;
+    if (remove && (isView() || sel.nodes.length === 0)) {
+      ctx.error = 'Elige un elemento para marcarlo como eliminar.';
+      if (tab !== 'comment') setTab('comment');
+      paint('foot');
+      opts.announce(ctx.error);
+      return;
+    }
     const { proposals, auto } = collectProposals();
+    const note = ctx.draft.trim();
     const port = ctx.groupsPort;
     const b = ctx.binding;
 
@@ -700,7 +714,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
       doc,
       scope: isView() ? 'view' : 'element',
       selection: sel,
-      main: ctx.draft,
+      main: remove ? (note ? `${REMOVE_PREFIX} ${note}` : REMOVE_PREFIX) : ctx.draft,
       fallbackText: auto,
       sections,
       attachments: att,
