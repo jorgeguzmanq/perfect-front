@@ -1,0 +1,47 @@
+/*
+ * Opcional (dashboard, TailwindCSS 4). Importar DESPUÉS de tokens.css y tailwindcss:
+ *   @import "tailwindcss";
+ *   @import "@perfect-front/design-tokens/tokens.css";
+ *   @import "@perfect-front/design-tokens/tailwind-theme.css";
+ * `inline` hace que las utilidades referencien var(--pf-*) y respeten light/dark.
+ */
+@theme inline {
+  --color-pf-bg: var(--pf-color-bg);
+  --color-pf-surface: var(--pf-color-surface);
+  --color-pf-surface-raised: var(--pf-color-surface-raised);
+  --color-pf-border: var(--pf-color-border);
+  --color-pf-text: var(--pf-color-text);
+  --color-pf-muted: var(--pf-color-text-muted);
+  --color-pf-accent: var(--pf-color-accent);
+  --color-pf-accent-fg: var(--pf-color-accent-fg);
+  --color-pf-danger: var(--pf-color-danger);
+  --color-pf-pending: var(--pf-status-pending-fg);
+  --color-pf-pending-bg: var(--pf-status-pending-bg);
+  --color-pf-in-progress: var(--pf-status-in-progress-fg);
+  --color-pf-in-progress-bg: var(--pf-status-in-progress-bg);
+  --color-pf-resolved: var(--pf-status-resolved-fg);
+  --color-pf-resolved-bg: var(--pf-status-resolved-bg);
+  --color-pf-ignored: var(--pf-status-ignored-fg);
+  --color-pf-ignored-bg: var(--pf-status-ignored-bg);
+  --color-pf-archived: var(--pf-status-archived-fg);
+  --color-pf-archived-bg: var(--pf-status-archived-bg);
+
+  --font-pf-sans: var(--pf-font-sans);
+  --font-pf-mono: var(--pf-font-mono);
+
+  --radius-pf-sm: var(--pf-radius-sm);
+  --radius-pf-md: var(--pf-radius-md);
+  --radius-pf-lg: var(--pf-radius-lg);
+
+  --shadow-pf-sm: var(--pf-shadow-sm);
+  --shadow-pf-md: var(--pf-shadow-md);
+  --shadow-pf-lg: var(--pf-shadow-lg);
+
+  --text-pf-xs: var(--pf-font-size-xs);
+  --text-pf-sm: var(--pf-font-size-sm);
+  --text-pf-md: var(--pf-font-size-md);
+  --text-pf-lg: var(--pf-font-size-lg);
+  --text-pf-xl: var(--pf-font-size-xl);
+
+  --ease-pf: var(--pf-ease-standard);
+}

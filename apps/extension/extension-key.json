@@ -1,0 +1,5 @@
+{
+  "id": "joggpgkomcopmidkklfcapadaipimjef",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAujGSun9fQKwyTFyf1kdpq4t63mvdO6x9p8aj/ld9UR0f5dCyavPBZgcS7IdjJ0kqW0HCTyVJveo4QcNnuutzQtzc9PQr+W3WCxHIQDdQBcCVUFPB/NM/Fa/ckyuY3+ii8Qt1+YDBIn8IYo4iH5hq6epIeVLPfEtqmS8r7m1SjaU9YGzf5HJnfCcVwKIpnv/SdQd9xtrLHf+exTyqmCaljNxixWjguo46q4VoSECD8WvswWJg7iXwoeXrOvV2f+KoQ0KuxLsE4MoCL2UkK+5kVqoXastPsEMyHIZlgMOFT2oRAapaKXEKA/Z6hWNcGGsGUwRCkypISCuIrdrTcGuvQQIDAQAB",
+  "note": "Clave PUBLICA que fija el ID de la extension (campo key del manifest). No incluye clave privada."
+}

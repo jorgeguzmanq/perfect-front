@@ -1,0 +1,12 @@
+{
+  "name": "next-port",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "next dev -p 4100 --turbopack"
+  },
+  "dependencies": {
+    "next": "^16.0.0",
+    "react": "^19.0.0"
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "name": "vite-and-next",
+  "private": true,
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "next": "^16.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@perfect-front/overlay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./build": "./src/build.ts"
+  },
+  "scripts": {
+    "build": "tsx scripts/build.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@perfect-front/design-tokens": "workspace:*",
+    "@perfect-front/shared": "workspace:*",
+    "esbuild": "^0.28.2",
+    "html-to-image": "^1.11.13"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "happy-dom": "^20.0.0",
+    "tsx": "^4.23.15"
+  }
+}

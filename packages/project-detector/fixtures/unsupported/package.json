@@ -1,0 +1,8 @@
+{
+  "name": "unsupported",
+  "version": "1.0.0",
+  "description": "Unsupported project without Vite or known framework",
+  "dependencies": {
+    "lodash": "^4.17.0"
+  }
+}

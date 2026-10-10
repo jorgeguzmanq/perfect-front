@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "projects": {
+    "ui-lib": {
+      "projectType": "library",
+      "root": "projects/ui-lib",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:ng-packagr"
+        }
+      }
+    },
+    "demo": {
+      "projectType": "application",
+      "root": "",
+      "architect": {
+        "serve": {
+          "builder": "@angular/build:dev-server"
+        }
+      }
+    }
+  }
+}

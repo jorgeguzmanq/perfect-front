@@ -1,0 +1,13 @@
+node_modules/
+.pnpm-store/
+.turbo/
+coverage/
+dist/
+build/
+*.tsbuildinfo
+*.log
+.DS_Store
+Thumbs.db
+
+# Local development state for Perfect Front itself.
+.perfect-front/

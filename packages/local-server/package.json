@@ -1,0 +1,25 @@
+{
+  "name": "@perfect-front/local-server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^2.1.3",
+    "@perfect-front/cli": "workspace:*",
+    "@perfect-front/comment-storage": "workspace:*",
+    "@perfect-front/project-detector": "workspace:*",
+    "@perfect-front/shared": "workspace:*",
+    "hono": "^4.13.12",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

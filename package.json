@@ -1,0 +1,31 @@
+{
+  "name": "perfect-front",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Browser-based visual feedback for local web projects.",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --if-present dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:e2e": "pnpm -r --if-present test:e2e"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.0",
+    "@perfect-front/comment-storage": "workspace:*",
+    "@perfect-front/project-detector": "workspace:*",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.20.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.0",
+    "vitest": "^5.0.3"
+  }
+}

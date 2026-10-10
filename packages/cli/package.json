@@ -1,0 +1,28 @@
+{
+  "name": "@perfect-front/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "perfect-front": "./bin/comment.mjs",
+    "comment": "./bin/comment.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@perfect-front/comment-storage": "workspace:*",
+    "@perfect-front/overlay": "workspace:*",
+    "@perfect-front/project-detector": "workspace:*",
+    "@perfect-front/proxy": "workspace:*",
+    "@perfect-front/shared": "workspace:*",
+    "tsx": "^4.20.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0"
+  }
+}

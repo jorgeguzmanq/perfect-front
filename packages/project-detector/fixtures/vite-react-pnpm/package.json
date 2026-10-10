@@ -1,0 +1,18 @@
+{
+  "name": "vite-react-pnpm",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Vite + React with pnpm",
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0",
+    "@vitejs/plugin-react": "^4.0.0"
+  }
+}

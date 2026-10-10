@@ -1,0 +1,12 @@
+{
+  "name": "explicit-config",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Project with explicit .perfect-front/project.json config",
+  "scripts": {
+    "start": "vite preview"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}

@@ -1,0 +1,153 @@
+/*
+ * Reset mínimo y primitivas. Solo tokens (--pf-*) y clases .pf-*.
+ * No toca selectores de elemento globales: el reset vive bajo .pf-root,
+ * para no alterar la página observada. Requiere tokens.css.
+ */
+
+.pf-root {
+  box-sizing: border-box;
+  margin: 0;
+  font-family: var(--pf-font-sans);
+  font-size: var(--pf-font-size-md);
+  line-height: var(--pf-line-height-base);
+  font-weight: var(--pf-font-weight-regular);
+  color: var(--pf-color-text);
+  background: var(--pf-color-bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+.pf-root *,
+.pf-root *::before,
+.pf-root *::after {
+  box-sizing: inherit;
+}
+
+.pf-root :where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+}
+
+/* Foco visible común */
+.pf-btn:focus-visible,
+.pf-input:focus-visible,
+.pf-focusable:focus-visible {
+  outline: var(--pf-focus-ring);
+  outline-offset: var(--pf-focus-ring-offset);
+}
+
+/* Botón */
+.pf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--pf-space-2);
+  min-height: var(--pf-control-height);
+  padding: var(--pf-space-1) var(--pf-space-3);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-color-surface-raised);
+  color: var(--pf-color-text);
+  font-size: var(--pf-font-size-md);
+  font-weight: var(--pf-font-weight-medium);
+  line-height: var(--pf-line-height-tight);
+  cursor: pointer;
+  transition:
+    background-color var(--pf-duration-fast) var(--pf-ease-standard),
+    border-color var(--pf-duration-fast) var(--pf-ease-standard);
+}
+
+.pf-btn:hover:not(:disabled) {
+  background: var(--pf-color-surface);
+}
+
+.pf-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pf-btn--primary {
+  background: var(--pf-color-accent);
+  border-color: var(--pf-color-accent);
+  color: var(--pf-color-accent-fg);
+}
+
+.pf-btn--primary:hover:not(:disabled) {
+  background: var(--pf-color-accent-hover);
+  border-color: var(--pf-color-accent-hover);
+}
+
+.pf-btn--danger {
+  color: var(--pf-color-danger);
+  border-color: var(--pf-color-danger);
+}
+
+/* Input (también aplica a textarea/select con la clase) */
+.pf-input {
+  display: block;
+  width: 100%;
+  min-height: var(--pf-control-height);
+  padding: var(--pf-space-1) var(--pf-space-3);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-color-bg);
+  color: var(--pf-color-text);
+  font-size: var(--pf-font-size-md);
+  line-height: var(--pf-line-height-base);
+  transition: border-color var(--pf-duration-fast) var(--pf-ease-standard);
+}
+
+.pf-input::placeholder {
+  color: var(--pf-color-text-muted);
+}
+
+.pf-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Chip de estado: .pf-chip + .pf-chip--<estado> */
+.pf-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-space-1);
+  padding: 0 var(--pf-space-2);
+  border-radius: var(--pf-radius-full);
+  font-size: var(--pf-font-size-xs);
+  font-weight: var(--pf-font-weight-medium);
+  line-height: var(--pf-line-height-base);
+  white-space: nowrap;
+  color: var(--pf-status-ignored-fg);
+  background: var(--pf-status-ignored-bg);
+}
+
+.pf-chip--pending {
+  color: var(--pf-status-pending-fg);
+  background: var(--pf-status-pending-bg);
+}
+
+.pf-chip--in_progress {
+  color: var(--pf-status-in-progress-fg);
+  background: var(--pf-status-in-progress-bg);
+}
+
+.pf-chip--resolved {
+  color: var(--pf-status-resolved-fg);
+  background: var(--pf-status-resolved-bg);
+}
+
+.pf-chip--ignored {
+  color: var(--pf-status-ignored-fg);
+  background: var(--pf-status-ignored-bg);
+}
+
+.pf-chip--archived {
+  color: var(--pf-status-archived-fg);
+  background: var(--pf-status-archived-bg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pf-btn,
+  .pf-input {
+    transition: none;
+  }
+}

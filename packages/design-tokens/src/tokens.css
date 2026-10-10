@@ -1,0 +1,162 @@
+/*
+ * @perfect-front/design-tokens — fuente de verdad de estilos.
+ * Prefijo --pf-. Las variables van en :root Y en :host (Shadow Root).
+ * Tema: prefers-color-scheme por defecto; [data-theme="light|dark"] lo fuerza.
+ * Mantener sincronizado con src/tokens.ts (mismos valores).
+ */
+
+:root,
+:host {
+  color-scheme: light;
+
+  /* Color — superficies y texto */
+  --pf-color-bg: #ffffff;
+  --pf-color-surface: #f6f7f9;
+  --pf-color-surface-raised: #ffffff;
+  --pf-color-border: #d5d9e0;
+  --pf-color-text: #14161a;
+  --pf-color-text-muted: #5b6270;
+  --pf-color-accent: #2f5bea;
+  --pf-color-accent-hover: #2349c4;
+  --pf-color-accent-fg: #ffffff;
+  --pf-color-danger: #c42b1c;
+  --pf-color-focus: #2f5bea;
+  --pf-color-overlay-backdrop: rgb(20 22 26 / 0.4);
+
+  /* Color — estados de comentario (fg sobre bg >= 4.5:1) */
+  --pf-status-pending-fg: #8a5300;
+  --pf-status-pending-bg: #fff1d6;
+  --pf-status-in-progress-fg: #1d4ed8;
+  --pf-status-in-progress-bg: #e0e9ff;
+  --pf-status-resolved-fg: #146c2e;
+  --pf-status-resolved-bg: #dcf5e3;
+  --pf-status-ignored-fg: #4b5563;
+  --pf-status-ignored-bg: #eceef2;
+  --pf-status-archived-fg: #5b4b8a;
+  --pf-status-archived-bg: #ece8f7;
+
+  /* Tipografía */
+  --pf-font-sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --pf-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --pf-font-size-xs: 0.75rem;
+  --pf-font-size-sm: 0.8125rem;
+  --pf-font-size-md: 0.875rem;
+  --pf-font-size-lg: 1rem;
+  --pf-font-size-xl: 1.25rem;
+  --pf-font-weight-regular: 400;
+  --pf-font-weight-medium: 500;
+  --pf-font-weight-bold: 600;
+  --pf-line-height-tight: 1.25;
+  --pf-line-height-base: 1.5;
+
+  /* Espaciado (base 4px) */
+  --pf-space-1: 0.25rem;
+  --pf-space-2: 0.5rem;
+  --pf-space-3: 0.75rem;
+  --pf-space-4: 1rem;
+  --pf-space-5: 1.5rem;
+  --pf-space-6: 2rem;
+  --pf-space-7: 3rem;
+
+  /* Radios */
+  --pf-radius-sm: 4px;
+  --pf-radius-md: 8px;
+  --pf-radius-lg: 12px;
+  --pf-radius-full: 9999px;
+
+  /* Sombras */
+  --pf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.08);
+  --pf-shadow-md: 0 4px 12px rgb(0 0 0 / 0.12);
+  --pf-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.18);
+
+  /* z-index (overlay usa la capa superior controlada) */
+  --pf-z-base: 0;
+  --pf-z-dropdown: 100;
+  --pf-z-modal: 1000;
+  --pf-z-overlay: 2147483000;
+
+  /* Motion */
+  --pf-duration-fast: 120ms;
+  --pf-duration-base: 200ms;
+  --pf-duration-slow: 320ms;
+  --pf-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+
+  /* Foco visible */
+  --pf-focus-ring-width: 2px;
+  --pf-focus-ring-offset: 2px;
+  --pf-focus-ring: var(--pf-focus-ring-width) solid var(--pf-color-focus);
+
+  --pf-control-height: 2rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]),
+  :host(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --pf-color-bg: #0f1115;
+    --pf-color-surface: #181b21;
+    --pf-color-surface-raised: #1e222a;
+    --pf-color-border: #2c313a;
+    --pf-color-text: #e8eaee;
+    --pf-color-text-muted: #a0a7b4;
+    --pf-color-accent: #7c9cff;
+    --pf-color-accent-hover: #9bb3ff;
+    --pf-color-accent-fg: #0b1020;
+    --pf-color-danger: #ff7b6e;
+    --pf-color-focus: #9bb3ff;
+    --pf-color-overlay-backdrop: rgb(0 0 0 / 0.6);
+    --pf-status-pending-fg: #ffc766;
+    --pf-status-pending-bg: #3a2a08;
+    --pf-status-in-progress-fg: #9db8ff;
+    --pf-status-in-progress-bg: #16264d;
+    --pf-status-resolved-fg: #7fdc9b;
+    --pf-status-resolved-bg: #10301b;
+    --pf-status-ignored-fg: #b4bac6;
+    --pf-status-ignored-bg: #262a31;
+    --pf-status-archived-fg: #c3b5f0;
+    --pf-status-archived-bg: #2a2342;
+    --pf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --pf-shadow-md: 0 4px 12px rgb(0 0 0 / 0.5);
+    --pf-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.6);
+  }
+}
+
+:root[data-theme="dark"],
+:host([data-theme="dark"]) {
+  color-scheme: dark;
+  --pf-color-bg: #0f1115;
+  --pf-color-surface: #181b21;
+  --pf-color-surface-raised: #1e222a;
+  --pf-color-border: #2c313a;
+  --pf-color-text: #e8eaee;
+  --pf-color-text-muted: #a0a7b4;
+  --pf-color-accent: #7c9cff;
+  --pf-color-accent-hover: #9bb3ff;
+  --pf-color-accent-fg: #0b1020;
+  --pf-color-danger: #ff7b6e;
+  --pf-color-focus: #9bb3ff;
+  --pf-color-overlay-backdrop: rgb(0 0 0 / 0.6);
+  --pf-status-pending-fg: #ffc766;
+  --pf-status-pending-bg: #3a2a08;
+  --pf-status-in-progress-fg: #9db8ff;
+  --pf-status-in-progress-bg: #16264d;
+  --pf-status-resolved-fg: #7fdc9b;
+  --pf-status-resolved-bg: #10301b;
+  --pf-status-ignored-fg: #b4bac6;
+  --pf-status-ignored-bg: #262a31;
+  --pf-status-archived-fg: #c3b5f0;
+  --pf-status-archived-bg: #2a2342;
+  --pf-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --pf-shadow-md: 0 4px 12px rgb(0 0 0 / 0.5);
+  --pf-shadow-lg: 0 12px 32px rgb(0 0 0 / 0.6);
+}
+
+/* Motion reducido: sin transiciones ni animaciones */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  :host {
+    --pf-duration-fast: 0ms;
+    --pf-duration-base: 0ms;
+    --pf-duration-slow: 0ms;
+  }
+}

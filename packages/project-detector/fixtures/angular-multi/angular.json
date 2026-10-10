@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/@angular/cli/lib/config/schema.json",
+  "version": 1,
+  "projects": {
+    "admin": {
+      "projectType": "application",
+      "root": "projects/admin",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server"
+        }
+      }
+    },
+    "shop": {
+      "projectType": "application",
+      "root": "projects/shop",
+      "architect": {
+        "build": {
+          "builder": "@angular/build:application"
+        },
+        "serve": {
+          "builder": "@angular/build:dev-server"
+        }
+      }
+    }
+  }
+}

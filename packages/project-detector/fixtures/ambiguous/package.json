@@ -1,0 +1,14 @@
+{
+  "name": "ambiguous",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Ambiguous project with conflicting dev/start scripts",
+  "scripts": {
+    "dev": "webpack serve --mode development",
+    "start": "node ./server.js"
+  },
+  "devDependencies": {
+    "webpack": "^5.0.0",
+    "webpack-cli": "^5.0.0"
+  }
+}

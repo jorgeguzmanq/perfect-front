@@ -1,0 +1,10 @@
+{
+  "name": "next-env",
+  "private": true,
+  "scripts": {
+    "dev": "PORT=4500 next dev"
+  },
+  "dependencies": {
+    "next": "^15.0.0"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@perfect-front/design-tokens",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "sideEffects": ["**/*.css"],
+  "exports": {
+    ".": "./src/tokens.ts",
+    "./tokens.css": "./src/tokens.css",
+    "./base.css": "./src/base.css",
+    "./tailwind-theme.css": "./src/tailwind-theme.css"
+  },
+  "files": ["src", "README.md", "CONSUMERS.md"]
+}

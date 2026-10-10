@@ -1,0 +1,15 @@
+{
+  "name": "vite-vue-npm",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Vite + Vue with npm",
+  "scripts": {
+    "dev": "vite"
+  },
+  "dependencies": {
+    "vue": "^3.0.0"
+  },
+  "devDependencies": {
+    "vite": "^5.0.0"
+  }
+}
