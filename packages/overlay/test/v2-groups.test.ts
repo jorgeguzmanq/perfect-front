@@ -153,3 +153,14 @@ describe('groupBrief', () => {
     expect(md.split('\n')[2]).toMatch(/^1\. \[pending\]/);
   });
 });
+
+describe('estado de peticiones al agente', () => {
+  const r = (id: string, createdAt: string, status: 'pending' | 'taken' | 'done', commentIds: string[], groupId: string | null = null) => ({ id, createdAt, status, commentIds, groupId });
+  it('toma la petición más reciente que incluye el comentario o el grupo', async () => {
+    const { agentStateFor } = await import('../src/groups');
+    const reqs = [r('a', '2026-01-01', 'done', ['c1'], 'g'), r('b', '2026-01-02', 'taken', ['c1', 'c2'])];
+    expect(agentStateFor({ commentId: 'c1' }, reqs)).toBe('taken');
+    expect(agentStateFor({ commentId: 'c3' }, reqs)).toBeNull();
+    expect(agentStateFor({ groupId: 'g' }, reqs)).toBe('done');
+  });
+});

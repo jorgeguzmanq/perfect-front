@@ -1,4 +1,4 @@
-import type { CommentId, CommentProposal, CreateCommentRequest, GroupId } from '@perfect-front/shared';
+import { proposalsToComment, type CommentId, type CommentProposal, type CreateCommentRequest, type GroupId } from '@perfect-front/shared';
 import { Attachments, bindImageDrop, bindImagePaste } from './attachments';
 import { ContentEditor, detectContent } from './content-edit';
 import { describe, fileLabel, h } from './dom';
@@ -133,6 +133,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     dragging: false,
     lang: '',
     fndOpen: false,
+    styleMode: 'visual',
     att,
     sections,
     groupsPort: opts.groups ?? null,
@@ -140,6 +141,8 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     canCapture: !!opts.requestCapture,
     edits: () => editsFor(sel.focus?.el ?? null),
     allEdits: () => Array.from(edits.values()),
+    autoText: () => proposalsToComment(collectProposals().proposals),
+    autoMerged: false,
     rerender: (...regions: Region[]) => {
       for (const r of new Set(regions)) paint(r);
     },
@@ -661,11 +664,10 @@ export function createEditor(opts: EditorOptions): EditorHandle {
 
   // --- Guardar -----------------------------------------------------------------------------------------------
 
-  function collectProposals(): { proposals: CommentProposal[]; auto: string | null } {
+  function collectProposals(): { proposals: CommentProposal[] } {
     const proposals: CommentProposal[] = [];
     const taken = new Set<string>();
     const primary = sel.nodes[0]?.el ?? null;
-    let auto: string | null = null;
     for (const e of ctx.allEdits()) {
       // En scope view toda propuesta lleva selector explícito (regla de shared).
       const target = !isView() && e.el === primary ? null : e.selector;
@@ -680,9 +682,8 @@ export function createEditor(opts: EditorOptions): EditorHandle {
         taken.add(p.id);
         proposals.push(p);
       }
-      if (!auto && e.content?.changeCount) auto = e.content.autoComment();
     }
-    return { proposals, auto };
+    return { proposals };
   }
 
   function revertPreviews(): void {
@@ -703,7 +704,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
       opts.announce(ctx.error);
       return;
     }
-    const { proposals, auto } = collectProposals();
+    const { proposals } = collectProposals();
     const note = ctx.draft.trim();
     const port = ctx.groupsPort;
     const b = ctx.binding;
@@ -715,7 +716,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
       scope: isView() ? 'view' : 'element',
       selection: sel,
       main: remove ? (note ? `${REMOVE_PREFIX} ${note}` : REMOVE_PREFIX) : ctx.draft,
-      fallbackText: auto,
+      autoText: remove || ctx.autoMerged ? null : proposalsToComment(proposals),
       sections,
       attachments: att,
       proposals,

@@ -1,4 +1,5 @@
 import { LIMITS, type CommentProposal, type LocationSource, type StyleChange } from '@perfect-front/shared';
+import { isPfNode } from './constants';
 import { localId } from './dom';
 
 /**
@@ -188,6 +189,16 @@ interface Applied {
 export interface StyleChangeEntry {
   before: string;
   after: string;
+  /** Clase Tailwind equivalente (solo informativa; modo Visual). */
+  tailwind?: string | null;
+  /** Token de diseño elegido en el modo Visual (sobrescribe el de la fila). */
+  token?: string | null;
+}
+
+/** Datos extra de un cambio hecho desde el modo Visual. */
+export interface StyleSetExtra {
+  tailwind?: string | null;
+  token?: string | null;
 }
 
 export class StyleEditor {
@@ -212,10 +223,19 @@ export class StyleEditor {
     this.rows = rows;
   }
 
+  /** Registra una propiedad editable que la lista no trae (modo Visual: `before` = valor calculado). */
+  addRow(row: StyleRow): void {
+    if (!this.rows.some((r) => r.property === row.property)) this.rows.push(row);
+  }
+
+  hasRow(property: string): boolean {
+    return this.rows.some((r) => r.property === property);
+  }
+
   private els(): HTMLElement[] {
     const t = this.targets();
     const list = this.appliesTo === 'all' ? t.all : t.focus ? [t.focus] : [];
-    return list.filter((e): e is HTMLElement => !!(e as HTMLElement).style);
+    return list.filter((e): e is HTMLElement => !!(e as HTMLElement).style && !isPfNode(e));
   }
 
   private paint(prop: string, value: string | null): void {
@@ -234,7 +254,7 @@ export class StyleEditor {
   }
 
   /** Cambia una propiedad editable (vista previa inmediata). */
-  set(property: string, after: string): void {
+  set(property: string, after: string, extra?: StyleSetExtra): void {
     const row = this.rows.find((r) => r.property === property && r.origin === 'editable');
     if (!row) return;
     const v = after.trim().slice(0, LIMITS.styleValue);
@@ -243,7 +263,12 @@ export class StyleEditor {
       return;
     }
     if (this.changesMap.size >= LIMITS.styleChanges && !this.changesMap.has(property)) return;
-    this.changesMap.set(property, { before: row.value, after: v });
+    this.changesMap.set(property, {
+      before: row.value,
+      after: v,
+      ...(extra?.tailwind ? { tailwind: extra.tailwind } : {}),
+      ...(extra?.token ? { token: extra.token } : {}),
+    });
     this.paint(property, v);
   }
 
@@ -286,7 +311,8 @@ export class StyleEditor {
         after: c.after,
         origin: 'editable',
         ...(row?.source ? { source: row.source } : {}),
-        ...(row?.token ? { token: row.token } : {}),
+        ...(c.token ?? row?.token ? { token: (c.token ?? row?.token)! } : {}),
+        ...(c.tailwind ? { tailwind: c.tailwind } : {}),
       });
     }
     return {

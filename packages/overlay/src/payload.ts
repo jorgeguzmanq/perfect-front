@@ -1,5 +1,6 @@
 import {
   COMMENT_VERSION,
+  composeWithAuto,
   CreateCommentRequestSchema,
   type CommentGroupRef,
   type CommentProposal,
@@ -19,6 +20,8 @@ export interface DraftV2 {
   main: string;
   /** Texto de reserva si `main` está vacío (p. ej. «Cambiar texto de … a …»). */
   fallbackText?: string | null;
+  /** Comentario autogenerado por las propuestas (SPEC §6.3): se antepone la nota si hay; solo, si no la hay. */
+  autoText?: string | null;
   sections: Sections;
   attachments: Attachments;
   proposals: readonly CommentProposal[];
@@ -37,10 +40,11 @@ export function targetSelectorFor(selection: Selection, nodeIndex: number): stri
 }
 
 /** ¿Hay algo que guardar? (texto, secciones con texto, imágenes o propuestas). */
-export function hasContent(d: Pick<DraftV2, 'main' | 'sections' | 'attachments' | 'proposals' | 'fallbackText'>): boolean {
+export function hasContent(d: Pick<DraftV2, 'main' | 'sections' | 'attachments' | 'proposals' | 'fallbackText' | 'autoText'>): boolean {
   return (
     !!d.main.trim() ||
     !!d.fallbackText ||
+    !!d.autoText ||
     d.sections.items.some((s) => s.text.trim()) ||
     d.attachments.count > 0 ||
     d.proposals.length > 0
@@ -49,7 +53,7 @@ export function hasContent(d: Pick<DraftV2, 'main' | 'sections' | 'attachments' 
 
 /** Construye y valida el CreateCommentRequest v2. El error es un mensaje listo para mostrar. */
 export function buildRequestV2(d: DraftV2): BuildResult {
-  const comment = composeComment(d.main, d.sections.items) || (d.fallbackText ?? '').trim();
+  const comment = composeWithAuto(composeComment(d.main, d.sections.items), d.autoText ?? '') || (d.fallbackText ?? '').trim();
   if (!comment) return { ok: false, error: 'Escribe un comentario antes de guardar.' };
 
   const element = d.scope === 'element' ? d.selection.nodes[0] ?? null : null;

@@ -4,6 +4,7 @@ import net from "node:net";
 import {
   CommentCreatedDataSchema,
   CreateCommentRequestSchema,
+  CreateAgentRequestSchema,
   CreateGroupRequestSchema,
   PerfectFrontError,
   ReorderGroupRequestSchema,
@@ -197,6 +198,11 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     if (pathname === "/__pf/groups") {
       if (method === "GET") return { sub: "/groups", status: 200 };
       if (method === "POST") return { sub: "/groups", schema: CreateGroupRequestSchema, status: 201 };
+      return "method";
+    }
+    if (pathname === "/__pf/agent/requests") {
+      if (method === "GET") return { sub: "/agent/requests", status: 200 };
+      if (method === "POST") return { sub: "/agent/requests", schema: CreateAgentRequestSchema, status: 201 };
       return "method";
     }
     if ((m = new RegExp(`^/__pf/groups/${ID}/reorder$`).exec(pathname))) {

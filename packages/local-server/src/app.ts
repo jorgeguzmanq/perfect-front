@@ -3,6 +3,7 @@ import { bodyLimit } from "hono/body-limit";
 import { streamSSE } from "hono/streaming";
 import type { ZodType } from "zod";
 import {
+  CreateAgentRequestSchema,
   CreateCollectionRequestSchema,
   CreateCommentRequestSchema,
   CreateGroupRequestSchema,
@@ -38,6 +39,7 @@ import {
   safeEqual,
   type OriginKind,
 } from "./security";
+import { AgentService } from "./services/agent";
 import { CommentsService } from "./services/comments";
 import { GroupsService } from "./services/groups";
 import { ProcessesService } from "./services/processes";
@@ -120,6 +122,7 @@ export async function createCore(options: CoreOptions): Promise<Core> {
   const processes = new ProcessesService(projects, controller, bus, secrets);
   const comments = new CommentsService(registry, bus);
   const groups = new GroupsService(registry, comments);
+  const agent = new AgentService(registry, comments);
 
   const limiter = new RateLimiter(options.rateMax ?? LIMITS.rateMax, options.rateWindowMs ?? LIMITS.rateWindowMs);
   const authFails = new RateLimiter(options.authFailMax ?? LIMITS.authFailMax, options.rateWindowMs ?? LIMITS.rateWindowMs);
@@ -385,6 +388,17 @@ export async function createCore(options: CoreOptions): Promise<Core> {
     registry.get(id);
     await groups.delete(id, c.req.param("groupId"));
     return c.json({ ok: true });
+  });
+
+  // --- Peticiones al agente (buzón en .perfect-front/agent-inbox) ----------------
+
+  app.get("/api/projects/:id/agent/requests", async (c) => c.json({ ok: true, requests: await agent.list(c.req.param("id")) }));
+
+  app.post("/api/projects/:id/agent/requests", jsonBody, async (c) => {
+    const id = c.req.param("id");
+    registry.get(id);
+    const body = await readBody(c, CreateAgentRequestSchema);
+    return c.json({ ok: true, request: await agent.create(id, body) }, 201);
   });
 
   // --- SSE ---------------------------------------------------------------------

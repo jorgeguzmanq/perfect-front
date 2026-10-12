@@ -81,6 +81,7 @@ Comandos:
 Comentarios (directo sobre .perfect-front, sin servidor ni navegador; ver AGENTS.md):
   list, show <id>, claim <id>, resolve <id> --summary "...", edit <id> --comment "...",
   move <id...> --to <coleccion>, status <id> <estado>, ignore <id>, reopen <id>,
+  watch [--once] (espera peticiones «Enviar a agente» del widget),
   export --format md [--out archivo.md]. Detalle: perfect-front list --help
 
 Opciones:
@@ -281,7 +282,7 @@ const describeServer = (s: ServerStatus): string =>
 export async function runCli(argv: string[], io: Io): Promise<number> {
   if (detectPromptCommand(argv)) return runPromptCommand(argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd });
   const commentCmd = detectCommentCommand(argv);
-  if (commentCmd) return runCommentCommand(commentCmd, argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd });
+  if (commentCmd) return runCommentCommand(commentCmd, argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd, ...(io.signal ? { signal: io.signal } : {}) });
   let json = argv.includes("--json");
   const out = (s: string): void => io.stdout(s.endsWith("\n") ? s : s + "\n");
   const emit = (data: Record<string, unknown>, human: string): void => {

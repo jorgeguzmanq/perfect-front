@@ -12,7 +12,7 @@ export const SERVER_VERSION = "0.0.0";
  * - proxy-v1: el registro acepta `targetUrl` y ProjectSummary lo devuelve.
  * - groups-v1: rutas /api/projects/:id/groups (grupos de lectura con nota y cola ordenada).
  */
-export const SERVER_FEATURES: readonly string[] = ["proxy-v1", "groups-v1"];
+export const SERVER_FEATURES: readonly string[] = ["proxy-v1", "groups-v1", "agent-inbox-v1"];
 
 export const LIMITS = {
   /** Body de cualquier ruta salvo creación de comentario (que admite captura). */

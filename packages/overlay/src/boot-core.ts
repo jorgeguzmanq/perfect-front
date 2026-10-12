@@ -3,7 +3,7 @@ import { imageToBlob } from './attachments';
 import { mountShotActions } from './clipboard';
 import { createDrawer, type DrawerHandle } from './drawer';
 import type { GroupsPort } from './editor-ctx';
-import type { GroupsApi, QueueComment } from './groups';
+import type { AgentApi, AgentRequestInfo, GroupsApi, QueueComment } from './groups';
 import { createLauncher, type LauncherHandle } from './launcher';
 import { onNavigate } from './navigation';
 import { createOverlay } from './overlay';
@@ -127,6 +127,12 @@ export function bootPage(opts: BootOptions): PfApi {
     },
   };
 
+  // Buzón del agente: el widget solo envía IDs; el estado (enviada/tomada/resuelta) lo deriva el servidor.
+  const agentApi: AgentApi = {
+    send: async (req) => (await call<{ request: AgentRequestInfo }>('/agent/requests', 'POST', req)).request,
+    list: async () => (await call<{ requests: AgentRequestInfo[] }>('/agent/requests', 'GET')).requests ?? [],
+  };
+
   // Caché sincrónica que lee el editor (`GroupsPort`); se renueva al cargar comentarios/grupos.
   let groupsCache: ReadingGroup[] = [];
   let commentsCache: QueueComment[] = [];
@@ -168,10 +174,11 @@ export function bootPage(opts: BootOptions): PfApi {
       doc,
       layer: launcher.layer,
       load: async () => {
-        const [comments] = await Promise.all([loadComments(), refreshGroups()]);
-        return { comments, groups: groupsCache };
+        const [comments, requests] = await Promise.all([loadComments(), agentApi.list().catch((): AgentRequestInfo[] => []), refreshGroups()]);
+        return { comments, groups: groupsCache, requests };
       },
       api: groupsApi,
+      agent: agentApi,
       route,
       onGoto: (c) => {
         // Solo desplaza la vista hasta el nodo; no modifica la página.

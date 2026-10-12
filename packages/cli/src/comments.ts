@@ -1,16 +1,24 @@
 import fs from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
-import { createCommentStorage, isInside, PF_DIR, type CommentStorage } from "@perfect-front/comment-storage";
+import {
+  createCommentStorage,
+  formatPromptBlock,
+  isInside,
+  listAgentRequests,
+  markAgentRequestTaken,
+  PF_DIR,
+  type CommentStorage,
+} from "@perfect-front/comment-storage";
 import { findRoot } from "@perfect-front/project-detector";
 import { COMMENT_STATUSES, PerfectFrontError, toErrorData, type VisualComment } from "@perfect-front/shared";
 
 /**
  * Subcomandos que operan DIRECTO sobre `<proyecto>/.perfect-front` (sin servidor local ni navegador):
- * list, show, move, edit, status, claim, resolve, ignore, reopen, export. Contrato para agentes en AGENTS.md.
+ * list, show, move, edit, status, claim, resolve, ignore, reopen, export, watch. Contrato para agentes en AGENTS.md.
  */
 
-export const COMMENT_COMMANDS = ["list", "show", "move", "edit", "status", "claim", "resolve", "ignore", "reopen", "export"] as const;
+export const COMMENT_COMMANDS = ["list", "show", "move", "edit", "status", "claim", "resolve", "ignore", "reopen", "export", "watch"] as const;
 type CommentCommand = (typeof COMMENT_COMMANDS)[number];
 
 /** Codigos de salida de estos subcomandos (los generales viven en `EXIT` de run.ts; los valores no se solapan). */
@@ -31,6 +39,8 @@ export interface CommentIo {
   stdout: (s: string) => void;
   stderr: (s: string) => void;
   cwd: string;
+  /** Cancelación (Ctrl+C); la usa `watch`. */
+  signal?: AbortSignal;
 }
 
 /** Error con codigo de salida explicito (proyecto no encontrado, revision obsoleta, id ambiguo...). */
@@ -64,6 +74,8 @@ const OPTIONS = {
   rev: { type: "string" },
   format: { type: "string" },
   out: { type: "string" },
+  once: { type: "boolean" },
+  interval: { type: "string" },
 } as const;
 
 const FOREIGN_OPTIONS = {
@@ -102,6 +114,7 @@ export const COMMENTS_HELP = `Comentarios visuales por CLI (operan sobre <proyec
   perfect-front status <id> pending|in_progress|ignored|archived
   perfect-front ignore <id>
   perfect-front reopen <id>
+  perfect-front watch [--once] [--interval ms]     espera peticiones «Enviar a agente» del widget (agent-inbox), imprime el prompt y las marca taken
   perfect-front export [--format md] [--status s] [--collection c] [--out archivo.md]   (--out dentro de .perfect-front)
 
 Comunes: --cwd <dir>, --json. <id> acepta un prefijo unico (p. ej. pf_01K9ZQ3).
@@ -316,6 +329,41 @@ export async function runCommentCommand(command: CommentCommand, argv: string[],
           io.stderr(`Aviso: ${errors.length} archivo(s) ilegible(s) omitido(s): ${errors.map((e) => `${e.collection}/${e.file}`).join(", ")}\n`);
         }
         return COMMENT_EXIT.OK;
+      }
+
+      case "watch": {
+        noExtra();
+        const interval = values.interval === undefined ? 1000 : Number(values.interval);
+        if (!Number.isInteger(interval) || interval < 50) throw usage("--interval debe ser un entero de ms (>= 50)");
+        // Una petición por vuelta: imprime el prompt (sin texto de comentarios) y la marca `taken`.
+        const drain = async (): Promise<number> => {
+          let n = 0;
+          for (const r of await listAgentRequests(root)) {
+            if (r.status !== "pending") continue;
+            await markAgentRequestTaken(root, r.id);
+            n++;
+            const line = `Petición ${r.id}: ${r.commentIds.length} comentario(s)${r.groupId ? ` (grupo ${r.groupId})` : ""} → ${r.commentIds.join(", ")}`;
+            if (json) out(JSON.stringify({ ok: true, command, request: { ...r, status: "taken" } }));
+            else out(`${line}
+${formatPromptBlock(r.prompt)}`);
+          }
+          return n;
+        };
+        for (;;) {
+          if ((await drain()) > 0 && values.once) return COMMENT_EXIT.OK;
+          if (io.signal?.aborted) return COMMENT_EXIT.OK;
+          await new Promise<void>((resolve) => {
+            let t: NodeJS.Timeout | undefined;
+            const done = (): void => {
+              clearTimeout(t);
+              io.signal?.removeEventListener("abort", done);
+              resolve();
+            };
+            t = setTimeout(done, interval);
+            io.signal?.addEventListener("abort", done, { once: true });
+          });
+          if (io.signal?.aborted) return COMMENT_EXIT.OK;
+        }
       }
 
       case "show": {

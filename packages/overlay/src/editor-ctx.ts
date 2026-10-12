@@ -44,6 +44,8 @@ export interface EditorCtx {
   dragging: boolean;
   lang: string;
   fndOpen: boolean;
+  /** Pestaña Estilos: «Lista» (filas por propiedad) o «Visual» (controles por sección). */
+  styleMode: 'list' | 'visual';
   att: Attachments;
   sections: Sections;
   groupsPort: GroupsPort | null;
@@ -53,6 +55,10 @@ export interface EditorCtx {
   /** Ediciones del nodo enfocado (se crean al pedirlas). */
   edits(): NodeEdits | null;
   allEdits(): NodeEdits[];
+  /** Comentario autogenerado por las propuestas actuales ("" si no hay). */
+  autoText(): string;
+  /** El texto generado ya se copió al borrador para editarlo: no se vuelve a anteponer/añadir al guardar. */
+  autoMerged: boolean;
   rerender(...regions: Region[]): void;
   announce(msg: string): void;
   /** Registra un listener con limpieza al desmontar/redibujar. */

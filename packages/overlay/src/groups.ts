@@ -22,6 +22,30 @@ export interface GroupsApi {
   setCommentGroup(commentId: string, ref: CommentGroupRef | null): Promise<void>;
 }
 
+/** Petición «Enviar a agente» tal como la devuelve `/agent/requests` (sin prompt ni texto de comentarios). */
+export interface AgentRequestInfo {
+  id: string;
+  createdAt: string;
+  commentIds: string[];
+  groupId: string | null;
+  status: 'pending' | 'taken' | 'done';
+}
+
+/** Puerto del buzón del agente: el widget solo envía IDs (ninguno = toda la cola pendiente). */
+export interface AgentApi {
+  send(req: { commentIds?: string[]; groupId?: string }): Promise<AgentRequestInfo>;
+  list(): Promise<AgentRequestInfo[]>;
+}
+
+export const AGENT_LABEL: Record<AgentRequestInfo['status'], string> = { pending: 'Enviada', taken: 'Tomada', done: 'Resuelta' };
+
+/** Estado de la petición más reciente que incluye el comentario (o el grupo), o null si nunca se envió. */
+export function agentStateFor(target: { commentId?: string; groupId?: string }, requests: readonly AgentRequestInfo[]): AgentRequestInfo['status'] | null {
+  const hits = requests.filter((r) => (target.commentId ? r.commentIds.includes(target.commentId) : r.groupId === target.groupId));
+  if (!hits.length) return null;
+  return hits.reduce((a, b) => (b.createdAt >= a.createdAt ? b : a)).status;
+}
+
 /** Subconjunto de VisualComment que necesita la cola y el cajón. */
 export interface QueueComment {
   id: string;

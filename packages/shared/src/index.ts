@@ -2,6 +2,7 @@ export * from "./ids";
 export * from "./timestamps";
 export * from "./config";
 export * from "./comment";
+export * from "./auto-comment";
 export * from "./api";
 export * from "./events";
 export * from "./errors";

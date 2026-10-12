@@ -86,6 +86,13 @@ describe('buildRequestV2: request válida', () => {
     expect(r.ok && r.request.comment).toBe('Cambiar texto de A a B');
   });
 
+  it('autoText: sin nota es el comentario; con nota se antepone', () => {
+    const solo = buildRequestV2(draft({ main: '', autoText: 'Cambiar estilo: color #aaa → #111' }));
+    expect(solo.ok && solo.request.comment).toBe('Cambiar estilo: color #aaa → #111');
+    const con = buildRequestV2(draft({ main: 'Ojo con el contraste', autoText: 'Cambiar estilo: color #aaa → #111' }));
+    expect(con.ok && con.request.comment).toBe('Ojo con el contraste\n\nCambiar estilo: color #aaa → #111');
+  });
+
   it('sin texto, principal, secciones ni reserva, devuelve el error para mostrar', () => {
     const r = buildRequestV2(draft({ main: '   ' }));
     expect(r.ok).toBe(false);

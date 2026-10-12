@@ -21,6 +21,7 @@ import {
   VisualCommentSchema,
 } from "./comment";
 import { ProjectConfigSchema } from "./config";
+import { proposalsToComment } from "./auto-comment";
 import { CollectionNameSchema, CommentIdSchema, GroupIdSchema, LocalIdSchema, ProjectIdSchema } from "./ids";
 
 /** Todas las requests son .strict(): ninguna acepta rutas de filesystem (SPEC §12). */
@@ -139,7 +140,8 @@ export const CreateCommentRequestSchema = z
     version: z.union([z.literal(COMMENT_VERSION_V1), z.literal(COMMENT_VERSION)]),
     collection: CollectionNameSchema.optional(),
     scope: CommentScopeSchema,
-    comment: CommentTextSchema,
+    /** Puede venir vacío si hay propuestas: entonces se autogenera (SPEC §6.3). */
+    comment: z.string().max(LIMITS.comment),
     location: CommentLocationSchema,
     viewport: ViewportSchema,
     elementRect: ElementRectSchema.nullable(),
@@ -161,6 +163,9 @@ export const CreateCommentRequestSchema = z
         message: "scope element requiere selector y elementRect",
       });
     }
+    if (c.comment.trim().length === 0 && c.proposals.length === 0) {
+      ctx.addIssue({ code: "custom", path: ["comment"], message: "comment vacío sin propuestas" });
+    }
     refineUploads(c, ctx);
     refineV2Parts(
       {
@@ -173,7 +178,8 @@ export const CreateCommentRequestSchema = z
       },
       ctx,
     );
-  });
+  })
+  .transform((c) => (c.comment.trim() ? c : { ...c, comment: proposalsToComment(c.proposals) }));
 export type CreateCommentRequest = z.infer<typeof CreateCommentRequestSchema>;
 
 export const ListCommentsQuerySchema = z
@@ -280,6 +286,17 @@ export const ReorderGroupRequestSchema = z
   .strict()
   .refine((v) => new Set(v.order).size === v.order.length, "ids duplicados");
 export type ReorderGroupRequest = z.infer<typeof ReorderGroupRequestSchema>;
+
+// --- Peticiones al agente (buzón) ------------------------------------------------
+
+/** El widget solo envía IDs: ninguno = toda la cola pendiente; `groupId` = la cola de ese grupo. */
+export const CreateAgentRequestSchema = z
+  .object({
+    commentIds: z.array(CommentIdSchema).min(1).max(LIMITS.groupItems).optional(),
+    groupId: GroupIdSchema.optional(),
+  })
+  .strict();
+export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;
 
 export const ListGroupsResponseSchema = z
   .object({ ok: z.literal(true), groups: z.array(ReadingGroupSchema) })

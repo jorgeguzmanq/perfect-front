@@ -2,6 +2,7 @@ import { LIMITS } from '@perfect-front/shared';
 import { downloadNameOf, formatBytes, imageToBlob, type PendingImage } from './attachments';
 import { downloadAll, mountShotActions } from './clipboard';
 import { growthPercent, renderTemplate } from './content-edit';
+import { renderDesignPanel } from './design/design-panel';
 import { describe, h } from './dom';
 import type { EditorCtx } from './editor-ctx';
 import { bindingStep, queueFor, slugGroupId } from './groups';
@@ -196,6 +197,7 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
   const counter = h(doc, 'span', undefined, `${ctx.draft.length.toLocaleString('es')} / ${LIMITS.comment.toLocaleString('es')}`);
   const clear = btn(ctx, 'pf-ov-linkbtn', 'Descartar', () => {
     ctx.draft = '';
+    ctx.autoMerged = false;
     ta.value = '';
     counter.textContent = `0 / ${LIMITS.comment.toLocaleString('es')}`;
     clear.disabled = true;
@@ -216,6 +218,25 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
   foot.append(clear, counter);
   field.append(label, ta, foot);
   box.appendChild(field);
+
+  // Cambios directos (texto, estilos, orden): ya son el comentario; se muestra el texto generado y se puede editar.
+  const auto = ctx.autoText();
+  if (auto && !ctx.autoMerged) {
+    const gen = h(doc, 'div', 'pf-ov-hint');
+    gen.append(
+      h(doc, 'b', undefined, ctx.draft.trim() ? 'Se añadirá al comentario:' : 'Comentario generado automáticamente:'),
+      h(doc, 'p', undefined, auto),
+    );
+    const edit = btn(ctx, 'pf-ov-linkbtn', 'Editar texto generado', () => {
+      ctx.draft = `${ctx.draft.trim()}${ctx.draft.trim() ? '\n\n' : ''}${auto}`.slice(0, LIMITS.comment);
+      ctx.autoMerged = true;
+      ctx.rerender('body', 'foot');
+      ctx.announce('Texto generado copiado al comentario para editarlo.');
+    }, 'text');
+    edit.disabled = ctx.busy;
+    gen.appendChild(edit);
+    box.appendChild(gen);
+  }
 
   if (ctx.imgError) box.appendChild(errorMsg(ctx, ctx.imgError));
 
@@ -460,7 +481,22 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
     return d;
   };
   legend.append(lg('pf-ov-lg--ed', 'style', 'Editable', 'Vive en el código del proyecto'), lg('pf-ov-lg--lk', 'lock', 'Foundation', 'Tokens, reset y librerías'));
-  box.appendChild(legend);
+  const mode = h(doc, 'div', 'pf-ov-applyto');
+  mode.appendChild(h(doc, 'span', undefined, 'Vista'));
+  const mseg = h(doc, 'div', 'pf-ov-seg');
+  for (const [v, t] of [['list', 'Lista'], ['visual', 'Visual']] as const) {
+    const b = h(doc, 'button', 'pf-ov-segbtn', t);
+    b.type = 'button';
+    b.setAttribute('aria-pressed', String(ctx.styleMode === v));
+    ctx.on(b, 'click', () => {
+      ctx.styleMode = v;
+      ctx.rerender('body');
+    });
+    mseg.appendChild(b);
+  }
+  mode.appendChild(mseg);
+  box.appendChild(mode);
+  if (ctx.styleMode === 'list') box.appendChild(legend);
 
   if (ctx.sel.multi) {
     const a = h(doc, 'div', 'pf-ov-applyto');
@@ -490,6 +526,12 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
       ctx.rerender('body', 'tabs', 'inc');
     }));
     box.appendChild(s);
+  }
+
+  if (ctx.styleMode === 'visual') {
+    const target = ctx.edits()?.el;
+    if (target) renderDesignPanel({ doc, el: target, ed, disabled: ctx.busy, changed: () => ctx.rerender('tabs', 'inc') }, box);
+    return;
   }
 
   if (!inspection.groups.length) box.appendChild(h(doc, 'p', 'pf-ov-hint', 'No se encontraron propiedades editables en este elemento.'));

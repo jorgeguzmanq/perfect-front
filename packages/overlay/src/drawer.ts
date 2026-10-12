@@ -1,7 +1,7 @@
 import type { CommentId, ReadingGroup } from '@perfect-front/shared';
 import { h } from './dom';
 import { makeMovable } from './drag-panel';
-import { groupBrief, queueFor, slugGroupId, type GroupsApi, type QueueComment } from './groups';
+import { AGENT_LABEL, agentStateFor, groupBrief, queueFor, slugGroupId, type AgentApi, type AgentRequestInfo, type GroupsApi, type QueueComment } from './groups';
 import { icon, type IconName } from './icons';
 import { writeClipboard } from './location-copy';
 
@@ -14,8 +14,10 @@ export interface DrawerOptions {
   doc: Document;
   layer: HTMLElement;
   /** Comentarios y grupos actuales (el orquestador los carga; el cajón llama a esto al abrir y tras cada cambio). */
-  load(): Promise<{ comments: QueueComment[]; groups: ReadingGroup[] }>;
+  load(): Promise<{ comments: QueueComment[]; groups: ReadingGroup[]; requests?: AgentRequestInfo[] }>;
   api: GroupsApi;
+  /** «Enviar a agente»: si falta, el cajón no muestra los botones. */
+  agent?: AgentApi;
   /** Ruta actual (cabecera). */
   route(): string;
   /** Saltar al nodo de un comentario (pin). */
@@ -39,6 +41,8 @@ export type DrawerTab = 'open' | 'groups' | 'done';
 const OPEN = new Set(['pending', 'in_progress']);
 const DONE = new Set(['resolved', 'archived', 'ignored']);
 const STATUS_LABEL: Record<string, string> = { pending: 'Pendiente', in_progress: 'En curso', resolved: 'Resuelto', ignored: 'Ignorado', archived: 'Archivado' };
+/** Reutiliza los colores de estado: enviada = pendiente, tomada = en curso, resuelta = resuelto. */
+const AGENT_CHIP = { pending: 'pending', taken: 'in_progress', done: 'resolved' } as const;
 const where = (c: QueueComment) => (c.location.selector ? c.location.selector.split(' > ').pop()! : 'vista');
 
 export function createDrawer(opts: DrawerOptions): DrawerHandle {
@@ -46,7 +50,7 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
   let tab: DrawerTab = 'open';
   let isOpen = false;
   let destroyed = false;
-  let data: { comments: QueueComment[]; groups: ReadingGroup[] } = { comments: [], groups: [] };
+  let data: { comments: QueueComment[]; groups: ReadingGroup[]; requests?: AgentRequestInfo[] } = { comments: [], groups: [] };
   let newGroupOpen = false;
   let dragId: string | null = null;
 
@@ -69,6 +73,20 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
 
   const groupTag = (c: QueueComment): string | null => (c.group ? `${c.group.id}·${c.group.position}` : null);
 
+  const agentChip = (status: AgentRequestInfo['status'] | null): HTMLElement | null =>
+    status ? h(doc, 'span', `pf-chip pf-chip--${AGENT_CHIP[status]}`, AGENT_LABEL[status]) : null;
+
+  /** Botón «Enviar a agente»; el widget solo manda IDs, el agente ya está abierto en su terminal. */
+  function sendBtn(label: string, req: { commentIds?: string[]; groupId?: string }): HTMLElement {
+    const b = h(doc, 'button', 'pf-btn pf-btn--sm');
+    b.type = 'button';
+    b.append(icon(doc, 'queue', 12), doc.createTextNode(` ${label}`));
+    on(b, 'click', () => {
+      void api(() => opts.agent!.send(req).then(() => say('Enviado al agente.')), 'No se pudo enviar al agente.');
+    });
+    return b;
+  }
+
   function item(c: QueueComment): HTMLElement {
     const b = h(doc, 'button', DONE.has(c.status) ? 'pf-dw-ci pf-dw-ci--done' : 'pf-dw-ci');
     b.type = 'button';
@@ -80,10 +98,15 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
     small.append(h(doc, 'span', `pf-chip pf-chip--${c.status}`, STATUS_LABEL[c.status] ?? c.status), doc.createTextNode(where(c)));
     const g = groupTag(c);
     if (g) small.appendChild(h(doc, 'span', 'pf-dw-gtag', g));
+    const chip = agentChip(agentStateFor({ commentId: c.id }, data.requests ?? []));
+    if (chip) small.appendChild(chip);
     body.append(h(doc, 'p', undefined, c.comment.slice(0, 160)), small);
     b.append(n, body);
     on(b, 'click', () => opts.onGoto?.(c));
-    return b;
+    if (!opts.agent || !OPEN.has(c.status)) return b;
+    const row = h(doc, 'div', 'pf-dw-row');
+    row.append(b, sendBtn('Enviar', { commentIds: [c.id] }));
+    return row;
   }
 
   function groupCard(g: ReadingGroup): HTMLElement {
@@ -139,6 +162,11 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
       void writeClipboard(doc, groupBrief(g, queue)).then((ok) => say(ok ? 'Brief copiado.' : 'No se pudo copiar al portapapeles.'));
     });
     foot.appendChild(brief);
+    if (opts.agent && queue.some((c) => OPEN.has(c.status))) {
+      foot.appendChild(sendBtn('Enviar grupo', { groupId: g.id }));
+      const chip = agentChip(agentStateFor({ groupId: g.id }, data.requests ?? []));
+      if (chip) foot.appendChild(chip);
+    }
     if (opts.onAddToGroup) {
       const add = h(doc, 'button', 'pf-btn pf-btn--sm');
       add.type = 'button';
@@ -236,6 +264,9 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
     }
 
     const body = h(doc, 'div', 'pf-dw-body');
+    if (tab === 'open' && opts.agent && open.some((c) => c.status === 'pending')) {
+      body.appendChild(sendBtn(`Enviar toda la cola (${open.filter((c) => c.status === 'pending').length})`, {}));
+    }
     if (tab === 'open') for (const c of open) body.appendChild(item(c));
     if (tab === 'done') for (const c of done) body.appendChild(item(c));
     if (tab === 'groups') {

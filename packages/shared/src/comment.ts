@@ -223,6 +223,8 @@ export const StyleChangeSchema = z
     source: LocationSourceSchema.nullable().optional(),
     /** Token de diseño asociado (p. ej. --pf-radius-md). */
     token: z.string().max(100).nullable().optional(),
+    /** Clase Tailwind equivalente (`antes → después`); dato informativo del modo Visual, nunca se escribe. */
+    tailwind: z.string().max(200).nullable().optional(),
   })
   .strict();
 export type StyleChange = z.infer<typeof StyleChangeSchema>;
