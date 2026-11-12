@@ -11,3 +11,6 @@ Thumbs.db
 
 # Local development state for Perfect Front itself.
 .perfect-front/
+
+# Windows crash dumps
+*.stackdump
