@@ -4,6 +4,7 @@ const PATHS = {
   up: 'M4 10l4-4 4 4',
   down: 'M4 6l4 4 4-4',
   select: 'M3 3h3M10 3h3M3 3v3M13 3v3M3 13h3M3 10v3M13 10v1M7.5 7.5l5 2-2 1-1 2z',
+  edit: 'M3 13l.6-2.8L10.8 3a1.2 1.2 0 011.7 0l.5.5a1.2 1.2 0 010 1.7L5.8 12.4z',
   trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M5 4.5l.5 8h5l.5-8',
   close: 'M4 4l8 8M12 4l-8 8',
   layers: 'M2.5 5h11M2.5 8h11M2.5 11h11',
@@ -29,7 +30,17 @@ const PATHS = {
   node: 'M3 3h10v10H3zM6 6h4v4H6z',
   text: 'M3 4h10M8 4v9M6 13h4',
   globe: 'M8 2.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2.5 8h11M8 2.5c1.8 1.6 2.6 3.4 2.6 5.5S9.8 11.9 8 13.5C6.2 11.9 5.4 10.1 5.4 8S6.2 4.1 8 2.5z',
+  external: 'M6.5 3.5h-3v9h9v-3M9 3h4v4M13 3L7.5 8.5',
   eyeoff: 'M2 2l12 12M6.2 4.4A6.6 6.6 0 018 4c4.2 0 6.5 4 6.5 4a11 11 0 01-2 2.4M4.3 5.7C2.7 6.9 1.5 8 1.5 8s2.3 4 6.5 4c.8 0 1.5-.2 2.1-.4',
+  // Deck (rediseño «Comment Deck»): iconos del manual que no existían.
+  min: 'M4 11h8',
+  eye: 'M1.5 8s2.5-4.5 6.5-4.5S14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 9.8a1.8 1.8 0 100-.01',
+  open: 'M3 8h7M7 4.5L10.5 8 7 11.5M12.5 3v10',
+  al: 'M3 4h10M3 8h6M3 12h8',
+  ac: 'M3 4h10M5 8h6M4 12h8',
+  ar: 'M3 4h10M7 8h6M5 12h8',
+  aj: 'M3 4h10M3 8h10M3 12h10',
+  more: 'M3 8h.01M8 8h.01M13 8h.01',
 } as const;
 
 export type IconName = keyof typeof PATHS;

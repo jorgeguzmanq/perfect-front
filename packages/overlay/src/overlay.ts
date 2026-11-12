@@ -3,6 +3,7 @@ import { createCaptureController, type CaptureController } from './capture-ui';
 import { HOST_ATTR, isPfNode } from './constants';
 import { describe, h } from './dom';
 import { isGripEvent } from './drag-panel';
+import { CROSS_ORIGIN_MSG, isCrossOriginFrame } from './frame';
 import { createEditor, type EditorHandle } from './editor';
 import type { Scope } from './editor-ctx';
 import type { GroupBinding } from './groups';
@@ -61,6 +62,8 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
   let live: HTMLElement | null = null;
   let toolbar: HTMLElement | null = null;
   let extraMarks: HTMLElement[] = [];
+  /** Resaltado del nodo bajo el cursor en la pestaña «Capas». */
+  let hoverMark: HTMLElement | null = null;
   let insertMark: HTMLElement | null = null;
   /** Captura de nodos (marco + escalas + resultado). Vive en la capa del overlay; se libera en unmount. */
   let capture: CaptureController | null = null;
@@ -149,6 +152,10 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     } else {
       box(highlight, main.getBoundingClientRect());
       highlightLabel.textContent = describe(main);
+      // Multiselección: la marca del foco lleva su número (1…n) como las demás.
+      const order = editor ? editor.nodes : [];
+      if (order.length > 1) highlight.dataset.n = String(order.indexOf(main) + 1);
+      else delete highlight.dataset.n;
     }
     // Resto de los nodos de una multiselección (marcas en el shadow DOM propio; la página no se toca).
     const extra = editor ? editor.nodes.filter((n) => n !== main && n.isConnected) : [];
@@ -159,9 +166,20 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     }
     extraMarks.forEach((m, i) => {
       const n = extra[i];
-      if (n) box(m, n.getBoundingClientRect());
-      else m.hidden = true;
+      if (n) {
+        box(m, n.getBoundingClientRect());
+        m.dataset.n = String((editor?.nodes.indexOf(n) ?? -1) + 1);
+      } else m.hidden = true;
     });
+    // Nodo señalado desde la pestaña «Capas» (solo una marca propia; no se toca la página).
+    const hov = editor?.hoverEl ?? null;
+    if (hov && hov !== main) {
+      if (!hoverMark) {
+        hoverMark = h(doc, 'div', 'pf-ov-highlight pf-ov-highlight--hover');
+        layer.appendChild(hoverMark);
+      }
+      box(hoverMark, hov.getBoundingClientRect());
+    } else if (hoverMark) hoverMark.hidden = true;
     // Línea de inserción de la propuesta de reordenar.
     const ins = editor?.reorderIndicator() ?? null;
     if (ins?.el.isConnected) {
@@ -170,7 +188,8 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
         insertMark.style.position = 'fixed';
         insertMark.style.height = '3px';
         insertMark.style.borderRadius = '2px';
-        insertMark.style.background = 'var(--pf-color-accent)';
+        insertMark.style.background = 'var(--pf-dk-ph, var(--pf-color-accent))';
+        insertMark.style.boxShadow = '0 0 0 1px var(--pf-dk-desk, transparent)';
         insertMark.style.pointerEvents = 'none';
         layer.appendChild(insertMark);
       }
@@ -258,7 +277,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     editor = null;
     host?.remove();
     const restore = prevFocus;
-    host = layer = highlight = highlightLabel = tip = live = toolbar = insertMark = null;
+    host = layer = highlight = highlightLabel = tip = live = toolbar = insertMark = hoverMark = null;
     extraMarks = [];
     current = null;
     hoverTarget = null;
@@ -281,6 +300,8 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     extraMarks = [];
     insertMark?.remove();
     insertMark = null;
+    hoverMark?.remove();
+    hoverMark = null;
   };
 
   // --- Vistas por estado ------------------------------------------------------------
@@ -345,6 +366,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
       scope,
       draft,
       groups: opts.groups ?? null,
+      openCode: opts.openCode ?? null,
       binding: pendingBinding,
       requestCapture: opts.onRequestCapture ? requestCapture : null,
       requestNodeCapture: () => void startCapture(),
@@ -432,6 +454,19 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     return port.attachShots(shots);
   };
 
+  /** Alt+Mayús+S: captura rápida 1× sin panel (un render; se adjunta y se copia). */
+  const quickCapture = (): boolean => {
+    if (!capture || state === 'OFF' || state === 'SAVING') return false;
+    const nodes = captureTargets();
+    if (!nodes.length) {
+      announce('Elige un nodo para capturarlo.');
+      return false;
+    }
+    captureNodes = nodes;
+    void capture.quick(nodes);
+    return true;
+  };
+
   const startCapture = (): boolean => {
     if (!capture || state === 'OFF' || state === 'SAVING') return false;
     const nodes = captureTargets();
@@ -508,12 +543,18 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     e.stopImmediatePropagation();
     const el = e.type === 'click' ? elementTarget(e) : null;
     if (!el) return;
+    if (isCrossOriginFrame(el)) announce(CROSS_ORIGIN_MSG);
     if (editing) {
       editor?.pickElement(el, me.shiftKey === true);
       return;
     }
     sel.set(el);
     showEditing();
+  };
+
+  const inTree = (e: Event): boolean => {
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+    return path.some((n) => (n as Element).getAttribute?.('role') === 'tree');
   };
 
   const typingInField = (e: Event): boolean => {
@@ -548,7 +589,7 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     // Alt+Mayús+S: capturar el nodo seleccionado (code: en Mac Alt+Mayús+S no produce «s»).
     if (k.altKey && k.shiftKey && !k.ctrlKey && !k.metaKey && k.code === 'KeyS') {
       stop();
-      startCapture();
+      quickCapture();
       return;
     }
     // Atajo de SPEC §9.5: Ctrl/Cmd+Mayús+C alterna el modo selección (clic normal = comentar).
@@ -566,6 +607,8 @@ export function createOverlay(opts: OverlayOptions): OverlayHandle {
     if (editor) {
       // Editor v2: Esc, Ctrl/Cmd+Enter y flechas las interpreta el editor; en SAVING no se atiende nada.
       if (state === 'SAVING') return;
+      // El árbol de «Capas» usa las flechas para moverse entre filas (no para navegar el DOM).
+      if (/^(Arrow|Home$|End$)/.test(k.key) && !k.altKey && inTree(e)) return;
       if (editor.handleKey(k, { own: isOwn(e), typing: typingInField(e) })) stop();
       return;
     }

@@ -20,12 +20,34 @@ function visual(el: HTMLElement) {
   document.body.appendChild(box);
   let changes = 0;
   renderDesignPanel({ doc: document, el, ed, disabled: false, changed: () => changes++ }, box);
+  // Las secciones vienen plegadas (solo la primera abierta): se abren todas para ejercitar sus controles.
+  for (let i = 0; i < 12; i++) {
+    const closed = box.querySelector<HTMLButtonElement>('.pf-dz-sech[aria-expanded="false"]');
+    if (!closed) break;
+    closed.click();
+  }
   return { ed, box, changes: () => changes };
 }
 
 const btn = (box: HTMLElement, key: string) => box.querySelector<HTMLButtonElement>(`[data-key="${key}"]`)!;
 
 describe('panel Visual: propuesta before→after', () => {
+  it('divulgación progresiva: solo la primera sección viene abierta; las que tienen cambios se abren solas', () => {
+    const el = document.getElementById('t')!;
+    const ed = mkEditor(el);
+    const box = document.createElement('div');
+    document.body.appendChild(box);
+    renderDesignPanel({ doc: document, el, ed, disabled: false, changed: () => undefined }, box);
+    const openKeys = () => Array.from(box.querySelectorAll<HTMLButtonElement>('.pf-dz-sech[aria-expanded="true"]')).map((b) => b.dataset.key);
+    expect(openKeys()).toEqual(['sec:layout']);
+    // Con un cambio en Tipografía, al volver a pintar esa sección queda abierta (junto a la primera).
+    ed.addRow({ property: 'font-weight', kind: 'select', group: 'typography', value: '400', origin: 'editable', source: null, sourceLabel: null, token: null });
+    ed.set('font-weight', '700');
+    box.textContent = '';
+    renderDesignPanel({ doc: document, el, ed, disabled: false, changed: () => undefined }, box);
+    expect(openKeys()).toEqual(['sec:layout', 'sec:typography']);
+  });
+
   it('renderiza las secciones y un segmento produce un cambio con vista previa inline', () => {
     const el = document.getElementById('t')!;
     const { ed, box } = visual(el);

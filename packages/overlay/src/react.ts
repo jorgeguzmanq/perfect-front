@@ -33,7 +33,7 @@ interface FiberLike {
   return?: FiberLike | null;
 }
 
-function fiberOf(node: Element): FiberLike | null {
+export function fiberOf(node: Element): FiberLike | null {
   for (const key of Object.keys(node)) {
     if (key.startsWith('__reactFiber$') || key.startsWith('__reactInternalInstance$')) {
       const f = (node as unknown as Record<string, unknown>)[key];

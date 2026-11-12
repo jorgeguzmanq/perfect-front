@@ -83,6 +83,11 @@ export interface MovableOptions {
   onMoved?(pos: PanelPos | null): void;
   /** Almacenamiento alternativo (tests); null desactiva la persistencia. */
   storage?: StorageLike | null;
+  /**
+   * Fases del arrastre con puntero: `start` (antes de medir el panel), `move` (antes de colocarlo) y `end`.
+   * Lo usa floating.ts para el fantasma, las zonas de anclaje y soltar en un borde.
+   */
+  onDrag?(phase: 'start' | 'move' | 'end', e: PointerEvent): void;
 }
 
 export interface Movable {
@@ -170,6 +175,7 @@ export function makeMovable(panel: HTMLElement, handle: HTMLElement, opts: Movab
     if (gone || (e.pointerType === 'mouse' && e.button !== 0) || isControl(e)) return;
     swallow(e);
     suppressClick = false;
+    opts.onDrag?.('start', e);
     const from = pos ?? current();
     dragging = { id: e.pointerId, dx: e.clientX - from.left, dy: e.clientY - from.top };
     try {
@@ -183,6 +189,7 @@ export function makeMovable(panel: HTMLElement, handle: HTMLElement, opts: Movab
     if (!dragging || e.pointerId !== dragging.id) return;
     swallow(e);
     suppressClick = true;
+    opts.onDrag?.('move', e);
     apply({ left: e.clientX - dragging.dx, top: e.clientY - dragging.dy }, false);
   });
   const end = (e: PointerEvent) => {
@@ -196,6 +203,7 @@ export function makeMovable(panel: HTMLElement, handle: HTMLElement, opts: Movab
       /* ya liberado */
     }
     if (pos) savePosition(opts.kind, pos, storage);
+    opts.onDrag?.('end', e);
   };
   on(handle, 'pointerup', end);
   on(handle, 'pointercancel', end);

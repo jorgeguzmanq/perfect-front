@@ -299,14 +299,14 @@ describe('edición y guardado', () => {
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('accesibilidad: dialog, tablist, label, aria-live y alert solo cuando hay error', async () => {
+  it('accesibilidad: dialog, región (sin tablist), label, aria-live y alert solo cuando hay error', async () => {
     page();
     const { o } = make();
     o.enable();
     pick('b1');
     expect(q('[role="dialog"]')).not.toBeNull();
-    expect(q('[role="tablist"]')).not.toBeNull();
-    expect(q('[role="tabpanel"]')).not.toBeNull();
+    expect(q('[role="tablist"]')).toBeNull();
+    expect(q('[role="region"][aria-label="Comentario"]')).not.toBeNull();
     const label = q<HTMLLabelElement>('label')!;
     expect(label.htmlFor).toBe(textarea().id);
     expect(q('[aria-live="polite"]')).not.toBeNull();

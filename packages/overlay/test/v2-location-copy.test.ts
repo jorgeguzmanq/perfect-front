@@ -4,6 +4,7 @@ import { Selection, type SelectedNode } from '../src/selection';
 import {
   copyAll,
   copyText,
+  fullReference,
   previewFor,
   quickCopyText,
   refInput,
@@ -123,5 +124,28 @@ describe('writeClipboard', () => {
       }),
     } as unknown as Document;
     await expect(writeClipboard(doc, 'x')).resolves.toBe(false);
+  });
+});
+
+describe('fullReference: una sola referencia completa', () => {
+  it('un elemento: ruta, archivo, selector, texto, tamaño y pf://, sin líneas vacías', () => {
+    const t = fullReference(document, [nodes[0]!])!;
+    expect(t).toContain('Perfect Front · referencia');
+    expect(t).toContain('Ruta: /landing (http://localhost:3000/landing)');
+    expect(t).toContain('Archivo: src/Hero.tsx:7');
+    expect(t).toContain('Selector: #cta');
+    expect(t).toContain('Texto: "Empezar"');
+    expect(t).toMatch(/Tamaño: \d+×\d+ px en \(/);
+    expect(t).toContain('Ref: pf://landing#');
+    expect(t.split('\n').every((l) => l.trim() !== '' || l === '')).toBe(true);
+    expect(t).not.toMatch(/: $/m);
+  });
+
+  it('sin data-pf-src omite «Archivo»; varios elementos van numerados', () => {
+    expect(fullReference(document, [nodes[1]!])).not.toContain('Archivo:');
+    const all = fullReference(document, nodes)!;
+    expect(all).toContain('# Elemento 1 de 2');
+    expect(all).toContain('# Elemento 2 de 2');
+    expect(fullReference(document, [])).toBeNull();
   });
 });

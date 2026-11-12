@@ -29,6 +29,7 @@ const EXT: Record<Mime, string> = { 'image/png': 'png', 'image/jpeg': 'jpg', 'im
 
 /** Nombre seguro y corto (el servidor lo guarda como metadato). */
 function safeName(name: string, mime: Mime): string {
+  // eslint-disable-next-line no-control-regex -- quita caracteres de control del nombre a propósito
   const base = name.replace(/^.*[\\/]/, '').replace(/[\u0000-\u001F\u007F]/g, '').trim();
   return (base || `imagen.${EXT[mime]}`).slice(0, LIMITS.attachmentName);
 }

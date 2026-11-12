@@ -79,3 +79,29 @@ export async function writeClipboard(doc: Document, text: string): Promise<boole
     return false;
   }
 }
+
+/** Una sola referencia completa para pegar a una persona o a un agente: todo lo que ubica el elemento, sin líneas vacías. */
+export function fullReference(doc: Document, nodes: readonly SelectedNode[]): string | null {
+  if (!nodes.length) return null;
+  const loc = doc.location;
+  const route = loc.pathname || '/';
+  const blocks = nodes.map((n, i) => {
+    const s = n.snap;
+    const input = refInput(doc, n);
+    const file = formatLocationRef('file', input);
+    const alt = s.selectorCandidates.filter((c) => c !== s.selector).slice(0, 3);
+    const text = s.text?.replace(/\s+/g, ' ').trim();
+    const rows: Array<[string, string | null]> = [
+      ['Componente', s.components?.length ? s.components.join(' < ') : null],
+      ['Archivo', file],
+      ['Selector', s.selector],
+      ['Alternativos', alt.length ? alt.join('  |  ') : null],
+      ['Texto', text ? `"${text.slice(0, 120)}${text.length > 120 ? '…' : ''}"` : null],
+      ['Tamaño', `${Math.round(s.rect.width)}×${Math.round(s.rect.height)} px en (${Math.round(s.rect.x)}, ${Math.round(s.rect.y)}) · viewport ${s.viewport.width}×${s.viewport.height}`],
+      ['Ref', formatLocationRef('pf', input)],
+    ];
+    const lines = rows.filter((r): r is [string, string] => !!r[1]).map(([k, v]) => `${k}: ${v}`);
+    return (nodes.length > 1 ? [`# Elemento ${i + 1} de ${nodes.length}`, ...lines] : lines).join('\n');
+  });
+  return [`Perfect Front · referencia\nRuta: ${route} (${loc.href})`, ...blocks].join('\n\n');
+}

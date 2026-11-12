@@ -1,5 +1,6 @@
 import type { CreateCommentRequest, ScreenshotUploadSchema } from '@perfect-front/shared';
 import type { GroupsPort } from './editor-ctx';
+import type { OpenApi } from './open-code';
 
 export type ScreenshotUpload = ReturnType<typeof ScreenshotUploadSchema.parse>;
 
@@ -21,7 +22,7 @@ export interface CapturedShot {
   width: number;
   height: number;
   bytes: number;
-  mimeType: 'image/png';
+  mimeType: 'image/png' | 'image/webp';
   dataBase64: string;
 }
 
@@ -57,6 +58,8 @@ export interface OverlayOptions {
   passive?: boolean;
   /** Grupos de lectura y cola (pestaña «Cola» del editor). Sin esto la pestaña no ofrece grupos. */
   groups?: GroupsPort | null;
+  /** «Abrir en el código» (↗ de la cabecera del editor). Sin esto el botón no se muestra. */
+  openCode?: OpenApi | null;
   document?: Document;
 }
 

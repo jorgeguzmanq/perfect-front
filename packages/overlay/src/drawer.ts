@@ -1,12 +1,15 @@
 import type { CommentId, ReadingGroup } from '@perfect-front/shared';
+import { renderAgentPanel, type AgentPanelState } from './agent-panel';
+import { asLin, chip, cnt, key, lcd, led, lrow, num, text, tray, warn, type DeckTone } from './deck';
 import { h } from './dom';
 import { makeMovable } from './drag-panel';
-import { AGENT_LABEL, agentStateFor, groupBrief, queueFor, slugGroupId, type AgentApi, type AgentRequestInfo, type GroupsApi, type QueueComment } from './groups';
-import { icon, type IconName } from './icons';
+import { AGENT_LABEL, agentStateFor, groupBrief, queueFor, slugGroupId, type AgentApi, type AgentRequestInfo, type CommentsApi, type GroupsApi, type QueueComment } from './groups';
 import { writeClipboard } from './location-copy';
+import { NO_SOURCE, OPEN_LABEL, openInCode, targetOfComment, type OpenApi } from './open-code';
 
 /**
- * Cajón de comentarios: lectura y orden de la cola, aparte del editor. Pestañas Abiertos · Grupos · Resueltos.
+ * Cajón de comentarios (capa 10 «Cajón» del deck): lectura y orden de la cola, aparte del editor. Pestañas
+ * Abiertos · Grupos · Resueltos, y el panel «Enviar a agente» (capa 11, agent-panel.ts).
  * No guarda estado de servidor: pide datos con `load()` y escribe con `GroupsApi`.
  */
 
@@ -18,6 +21,12 @@ export interface DrawerOptions {
   api: GroupsApi;
   /** «Enviar a agente»: si falta, el cajón no muestra los botones. */
   agent?: AgentApi;
+  /** Editar/eliminar comentarios guardados: si falta, el cajón no muestra esos botones. */
+  comments?: CommentsApi;
+  /** «Abrir en el código» (↗): si falta, el cajón no muestra el botón. */
+  openCode?: OpenApi;
+  /** Tras editar o eliminar (p. ej. para refrescar los pines). */
+  onChanged?(): void;
   /** Ruta actual (cabecera). */
   route(): string;
   /** Saltar al nodo de un comentario (pin). */
@@ -28,7 +37,7 @@ export interface DrawerOptions {
 }
 
 export interface DrawerHandle {
-  open(tab?: DrawerTab): void;
+  open(tab?: DrawerTab, focusId?: string): void;
   close(): void;
   toggle(): void;
   refresh(): Promise<void>;
@@ -41,8 +50,11 @@ export type DrawerTab = 'open' | 'groups' | 'done';
 const OPEN = new Set(['pending', 'in_progress']);
 const DONE = new Set(['resolved', 'archived', 'ignored']);
 const STATUS_LABEL: Record<string, string> = { pending: 'Pendiente', in_progress: 'En curso', resolved: 'Resuelto', ignored: 'Ignorado', archived: 'Archivado' };
-/** Reutiliza los colores de estado: enviada = pendiente, tomada = en curso, resuelta = resuelto. */
-const AGENT_CHIP = { pending: 'pending', taken: 'in_progress', done: 'resolved' } as const;
+/** LED por estado del comentario (ignorado/archivado: apagado). */
+const STATUS_TONE: Record<string, DeckTone | undefined> = { pending: 'amber', in_progress: 'teal', resolved: 'green' };
+/** LED de la solicitud al agente: enviada = ámbar, tomada = teal, resuelta = verde. */
+const AGENT_TONE: Record<AgentRequestInfo['status'], DeckTone> = { pending: 'amber', taken: 'teal', done: 'green' };
+const errText = (e: unknown, fallback: string) => (e instanceof Error && e.message ? e.message : fallback);
 const where = (c: QueueComment) => (c.location.selector ? c.location.selector.split(' > ').pop()! : 'vista');
 
 export function createDrawer(opts: DrawerOptions): DrawerHandle {
@@ -53,8 +65,16 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
   let data: { comments: QueueComment[]; groups: ReadingGroup[]; requests?: AgentRequestInfo[] } = { comments: [], groups: [] };
   let newGroupOpen = false;
   let dragId: string | null = null;
+  /** Edición en línea y comentario pendiente de confirmar su borrado. */
+  let editingId: string | null = null;
+  let confirmId: string | null = null;
+  /** Vista «Enviar a agente» (capa 11) en lugar de las pestañas. */
+  let agentView = false;
+  /** Comentario a resaltar al pintar (aviso «Ver» de los cambios en vivo). */
+  let focusId: string | null = null;
+  const agentState: AgentPanelState = { sub: 'ready', groupId: null, agentRef: '', sent: null };
 
-  const root = h(doc, 'aside', 'pf-dw');
+  const root = h(doc, 'aside', 'pf-dw pf-dk-unit');
   root.hidden = true;
   root.setAttribute('role', 'complementary');
   root.setAttribute('aria-label', 'Comentarios');
@@ -73,61 +93,225 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
 
   const groupTag = (c: QueueComment): string | null => (c.group ? `${c.group.id}·${c.group.position}` : null);
 
-  const agentChip = (status: AgentRequestInfo['status'] | null): HTMLElement | null =>
-    status ? h(doc, 'span', `pf-chip pf-chip--${AGENT_CHIP[status]}`, AGENT_LABEL[status]) : null;
+  /** Chip pequeño: el LED indica el estado de la solicitud al agente más reciente. */
+  const agentChip = (status: AgentRequestInfo['status'] | null): HTMLElement | null => {
+    if (!status) return null;
+    const c = chip(doc, AGENT_LABEL[status], { on: true });
+    c.classList.add('pf-dw-gtag');
+    c.prepend(led(doc, true, AGENT_TONE[status]));
+    return c;
+  };
 
-  /** Botón «Enviar a agente»; el widget solo manda IDs, el agente ya está abierto en su terminal. */
+  const gChip = (label: string): HTMLElement => {
+    const c = chip(doc, label, { on: true });
+    c.classList.add('pf-dw-gtag');
+    return c;
+  };
+
+  /** Enviar a agente: el widget solo manda IDs, el agente ya está abierto en su terminal. */
   function sendBtn(label: string, req: { commentIds?: string[]; groupId?: string }): HTMLElement {
-    const b = h(doc, 'button', 'pf-btn pf-btn--sm');
-    b.type = 'button';
-    b.append(icon(doc, 'queue', 12), doc.createTextNode(` ${label}`));
-    on(b, 'click', () => {
-      void api(() => opts.agent!.send(req).then(() => say('Enviado al agente.')), 'No se pudo enviar al agente.');
+    return key(doc, label, {
+      sm: true,
+      icon: 'queue',
+      iconSize: 12,
+      onClick: () => {
+        void api(() => opts.agent!.send(req).then(() => say('Enviado al agente.')), 'No se pudo enviar al agente.');
+      },
     });
+  }
+
+  /** ↗ Abrir en el código: usa `location.source` (o el archivo:línea del hint); sin fuente queda deshabilitado. */
+  function codeBtn(c: QueueComment): HTMLButtonElement {
+    const t = targetOfComment(c);
+    const label = t ? `${OPEN_LABEL}: ${t.file}:${t.line}` : NO_SOURCE;
+    const b = key(doc, '', {
+      sq: true,
+      sm: true,
+      variant: 'ghost',
+      icon: 'external',
+      iconSize: 13,
+      ariaLabel: label,
+      disabled: !t,
+      cls: 'pf-dw-code',
+    });
+    b.setAttribute('data-pf-open', '');
+    if (t) on(b, 'click', () => void openInCode(opts.openCode!, t, say));
     return b;
   }
 
+  /** Fila de comentario: LED de estado, texto, chips de grupo/agente y acciones. */
   function item(c: QueueComment): HTMLElement {
-    const b = h(doc, 'button', DONE.has(c.status) ? 'pf-dw-ci pf-dw-ci--done' : 'pf-dw-ci');
-    b.type = 'button';
-    const n = h(doc, 'span', 'pf-ov-qn');
-    if (DONE.has(c.status)) n.appendChild(icon(doc, 'check', 12));
-    else n.textContent = String(data.comments.filter((x) => OPEN.has(x.status)).indexOf(c) + 1);
-    const body = h(doc, 'div');
-    const small = h(doc, 'small');
-    small.append(h(doc, 'span', `pf-chip pf-chip--${c.status}`, STATUS_LABEL[c.status] ?? c.status), doc.createTextNode(where(c)));
+    if (opts.comments && editingId === c.id) return editForm(c);
+    const done = DONE.has(c.status);
+    const tone = STATUS_TONE[c.status];
+    const body = h(doc, 'button', done ? 'pf-dw-ci pf-dw-ci--done pf-dk-grow' : 'pf-dw-ci pf-dk-grow');
+    body.type = 'button';
+    const sub = h(doc, 'div', 'pf-dk-ts pf-dw-sub');
+    sub.append(doc.createTextNode(`${STATUS_LABEL[c.status] ?? c.status} · ${where(c)}`));
     const g = groupTag(c);
-    if (g) small.appendChild(h(doc, 'span', 'pf-dw-gtag', g));
-    const chip = agentChip(agentStateFor({ commentId: c.id }, data.requests ?? []));
-    if (chip) small.appendChild(chip);
-    body.append(h(doc, 'p', undefined, c.comment.slice(0, 160)), small);
-    b.append(n, body);
-    on(b, 'click', () => opts.onGoto?.(c));
-    if (!opts.agent || !OPEN.has(c.status)) return b;
-    const row = h(doc, 'div', 'pf-dw-row');
-    row.append(b, sendBtn('Enviar', { commentIds: [c.id] }));
+    if (g) sub.appendChild(gChip(g));
+    const ac = agentChip(agentStateFor({ commentId: c.id }, data.requests ?? []));
+    if (ac) sub.appendChild(ac);
+    body.append(text(doc, 'tg', c.comment.slice(0, 160)), sub);
+    on(body, 'click', () => opts.onGoto?.(c));
+
+    const row = lrow(doc, led(doc, !!tone, tone ?? 'violet'), body);
+    row.classList.add('pf-dw-row');
+    row.setAttribute('data-pf-id', c.id);
+    if (opts.openCode) row.appendChild(codeBtn(c));
+    if (opts.agent && OPEN.has(c.status)) row.appendChild(sendBtn('Enviar', { commentIds: [c.id] }));
+    if (opts.comments && confirmId !== c.id) row.appendChild(actions(c));
+    if (!opts.comments || confirmId !== c.id) return row;
+    const wrap = h(doc, 'div', 'pf-dw-card');
+    wrap.append(row, confirmBar(c));
+    return wrap;
+  }
+
+  function actions(c: QueueComment): HTMLElement {
+    const row = h(doc, 'span', 'pf-dk-fx pf-dk-g6 pf-dw-acts');
+    row.append(
+      key(doc, '', {
+        sq: true,
+        sm: true,
+        variant: 'ghost',
+        icon: 'text',
+        iconSize: 14,
+        ariaLabel: 'Editar comentario',
+        onClick: () => {
+          editingId = c.id;
+          confirmId = null;
+          paint();
+        },
+      }),
+      key(doc, '', {
+        sq: true,
+        sm: true,
+        variant: 'ghost',
+        icon: 'trash',
+        iconSize: 14,
+        ariaLabel: 'Eliminar comentario',
+        onClick: () => {
+          confirmId = c.id;
+          editingId = null;
+          paint();
+        },
+      }),
+    );
     return row;
+  }
+
+  /** Confirmación propia del cajón (nada de window.confirm: el widget vive en un Shadow Root). */
+  function confirmBar(c: QueueComment): HTMLElement {
+    const box = h(doc, 'div', 'pf-dw-del');
+    box.setAttribute('role', 'alertdialog');
+    box.setAttribute('aria-label', 'Confirmar eliminación');
+    box.appendChild(warn(doc, '¿Eliminar este comentario? No se puede deshacer', { bad: true }));
+    const row = h(doc, 'div', 'pf-dk-fx pf-dk-g8 pf-dw-btns');
+    const no = key(doc, 'Cancelar', {
+      variant: 'ghost',
+      onClick: () => {
+        confirmId = null;
+        paint();
+      },
+    });
+    const ok = key(doc, 'Eliminar', {
+      variant: 'dng',
+      icon: 'trash',
+      onClick: () => {
+        ok.disabled = true;
+        void (async () => {
+          try {
+            await opts.comments!.remove(c.id);
+            confirmId = null;
+            say('Comentario eliminado.');
+            opts.onChanged?.();
+          } catch (e) {
+            say(errText(e, 'No se pudo eliminar el comentario.'));
+          }
+          await refresh();
+        })();
+      },
+    });
+    row.append(no, ok);
+    box.appendChild(row);
+    return box;
+  }
+
+  /** Edición en línea del texto principal: Guardar/Cancelar, Ctrl+Enter guarda y Esc cancela. */
+  function editForm(c: QueueComment): HTMLElement {
+    const box = lrow(doc);
+    box.classList.add('pf-dw-edit');
+    const ta = asLin(h(doc, 'textarea'));
+    ta.rows = 3;
+    ta.value = c.comment;
+    ta.setAttribute('aria-label', 'Texto del comentario');
+    const stop = () => {
+      editingId = null;
+      paint();
+    };
+    const save = key(doc, 'Guardar', {
+      variant: 'hot',
+      onClick: () => {
+        const t = ta.value.trim();
+        if (!t) return say('El comentario no puede estar vacío.');
+        if (t === c.comment) return stop();
+        save.disabled = true;
+        void (async () => {
+          try {
+            await opts.comments!.update(c.id, t, c.updatedAt);
+            say('Comentario actualizado.');
+            opts.onChanged?.();
+          } catch (e) {
+            // Conflicto (cambió en otro lado) u otro fallo: se avisa y se recarga el estado real.
+            say(errText(e, 'No se pudo guardar el comentario.'));
+          }
+          editingId = null;
+          await refresh();
+        })();
+      },
+    });
+    const cancel = key(doc, 'Cancelar', { variant: 'ghost', onClick: stop });
+    on<KeyboardEvent>(ta, 'keydown', (e) => {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        save.click();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        stop();
+      }
+    });
+    const row = h(doc, 'div', 'pf-dk-fx pf-dk-g8 pf-dw-btns');
+    row.append(cancel, save);
+    box.append(text(doc, 'ts', `Editar comentario · ${where(c)}`), ta, row);
+    queueMicrotask(() => ta.focus());
+    return box;
   }
 
   function groupCard(g: ReadingGroup): HTMLElement {
     const card = h(doc, 'div', 'pf-dw-gcard');
-    const head = h(doc, 'header');
-    head.appendChild(h(doc, 'span', 'pf-dw-gtag', g.id));
-    const t = h(doc, 'div');
-    t.append(h(doc, 'b', undefined, g.name), h(doc, 'small', undefined, g.note.slice(0, 160)));
-    head.appendChild(t);
+    const head = h(doc, 'div', 'pf-dk-rack');
+    const gc = chip(doc, g.id, { on: true });
+    gc.classList.add('pf-dw-gtag');
+    const t = h(doc, 'div', 'pf-dk-grow');
+    t.append(text(doc, 'tg', g.name));
+    if (g.note.trim()) t.append(text(doc, 'ts', g.note.slice(0, 160)));
+    head.append(gc, t);
     card.appendChild(head);
 
     const queue = queueFor(g.id, data.comments);
-    const list = h(doc, 'div', 'pf-ov-q pf-dw-q');
+    const list = lcd(doc, { cls: 'pf-dw-q' });
     queue.forEach((c, i) => {
-      const qi = h(doc, 'div', c.status === 'resolved' ? 'pf-ov-qi pf-ov-qi--done' : 'pf-ov-qi');
+      const tone = STATUS_TONE[c.status];
+      const qi = lrow(doc, num(doc, i + 1));
+      qi.classList.add('pf-dw-qi');
+      if (c.status === 'resolved') qi.classList.add('pf-dw-qi--done');
       qi.draggable = true;
-      const qc = h(doc, 'div', 'pf-ov-qc');
-      const small = h(doc, 'small');
-      small.append(icon(doc, 'grip', 12), h(doc, 'span', `pf-chip pf-chip--${c.status}`, STATUS_LABEL[c.status] ?? c.status), doc.createTextNode(where(c)));
-      qc.append(h(doc, 'p', undefined, c.comment.slice(0, 120)), small);
-      qi.append(h(doc, 'span', 'pf-ov-qn', String(i + 1)), qc);
+      const qc = h(doc, 'div', 'pf-dk-grow');
+      const small = h(doc, 'div', 'pf-dk-ts pf-dw-sub');
+      small.append(led(doc, !!tone, tone ?? 'violet'), doc.createTextNode(` ${STATUS_LABEL[c.status] ?? c.status} · ${where(c)}`));
+      qc.append(text(doc, 'tg', c.comment.slice(0, 120)), small);
+      qi.appendChild(qc);
       on<DragEvent>(qi, 'dragstart', (e) => {
         dragId = c.id;
         e.dataTransfer?.setData('text/plain', c.id);
@@ -135,13 +319,13 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
       on<DragEvent>(qi, 'dragover', (e) => {
         if (dragId) {
           e.preventDefault();
-          qi.classList.add('pf-ov-qi--over');
+          qi.classList.add('pf-dw-qi--over');
         }
       });
-      on(qi, 'dragleave', () => qi.classList.remove('pf-ov-qi--over'));
+      on(qi, 'dragleave', () => qi.classList.remove('pf-dw-qi--over'));
       on<DragEvent>(qi, 'drop', (e) => {
         e.preventDefault();
-        qi.classList.remove('pf-ov-qi--over');
+        qi.classList.remove('pf-dw-qi--over');
         const from = dragId;
         dragId = null;
         if (!from || from === c.id) return;
@@ -151,28 +335,26 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
       });
       list.appendChild(qi);
     });
-    if (!queue.length) list.appendChild(h(doc, 'p', 'pf-ov-hint', 'Aún no hay comentarios en este grupo.'));
+    if (!queue.length) list.appendChild(text(doc, 'ts', 'Aún no hay comentarios en este grupo.'));
     card.appendChild(list);
 
-    const foot = h(doc, 'footer');
-    const brief = h(doc, 'button', 'pf-btn pf-btn--sm');
-    brief.type = 'button';
-    brief.append(icon(doc, 'copy', 12), doc.createTextNode(' Copiar como brief'));
-    on(brief, 'click', () => {
-      void writeClipboard(doc, groupBrief(g, queue)).then((ok) => say(ok ? 'Brief copiado.' : 'No se pudo copiar al portapapeles.'));
-    });
-    foot.appendChild(brief);
+    const foot = h(doc, 'div', 'pf-dk-fx pf-dk-g8 pf-dk-wr');
+    foot.appendChild(
+      key(doc, 'Copiar como brief', {
+        icon: 'copy',
+        iconSize: 13,
+        onClick: () => {
+          void writeClipboard(doc, groupBrief(g, queue)).then((ok) => say(ok ? 'Brief copiado.' : 'No se pudo copiar al portapapeles.'));
+        },
+      }),
+    );
     if (opts.agent && queue.some((c) => OPEN.has(c.status))) {
       foot.appendChild(sendBtn('Enviar grupo', { groupId: g.id }));
-      const chip = agentChip(agentStateFor({ groupId: g.id }, data.requests ?? []));
-      if (chip) foot.appendChild(chip);
+      const ac = agentChip(agentStateFor({ groupId: g.id }, data.requests ?? []));
+      if (ac) foot.appendChild(ac);
     }
     if (opts.onAddToGroup) {
-      const add = h(doc, 'button', 'pf-btn pf-btn--sm');
-      add.type = 'button';
-      add.append(icon(doc, 'plus', 12), doc.createTextNode(' Añadir'));
-      on(add, 'click', () => opts.onAddToGroup?.(g.id));
-      foot.appendChild(add);
+      foot.appendChild(key(doc, 'Añadir', { icon: 'plus', iconSize: 13, onClick: () => opts.onAddToGroup?.(g.id) }));
     }
     card.appendChild(foot);
     return card;
@@ -180,22 +362,21 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
 
   function newGroup(): HTMLElement {
     if (!newGroupOpen) {
-      const b = h(doc, 'button', 'pf-btn');
-      b.type = 'button';
-      b.append(icon(doc, 'plus', 13), doc.createTextNode(' Grupo nuevo'));
-      on(b, 'click', () => {
-        newGroupOpen = true;
-        paint();
+      return key(doc, 'Grupo nuevo', {
+        icon: 'plus',
+        iconSize: 13,
+        onClick: () => {
+          newGroupOpen = true;
+          paint();
+        },
       });
-      return b;
     }
-    const row = h(doc, 'div', 'pf-ov-row');
-    const name = h(doc, 'input', 'pf-input');
+    const row = h(doc, 'div', 'pf-dk-fx pf-dk-g8');
+    const name = asLin(h(doc, 'input'));
     name.type = 'text';
     name.placeholder = 'Nombre del grupo';
     name.setAttribute('aria-label', 'Nombre del grupo');
-    const ok = h(doc, 'button', 'pf-btn pf-btn--primary', 'Crear');
-    ok.type = 'button';
+    name.classList.add('pf-dk-grow');
     const create = () => {
       const n = name.value.trim();
       if (!n) return;
@@ -203,7 +384,7 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
       newGroupOpen = false;
       void api(() => opts.api.createGroup({ id: id as ReadingGroup['id'], name: n, note: '', readFirst: true }).then(() => undefined), 'No se pudo crear el grupo.');
     };
-    on(ok, 'click', create);
+    const ok = key(doc, 'Crear', { variant: 'hot', onClick: create });
     on<KeyboardEvent>(name, 'keydown', (e) => {
       if (e.key === 'Enter') {
         e.preventDefault();
@@ -225,56 +406,119 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
     }
   }
 
+  /** Envío desde el panel del agente: guarda la solicitud para mostrar «Enviado» y refresca la bandeja. */
+  function sendFromPanel(req: { groupId?: string; agentRef?: string }): void {
+    void api(async () => {
+      const r = await opts.agent!.send(req);
+      agentState.sent = r;
+      say('Enviado al agente.');
+    }, 'No se pudo enviar al agente.');
+  }
+
   function paint(): void {
     if (destroyed) return;
     root.textContent = '';
-    const head = h(doc, 'div', 'pf-dw-head');
-    const title = h(doc, 'h2', undefined, 'Comentarios');
-    title.appendChild(h(doc, 'small', undefined, opts.route()));
-    const close = h(doc, 'button', 'pf-ov-iconbtn');
-    close.type = 'button';
-    close.setAttribute('aria-label', 'Cerrar cajón');
-    close.title = 'Cerrar';
-    close.appendChild(icon(doc, 'close', 14));
-    on(close, 'click', () => handle.close());
-    head.append(title, close);
+    const tools = h(doc, 'div', 'pf-dk-fx pf-dk-g8');
+    const title = h(doc, 'span', 'pf-dk-t2 pf-dk-grow');
+    title.append(doc.createTextNode('Comentarios '), h(doc, 'span', 'pf-dk-ts', opts.route()));
+    if (opts.agent) {
+      tools.appendChild(
+        key(doc, 'Enviar a agente', {
+          icon: 'open',
+          iconSize: 14,
+          variant: agentView ? 'lit' : undefined,
+          pressed: agentView,
+          onClick: () => {
+            agentView = !agentView;
+            agentState.sent = null;
+            paint();
+          },
+        }),
+      );
+    }
+    tools.appendChild(
+      key(doc, '', {
+        sq: true,
+        variant: 'ghost',
+        icon: 'close',
+        iconSize: 14,
+        ariaLabel: 'Cerrar cajón',
+        title: 'Cerrar',
+        onClick: () => handle.close(),
+      }),
+    );
+    const head = lcd(doc, { cls: 'pf-dk-fx pf-dk-g8 pf-dw-head' });
+    head.append(title, tools);
     grip.textContent = '';
     grip.appendChild(head);
 
-    const open = data.comments.filter((c) => OPEN.has(c.status));
-    const done = data.comments.filter((c) => DONE.has(c.status));
-    const tabs = h(doc, 'div', 'pf-ov-tabs');
-    tabs.setAttribute('role', 'tablist');
-    const defs: Array<[DrawerTab, string, number, IconName]> = [
-      ['open', 'Abiertos', open.length, 'list'],
-      ['groups', 'Grupos', data.groups.length, 'queue'],
-      ['done', 'Resueltos', done.length, 'check'],
-    ];
-    for (const [id, label, n] of defs) {
-      const b = h(doc, 'button', id === tab ? 'pf-ov-tab pf-ov-tab--on' : 'pf-ov-tab');
-      b.type = 'button';
-      b.setAttribute('role', 'tab');
-      b.setAttribute('aria-selected', String(id === tab));
-      b.append(h(doc, 'span', undefined, label), h(doc, 'span', 'pf-ov-badge', String(n)));
-      on(b, 'click', () => {
-        tab = id;
-        paint();
+    if (agentView && opts.agent) {
+      const panel = renderAgentPanel({
+        doc,
+        state: agentState,
+        route: opts.route(),
+        comments: data.comments,
+        groups: data.groups,
+        requests: data.requests ?? [],
+        send: sendFromPanel,
+        copy: (t) => void writeClipboard(doc, t).then((ok) => say(ok ? 'Prompt copiado.' : 'No se pudo copiar al portapapeles.')),
+        repaint: paint,
       });
-      tabs.appendChild(b);
+      const wrap = h(doc, 'div', 'pf-dw-body');
+      wrap.appendChild(panel);
+      root.append(grip, wrap);
+      return;
     }
 
-    const body = h(doc, 'div', 'pf-dw-body');
+    const open = data.comments.filter((c) => OPEN.has(c.status));
+    const done = data.comments.filter((c) => DONE.has(c.status));
+    const defs: Array<[DrawerTab, string, number]> = [
+      ['open', 'Abiertos', open.length],
+      ['groups', 'Grupos', data.groups.length],
+      ['done', 'Resueltos', done.length],
+    ];
+    const tabs = tray(
+      doc,
+      defs.map(([id, label, n]) => {
+        const b = key(doc, label, {
+          variant: id === tab ? 'lit' : undefined,
+          onClick: () => {
+            tab = id;
+            paint();
+          },
+        });
+        b.append(doc.createTextNode(' '), cnt(doc, n));
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', String(id === tab));
+        return b;
+      }),
+      { role: 'tablist', label: 'Comentarios' },
+    );
+
+    const body = lcd(doc, { cls: 'pf-dw-body pf-dk-col' });
     if (tab === 'open' && opts.agent && open.some((c) => c.status === 'pending')) {
-      body.appendChild(sendBtn(`Enviar toda la cola (${open.filter((c) => c.status === 'pending').length})`, {}));
+      const bar = h(doc, 'div', 'pf-dw-bar');
+      bar.appendChild(sendBtn(`Enviar toda la cola (${open.filter((c) => c.status === 'pending').length})`, {}));
+      body.appendChild(bar);
     }
     if (tab === 'open') for (const c of open) body.appendChild(item(c));
     if (tab === 'done') for (const c of done) body.appendChild(item(c));
     if (tab === 'groups') {
       for (const g of data.groups) body.appendChild(groupCard(g));
-      body.appendChild(newGroup());
     }
-    if (!body.children.length) body.appendChild(h(doc, 'p', 'pf-ov-hint', tab === 'done' ? 'Nada resuelto todavía.' : 'No hay comentarios abiertos.'));
+    if (!body.querySelector('.pf-dw-row, .pf-dw-gcard, .pf-dw-edit, .pf-dw-card')) {
+      body.appendChild(text(doc, 'ts', tab === 'done' ? 'Nada resuelto todavía.' : tab === 'groups' ? 'Aún no hay grupos.' : 'No hay comentarios abiertos.'));
+    }
     root.append(grip, tabs, body);
+    if (tab === 'groups') root.appendChild(newGroup());
+    if (focusId) {
+      const row = Array.from(root.querySelectorAll<HTMLElement>('[data-pf-id]')).find((r) => r.getAttribute('data-pf-id') === focusId);
+      if (row) {
+        row.scrollIntoView?.({ block: 'center' });
+        row.setAttribute('data-flash', '');
+        setTimeout(() => row.removeAttribute('data-flash'), 1600);
+      }
+    }
   }
 
   async function refresh(): Promise<void> {
@@ -284,12 +528,17 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
       say('No se pudieron cargar los comentarios.');
     }
     if (isOpen) paint();
+    focusId = null;
   }
 
   const handle: DrawerHandle = {
-    open(t) {
+    open(t, focus) {
       if (destroyed) return;
-      if (t) tab = t;
+      focusId = focus ?? null;
+      if (t) {
+        tab = t;
+        agentView = false;
+      }
       isOpen = true;
       root.hidden = false;
       paint();
@@ -299,6 +548,8 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
       isOpen = false;
       root.hidden = true;
       newGroupOpen = false;
+      editingId = null;
+      confirmId = null;
     },
     toggle() {
       if (isOpen) handle.close();
@@ -317,3 +568,4 @@ export function createDrawer(opts: DrawerOptions): DrawerHandle {
   };
   return handle;
 }
+

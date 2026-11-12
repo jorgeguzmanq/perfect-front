@@ -201,32 +201,34 @@ describe('interacción', () => {
     expect(overlayHost()).not.toBeNull();
   });
 
-  it('panel v2: pestañas Comentar/Contenido/Estilos/Estructura/Cola; alcance elemento/vista', () => {
+  it('panel v2: vista base «Comentar» sin pestañas, chips «Proponer» y alcance elemento/vista', () => {
     boot();
     fire(document.getElementById('b1')!, 'click', { altKey: true });
-    const tabs = Array.from(osr().querySelectorAll('[role="tab"]')).map((t) => t.textContent ?? '');
-    for (const name of ['Comentar', 'Contenido', 'Estilos', 'Estructura', 'Cola']) {
-      expect(tabs.some((t) => t.startsWith(name))).toBe(true);
-    }
-    expect(tabs.some((t) => t.startsWith('Niveles'))).toBe(false);
-    expect(osr().querySelector('[role="tab"][aria-selected="true"]')!.textContent).toContain('Comentar');
+    expect(osr().querySelector('[role="tab"], [role="tablist"]')).toBeNull();
+    const chips = Array.from(osr().querySelectorAll('[data-pf-chip]')).map((c) => c.getAttribute('data-pf-chip'));
+    expect(chips).toContain('styles');
+    expect(chips).toContain('content'); // «Comprar» tiene texto propio
+    expect(chips).not.toContain('struct'); // #b1 no tiene hermanos
     expect(q<HTMLTextAreaElement>('textarea')!.placeholder).toBe('Qué habría que cambiar en este elemento…');
     expect(btn('Este elemento').getAttribute('aria-pressed')).toBe('true');
     btn('Toda la vista').click();
     expect(btn('Toda la vista').getAttribute('aria-pressed')).toBe('true');
     expect(q('.pf-ov-title')!.textContent).toBe('Toda la vista');
-    // En vista completa Estilos y Estructura quedan deshabilitadas.
-    const off = (n: string) =>
-      (Array.from(osr().querySelectorAll<HTMLButtonElement>('[role="tab"]')).find((t) => t.textContent?.startsWith(n)))!.disabled;
-    expect(off('Estilos')).toBe(true);
-    expect(off('Estructura')).toBe(true);
+    // En vista completa no hay Texto, Estilos ni Orden: se ocultan.
+    for (const v of ['content', 'styles', 'struct']) expect(q(`[data-pf-chip="${v}"]`)).toBeNull();
   });
 
   it('flechas padre/hijo (botones y teclado) y posición entre hermanos', () => {
     boot();
     fire(document.getElementById('b1')!, 'click', { altKey: true });
     expect(q('.pf-ov-sub')!.textContent).toBe('#b1');
+    // El navegador no es permanente: aparece al navegar por teclado (Alt+flecha estando en la nota).
+    expect(q('.pf-ov-pos')).toBeNull();
+    keydown('ArrowUp', { altKey: true }, q('textarea')!);
+    expect(q('.pf-ov-sub')!.textContent).toBe('#mid');
     expect(q('.pf-ov-pos')!.textContent).toBe('1/1');
+    keydown('ArrowDown', { altKey: true }, q('textarea')!);
+    expect(q('.pf-ov-sub')!.textContent).toBe('#b1');
     (osr().querySelector('[aria-label^="Padre"]') as HTMLButtonElement).click();
     expect(q('.pf-ov-sub')!.textContent).toBe('#mid');
     keydown('ArrowUp', {}, osr().querySelector('[aria-label^="Padre"]')!);
@@ -290,6 +292,8 @@ describe('pines y contador', () => {
     boot(f);
     fire(document.getElementById('b1')!, 'click', { altKey: true });
     typeIn(q<HTMLTextAreaElement>('textarea')!, 'ya no hace falta');
+    // «Eliminar elemento» es una acción rara: vive en el menú «⋯» de la cabecera.
+    q<HTMLButtonElement>('[aria-label="Más acciones"]')!.click();
     btn('Eliminar elemento').click();
     await flush();
     const body = JSON.parse(String(f.mock.calls.find((c) => String(c[0]).endsWith('/comment'))![1]!.body));

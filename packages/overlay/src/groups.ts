@@ -1,6 +1,8 @@
 import {
   LIMITS,
   type CommentGroupRef,
+  type FrameRef,
+  type LocationSource,
   type CreateGroupRequest,
   type ReadingGroup,
   type ReorderGroupRequest,
@@ -22,18 +24,27 @@ export interface GroupsApi {
   setCommentGroup(commentId: string, ref: CommentGroupRef | null): Promise<void>;
 }
 
+/** Puerto para editar/eliminar comentarios ya guardados (PATCH/DELETE `/comments/:id`). */
+export interface CommentsApi {
+  /** Cambia el texto principal; `expectedUpdatedAt` activa el control de concurrencia (rechaza si cambió). */
+  update(id: string, text: string, expectedUpdatedAt?: string): Promise<void>;
+  remove(id: string): Promise<void>;
+}
+
 /** Petición «Enviar a agente» tal como la devuelve `/agent/requests` (sin prompt ni texto de comentarios). */
 export interface AgentRequestInfo {
   id: string;
   createdAt: string;
   commentIds: string[];
   groupId: string | null;
+  /** Agente destino que indicó la persona (id o JSON), si lo hubo. */
+  agentRef?: string;
   status: 'pending' | 'taken' | 'done';
 }
 
 /** Puerto del buzón del agente: el widget solo envía IDs (ninguno = toda la cola pendiente). */
 export interface AgentApi {
-  send(req: { commentIds?: string[]; groupId?: string }): Promise<AgentRequestInfo>;
+  send(req: { commentIds?: string[]; groupId?: string; agentRef?: string }): Promise<AgentRequestInfo>;
   list(): Promise<AgentRequestInfo[]>;
 }
 
@@ -52,7 +63,9 @@ export interface QueueComment {
   status: string;
   comment: string;
   scope: string;
-  location: { route: string; selector: string | null };
+  /** Sello de la última escritura; el cajón lo manda al editar para detectar cambios ajenos. */
+  updatedAt?: string;
+  location: { route: string; selector: string | null; selectorCandidates?: string[]; frame?: FrameRef | null; source?: LocationSource | null; componentHint?: string | null };
   group?: { id: string; position: number } | null;
 }
 

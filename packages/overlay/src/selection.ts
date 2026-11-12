@@ -1,6 +1,7 @@
 import { LIMITS, type ExtraTarget } from '@perfect-front/shared';
 import { serializeElement, snapshotElement, type ElementSnapshot } from './context';
 import { localId, parseSrc } from './dom';
+import { enrichSnapshotSource } from './next-source';
 
 /** Total de elementos de una multiselección: el principal + `extraTargets`. */
 export const MAX_NODES = 1 + LIMITS.extraTargets;
@@ -15,6 +16,8 @@ export interface SelectedNode {
  * Contenido, Estructura y (por defecto) Estilos; el resto viaja como `extraTargets`.
  */
 export class Selection {
+  /** Se llama cuando un snapshot recibe su ubicación (Next, asíncrono): el llamador repinta la cabecera. */
+  onSource: (() => void) | null = null;
   private list: SelectedNode[] = [];
   private focusIdx = 0;
 
@@ -37,9 +40,17 @@ export class Selection {
   /** Reemplaza toda la selección por un nodo. */
   set(el: Element): SelectedNode {
     const n = { el, snap: snapshotElement(el) };
+    this.enrich(n);
     this.list = [n];
     this.focusIdx = 0;
     return n;
+  }
+
+  private enrich(n: SelectedNode): void {
+    if (n.snap.src) return;
+    void enrichSnapshotSource(n.snap, n.el).then((changed) => {
+      if (changed) this.onSource?.();
+    });
   }
 
   clear(): void {
@@ -54,7 +65,9 @@ export class Selection {
   /** Suma un nodo (y lo enfoca). false si ya estaba o se llegó al máximo. */
   add(el: Element): boolean {
     if (this.has(el) || this.list.length >= MAX_NODES) return false;
-    this.list.push({ el, snap: snapshotElement(el) });
+    const n = { el, snap: snapshotElement(el) };
+    this.list.push(n);
+    this.enrich(n);
     this.focusIdx = this.list.length - 1;
     return true;
   }
@@ -81,6 +94,7 @@ export class Selection {
   /** Mueve el foco a otro elemento (navegación ↑↓←→): reemplaza el nodo enfocado, no suma. */
   retarget(el: Element): SelectedNode {
     const n = { el, snap: snapshotElement(el) };
+    this.enrich(n);
     if (this.list.length === 0) this.list.push(n);
     else this.list[this.focusIdx] = n;
     return n;

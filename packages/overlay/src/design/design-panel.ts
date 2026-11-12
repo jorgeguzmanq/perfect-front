@@ -6,7 +6,7 @@ import { field, grid2, numberInput, pills, rect, section, segment, swatch, tip, 
 import { SPACING_PX } from './tailwind-model';
 
 /**
- * Modo «Visual» de la pestaña Estilos: controles para elegir qué cambiar (disposición, espaciado, tamaño, tipografía,
+ * Modo «Visual» de la vista Estilos: controles para elegir qué cambiar (disposición, espaciado, tamaño, tipografía,
  * color, borde, efectos, posición). NO escribe className ni toca el código: cada control produce un cambio
  * `before → after` en el StyleEditor (vista previa inline reversible + propuesta de estilo). El `before` es el valor
  * calculado; si el elemento usa Tailwind, la propuesta lleva además la clase equivalente (informativa).
@@ -17,14 +17,15 @@ export interface DesignEnv {
   el: Element;
   ed: StyleEditor;
   disabled: boolean;
-  /** Avisa de que cambió el recuento de cambios (pestañas e «Incluye»). */
+  /** Avisa de que cambió el recuento de cambios («Incluye»). */
   changed(): void;
 }
 
 type SectionKey = 'layout' | 'spacing' | 'size' | 'typography' | 'color' | 'border' | 'effects' | 'position';
 
 interface UiState {
-  open: Record<SectionKey, boolean>;
+  /** Abierta/cerrada a mano; sin entrada = por defecto (la primera sección y las que tienen cambios). */
+  open: Partial<Record<SectionKey, boolean>>;
   colorTarget: 'background' | 'color' | 'border-color';
 }
 
@@ -32,7 +33,7 @@ const uiStates = new WeakMap<StyleEditor, UiState>();
 const uiOf = (ed: StyleEditor): UiState => {
   let s = uiStates.get(ed);
   if (!s) {
-    s = { open: { layout: true, spacing: true, size: false, typography: true, color: true, border: false, effects: false, position: false }, colorTarget: 'color' };
+    s = { open: {}, colorTarget: 'color' };
     uiStates.set(ed, s);
   }
   return s;
@@ -377,18 +378,21 @@ export function renderDesignPanel(env: DesignEnv, box: HTMLElement): void {
         grid2(doc, field(doc, 'Z-index', text('position', 'z-index', 'Z-index', 'auto · 10')), field(doc, 'Desborde', seg('position', 'overflow', 'Desborde', OVERFLOW))),
       ]],
     ];
-    for (const [key, title, mk] of secs) {
+    secs.forEach(([key, title, mk], i) => {
       const body = h(doc, 'div', 'pf-dz-body');
       // Los controles se construyen siempre (registran qué propiedades toca la sección para el contador).
       body.append(...mk());
+      const changes = Array.from(touched.get(key) ?? []).filter((p) => ed.changes.has(p)).length;
+      // Divulgación progresiva: plegadas salvo la primera y las que ya tienen cambios (1–2 abiertas, no ocho).
+      const open = ui.open[key] ?? (i === 0 || changes > 0);
       wrap.appendChild(section(doc, {
-        title, key, icon: ICON[key], open: ui.open[key], changes: Array.from(touched.get(key) ?? []).filter((p) => ed.changes.has(p)).length,
+        title, key, icon: ICON[key], open, changes,
         onToggle: () => {
-          ui.open[key] = !ui.open[key];
+          ui.open[key] = !open;
           draw();
         },
       }, body));
-    }
+    });
     wrap.appendChild(h(doc, 'p', 'pf-dz-note', tailwind
       ? 'Este elemento usa Tailwind: cada cambio viaja con la clase equivalente (informativa). El código no se toca.'
       : 'Cada cambio viaja como «propiedad: antes → después» (valor calculado). El código no se toca.'));

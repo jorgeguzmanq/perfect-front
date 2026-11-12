@@ -1,15 +1,19 @@
 import { proposalsToComment, type CommentId, type CommentProposal, type CreateCommentRequest, type GroupId } from '@perfect-front/shared';
 import { Attachments, bindImageDrop, bindImagePaste } from './attachments';
 import { ContentEditor, detectContent } from './content-edit';
+import { chip as dkChip, key as dkKey, kb as dkKb, led as dkLed, tagk as dkTagk, warn as dkWarn } from './deck';
 import { describe, fileLabel, h } from './dom';
-import { makeMovable, type Movable } from './drag-panel';
+import type { Movable } from './drag-panel';
+import { makeFloating, type Floating } from './floating';
 import { navAvailability, navTarget, siblingPos, type NavDir } from './dom-nav';
-import type { EditorCtx, GroupsPort, NodeEdits, PanelTab, Region, Scope } from './editor-ctx';
+import { VIEW_TITLE, type EditorCtx, type GroupsPort, type NodeEdits, type PanelView, type Region, type Scope } from './editor-ctx';
+import { renderLayers } from './layers';
+import { NO_SOURCE, OPEN_LABEL, openInCode, targetFromSrc, type OpenApi } from './open-code';
 import { inspectFor, renderComment, renderContent, renderQueue, renderStruct, renderStyles } from './editor-tabs';
 import { bindingStep, groupRefForCreate, needsReorder, orderWithInserted, queueFor, type GroupBinding } from './groups';
 import { icon, type IconName } from './icons';
 import { interpretEditorKey, type KeyLike } from './keymap';
-import { COPY_LABELS, copyAll, previewFor, writeClipboard, type CopyKey } from './location-copy';
+import { fullReference, writeClipboard } from './location-copy';
 import { buildRequestV2 } from './payload';
 import { Sections } from './sections';
 import { generateSelectorCandidates } from './selector';
@@ -18,9 +22,14 @@ import { StyleEditor, type StyleInspection, type StyleRow } from './style-edit';
 import type { CapturedShot, ScreenshotUpload, SubmitResult } from './types';
 
 /**
- * Editor v2 (panel con pestañas Comentar · Contenido · Estilos · Estructura · Cola). Es un controlador
- * independiente del overlay: quien lo orquesta le da la selección, recibe los cambios de foco y delega el
- * teclado. No toca el código del proyecto observado: todo lo que cambia es vista previa reversible.
+ * Editor v2 como PILA DE VISTAS (divulgación progresiva, una cosa a la vez): la base «Comentar» (identidad,
+ * alcance, nota, imágenes, «Incluye», pie) y, encima, una subvista por vez (Texto · Estilos · Orden · Grupo ·
+ * Capas) que se abre desde un chip «Proponer», desde «Incluye» o desde el menú «⋯». Qué aparece y cuándo lo
+ * fija el mapa del diseño (capa 00): lo que cambia el contexto va fuera de las vistas; lo que no aplica se oculta
+ * (ruido) o se apaga; lo raro va en el menú «⋯»; lo ya incluido se resume en «Incluye».
+ *
+ * Es un controlador independiente del overlay: quien lo orquesta le da la selección, recibe los cambios de foco y
+ * delega el teclado. No toca el código del proyecto observado: todo lo que cambia es vista previa reversible.
  */
 
 export interface EditorOptions {
@@ -32,6 +41,8 @@ export interface EditorOptions {
   /** Borrador previo (al volver de «Elegir otro»). */
   draft?: string;
   groups?: GroupsPort | null;
+  /** «Abrir en el código» (↗ en la cabecera). Sin esto no se muestra el botón. */
+  openCode?: OpenApi | null;
   /** Grupo preseleccionado (p. ej. «Añadir» desde el cajón). */
   binding?: GroupBinding | null;
   /** Captura de la página (el llamador oculta el overlay mientras tanto). null = falló. */
@@ -60,6 +71,8 @@ export interface EditorHandle {
   readonly draft: string;
   /** Elemento enfocado (para resaltado). */
   readonly focusEl: Element | null;
+  /** Nodo resaltado desde la vista Capas (sin seleccionar). */
+  readonly hoverEl: Element | null;
   /** Nodos seleccionados (para resaltar todos). */
   readonly nodes: readonly Element[];
   /** Línea de inserción de la propuesta de reordenar, para dibujarla en la página. */
@@ -67,6 +80,8 @@ export interface EditorHandle {
   /** Clic en la página: sin `additive` reemplaza la selección; con Shift (o «Sumar» activo) suma/quita. */
   pickElement(el: Element, additive: boolean): void;
   setScope(s: Scope): void;
+  /** Vista abierta de la pila ('comment' = base). */
+  readonly view: PanelView;
   /** Teclado delegado por el overlay. Devuelve true si lo consumió. */
   handleKey(e: KeyLike, info: { own: boolean; typing: boolean }): boolean;
   save(): void;
@@ -76,23 +91,17 @@ export interface EditorHandle {
   destroy(): void;
 }
 
-const STATUS_TABS: Array<{ id: PanelTab; label: string; icon: IconName }> = [
-  { id: 'comment', label: 'Comentar', icon: 'comment' },
-  { id: 'content', label: 'Contenido', icon: 'text' },
-  { id: 'styles', label: 'Estilos', icon: 'style' },
-  { id: 'struct', label: 'Estructura', icon: 'move' },
-  { id: 'queue', label: 'Cola', icon: 'queue' },
-];
-
 export function createEditor(opts: EditorOptions): EditorHandle {
   const doc = opts.doc;
   const sel = opts.selection;
   let scope: Scope = opts.scope;
-  let tab: PanelTab = 'comment';
+  let view: PanelView = 'comment';
+  /** El navegador ↑↓←→ se muestra como fila delgada solo mientras se navega. */
+  let navActive = false;
+  let menuOpen = false;
   let destroyed = false;
   let addMode = false;
-  let copyOpen = false;
-  let copied: CopyKey | '' = '';
+  let hoverEl: Element | null = null;
   let childStack: Element[] = [];
   const edits = new Map<Element, NodeEdits>();
   const inspections = new WeakMap<Element, StyleInspection>();
@@ -120,11 +129,8 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     set scope(s: Scope) {
       scope = s;
     },
-    get tab() {
-      return tab;
-    },
-    set tab(t: PanelTab) {
-      tab = t;
+    get view() {
+      return view;
     },
     draft: opts.draft ?? '',
     busy: false,
@@ -134,6 +140,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     lang: '',
     fndOpen: false,
     styleMode: 'visual',
+    styleOpen: {},
     att,
     sections,
     groupsPort: opts.groups ?? null,
@@ -146,6 +153,8 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     rerender: (...regions: Region[]) => {
       for (const r of new Set(regions)) paint(r);
     },
+    setView: (v) => setView(v),
+    available: (v) => viewAvailable(v),
     announce: (m) => opts.announce(m),
     on: (target, type, fn) => {
       target.addEventListener(type, fn);
@@ -162,6 +171,12 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     navigate,
     retarget,
     focusNode,
+    pick: (el, additive) => handle.pickElement(el, additive),
+    hover: (el) => {
+      if (hoverEl === el) return;
+      hoverEl = el;
+      opts.onFocusChange();
+    },
     save: () => void save(),
   };
 
@@ -195,7 +210,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     return ins;
   }
 
-  // --- Totales para «Incluye» y pestañas ------------------------------------------------------
+  // --- Totales para «Incluye» y los chips ------------------------------------------------------
 
   const contentCount = () => ctx.allEdits().reduce((a, e) => a + (e.content?.changeCount ?? 0), 0);
   const styleCount = () => ctx.allEdits().reduce((a, e) => a + (e.style?.count ?? 0), 0);
@@ -203,27 +218,34 @@ export function createEditor(opts: EditorOptions): EditorHandle {
 
   // --- Raíz y regiones --------------------------------------------------------------------------
 
-  const root = h(doc, 'div', 'pf-ov-panel pf-ov-panel--v2');
+  const root = h(doc, 'div', 'pf-ov-panel pf-ov-panel--v2 pf-dk-unit');
   root.setAttribute('role', 'dialog');
   root.setAttribute('aria-modal', 'false');
   root.setAttribute('aria-label', 'Comentar');
   const regions: Record<Region, HTMLElement> = {
-    head: h(doc, 'div', 'pf-ov-head2'),
+    head: h(doc, 'div', 'pf-ov-head2 pf-dk-idhdr'),
     tray: h(doc, 'div', 'pf-ov-tray'),
+    sub: h(doc, 'div', 'pf-ov-subhdr pf-dk-fx pf-dk-g8'),
     strip: h(doc, 'div', 'pf-ov-target'),
-    tabs: h(doc, 'div', 'pf-ov-tabs'),
+    nav: h(doc, 'div', 'pf-ov-nav pf-dk-fx pf-dk-g8'),
     body: h(doc, 'div', 'pf-ov-body'),
-    inc: h(doc, 'div', 'pf-ov-inc'),
+    inc: h(doc, 'div', 'pf-ov-inc pf-dk-fx pf-dk-g8 pf-dk-wr'),
     foot: h(doc, 'div', 'pf-ov-foot2'),
   };
-  regions.tabs.setAttribute('role', 'tablist');
-  regions.tabs.setAttribute('aria-label', 'Secciones');
-  regions.body.setAttribute('role', 'tabpanel');
-  root.append(regions.head, regions.tray, regions.strip, regions.tabs, regions.body, regions.inc, regions.foot);
+  regions.nav.setAttribute('role', 'group');
+  regions.nav.setAttribute('aria-label', 'Moverse por el DOM');
+  regions.body.setAttribute('role', 'region');
+  /** Menú «⋯» de la cabecera: va fuera de la cabecera para que arrastrar el panel no lo toque. */
+  const menuEl = h(doc, 'div', 'pf-ov-menu pf-dk-unit');
+  menuEl.setAttribute('role', 'menu');
+  menuEl.setAttribute('aria-label', 'Más acciones');
+  menuEl.hidden = true;
+  root.append(regions.head, regions.tray, regions.sub, regions.strip, regions.nav, regions.body, regions.inc, regions.foot, menuEl);
+  let menuTrigger: HTMLButtonElement | null = null;
 
   const mk = <K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string, text?: string) => h(doc, tag, cls, text);
   const ibtn = (label: string, ic: IconName, onClick: () => void, disabled = false, cls = ''): HTMLButtonElement => {
-    const b = mk('button', `pf-ov-iconbtn ${cls}`.trim());
+    const b = mk('button', cls.includes('pf-dk-key') ? cls : `pf-ov-iconbtn ${cls}`.trim());
     b.type = 'button';
     b.setAttribute('aria-label', label);
     b.title = label;
@@ -232,17 +254,38 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     onc(b, 'click', onClick);
     return b;
   };
-  const tbtn = (cls: string, label: string, onClick: () => void, ic?: IconName): HTMLButtonElement => {
-    const b = mk('button', cls);
-    b.type = 'button';
-    if (ic) b.appendChild(icon(doc, ic, 13));
-    b.appendChild(doc.createTextNode(ic ? ` ${label}` : label));
-    onc(b, 'click', onClick);
-    return b;
-  };
 
+  let floating: Floating | null = null;
   const isView = () => scope === 'view' || !sel.focus;
   const contentOk = () => !isView() && !!ctx.edits()?.content;
+  /** «Orden» solo existe para UN nodo con hermanos (con varios o sin hermanos no hay a dónde moverlo). */
+  const structOk = () => !isView() && !sel.multi && !!sel.focus && siblingPos(sel.focus.el).count > 1;
+
+  /** El mapa: qué vistas se ofrecen según el estado (se ocultan si no aplican). */
+  function viewAvailable(v: PanelView): boolean {
+    switch (v) {
+      case 'comment':
+        return true;
+      case 'content':
+        return contentOk();
+      case 'styles':
+      case 'layers':
+        return !isView();
+      case 'struct':
+        return structOk();
+      case 'group':
+        return !!ctx.groupsPort || !!ctx.binding;
+    }
+  }
+
+  /** Si la vista abierta ya no aplica (p. ej. se navegó a un nodo sin texto), la pila vuelve a la base. */
+  function ensureView(): boolean {
+    if (view === 'comment' || viewAvailable(view)) return false;
+    const was = view;
+    view = 'comment';
+    opts.announce(`Volviste a Comentar: ${VIEW_TITLE[was]} no aplica a este elemento.`);
+    return true;
+  }
 
   function paint(r: Region): void {
     if (destroyed) return;
@@ -254,8 +297,10 @@ export function createEditor(opts: EditorOptions): EditorHandle {
         return paintTray(box);
       case 'strip':
         return paintStrip(box);
-      case 'tabs':
-        return paintTabs(box);
+      case 'nav':
+        return paintNav(box);
+      case 'sub':
+        return paintSub(box);
       case 'body':
         return paintBody(box);
       case 'inc':
@@ -264,82 +309,183 @@ export function createEditor(opts: EditorOptions): EditorHandle {
         return paintFoot(box);
     }
   }
-  const paintAll = () => (['head', 'tray', 'strip', 'tabs', 'body', 'inc', 'foot'] as const).forEach(paint);
+  const paintAll = () => {
+    ensureView();
+    (['head', 'tray', 'sub', 'strip', 'nav', 'body', 'inc', 'foot'] as const).forEach(paint);
+  };
+  // Next.js resuelve la ubicación exacta de forma asíncrona: al llegar, se repinta la cabecera (archivo:línea).
+  sel.onSource = () => {
+    if (!destroyed) paint('head');
+  };
 
-  // --- Cabecera: identidad + copiar ubicación ---------------------------------------------------
+  // --- Cabecera: identidad + 3 teclas (copiar, abrir, cerrar) + menú «⋯» ------------------------------------
 
   function paintHead(box: HTMLElement): void {
     box.textContent = '';
-    const view = isView();
-    const multi = sel.multi && !view;
+    const vw = isView();
+    const multi = sel.multi && !vw;
     const n = sel.focus;
     const comps = n?.snap.components ?? null;
     const route = doc.location.pathname || '/';
-    const kind = mk('span', 'pf-ov-kind', view ? 'vista' : multi ? String(sel.size) : n!.el.localName);
-    kind.setAttribute('aria-hidden', 'true');
-    const id = mk('div', 'pf-ov-id');
-    const title = mk('h2', 'pf-ov-title');
+    const kind = dkTagk(doc, vw ? 'vista' : multi ? String(sel.size) : n!.el.localName);
+    kind.classList.add('pf-ov-kind');
+    const id = mk('div', 'pf-ov-id pf-dk-id pf-dk-grow');
+    const title = mk('h2', 'pf-ov-title pf-dk-t2');
     title.id = 'pf-ov-title';
-    title.textContent = view ? 'Toda la vista' : multi ? `${sel.size} elementos` : (comps?.[0] ?? describe(n!.el));
-    if (!view && !multi && comps && comps.length > 1) title.appendChild(mk('small', undefined, ` en ${comps.slice(1).join(' < ')}`));
-    const subText = view
+    title.textContent = vw ? 'Toda la vista' : multi ? `${sel.size} elementos` : (comps?.[0] ?? describe(n!.el));
+    if (!vw && !multi && comps && comps.length > 1) title.appendChild(mk('small', 'pf-dk-ts', ` en ${comps.slice(1).join(' < ')}`));
+    const subText = vw
       ? route
       : multi
         ? `Foco: ${describe(n!.el)}${n!.snap.src ? ` · ${fileLabel(n!.snap.src)}` : ''}`
         : (n!.snap.src ?? n!.snap.selector);
-    const sub = mk('p', 'pf-ov-sub', subText);
+    const sub = mk('p', 'pf-ov-sub pf-dk-ts', subText);
     sub.title = subText;
     id.append(title, sub);
-    const tools = mk('div', 'pf-ov-tools');
-    if (!view) {
-      const wrap = mk('div', 'pf-ov-copywrap');
-      const c = ibtn('Copiar ubicación', 'copy', () => {
-        copyOpen = !copyOpen;
-        copied = '';
-        paintHead(box);
-      });
-      c.setAttribute('aria-haspopup', 'menu');
-      c.setAttribute('aria-expanded', String(copyOpen));
-      if (copyOpen) c.classList.add('pf-ov-iconbtn--on');
-      wrap.appendChild(c);
-      if (copyOpen) wrap.appendChild(copyMenu(box));
-      tools.appendChild(wrap);
-    }
-    tools.appendChild(ibtn('Cerrar (Esc)', 'close', () => opts.onClose()));
-    box.append(kind, id, tools);
-  }
-
-  function copyMenu(headBox: HTMLElement): HTMLElement {
-    const menu = mk('div', 'pf-ov-copypop');
-    menu.setAttribute('role', 'menu');
-    menu.setAttribute('aria-label', 'Copiar ubicación');
-    menu.appendChild(mk('h5', undefined, 'Copiar como'));
-    const keys: CopyKey[] = ['file', 'sel', 'pf', 'md'];
-    if (sel.multi) keys.push('all');
-    for (const k of keys) {
-      const value = previewFor(doc, sel.nodes, sel.focusIndex, k);
-      const it = mk('button', 'pf-ov-cp');
-      it.type = 'button';
-      it.setAttribute('role', 'menuitem');
-      it.disabled = value === null;
-      const left = mk('span');
-      left.append(mk('b', undefined, k === 'all' ? `Los ${sel.size} elementos` : COPY_LABELS[k]), mk('code', undefined, value ?? 'sin dato para este elemento'));
-      it.appendChild(left);
-      it.appendChild(copied === k ? mk('span', 'pf-ov-done', '¡Copiado!') : icon(doc, 'copy', 14));
-      onc(it, 'click', () => {
-        const n = sel.focus;
-        const text = k === 'all' ? copyAll(doc, sel.nodes) : n ? previewFor(doc, [n], 0, k) : null;
+    const tools = mk('div', 'pf-ov-tools pf-dk-fx pf-dk-g6');
+    if (!vw) {
+      // Un solo clic copia la referencia completa (ruta, componente, archivo, selector, texto, tamaño y pf://).
+      const c = ibtn('Copiar referencia completa', 'copy', () => {
+        const text = fullReference(doc, sel.nodes);
         if (!text) return;
         void writeClipboard(doc, text).then((ok) => {
-          copied = ok ? k : '';
-          opts.announce(ok ? 'Ubicación copiada.' : 'No se pudo copiar al portapapeles.');
-          if (!destroyed) paintHead(headBox);
+          if (ok && !destroyed) c.classList.add('pf-dk-key--lit');
+          opts.announce(ok ? 'Referencia copiada: ruta, componente, archivo, selector y más.' : 'No se pudo copiar al portapapeles.');
         });
-      });
-      menu.appendChild(it);
+      }, false, 'pf-dk-key pf-dk-key--sm pf-dk-key--sq');
+      tools.appendChild(c);
+      if (opts.openCode) {
+        // ↗ Abrir en el código: el archivo:línea del nodo enfocado (data-pf-src). Sin fuente, deshabilitado.
+        const target = targetFromSrc(n?.snap.src);
+        const label = target ? `${OPEN_LABEL}: ${target.file}:${target.line}` : NO_SOURCE;
+        const o = ibtn(label, 'external', () => {
+          if (target) void openInCode(opts.openCode!, target, (m) => opts.announce(m));
+        }, !target, 'pf-dk-key pf-dk-key--sm pf-dk-key--sq');
+        o.setAttribute('data-pf-open', '');
+        tools.appendChild(o);
+      }
     }
-    return menu;
+    tools.appendChild(ibtn('Cerrar (Esc)', 'close', () => opts.onClose(), false, 'pf-dk-key pf-dk-key--sm pf-dk-key--sq pf-dk-key--ghost'));
+    // «⋯»: lo raro (Capas, navegar, sumar, elegir otro, sección, eliminar, minimizar) no ocupa la cabecera.
+    const more = ibtn('Más acciones', 'more', () => toggleMenu(), false, 'pf-dk-key pf-dk-key--sm pf-dk-key--sq pf-dk-key--ghost pf-ov-more');
+    more.setAttribute('aria-haspopup', 'menu');
+    more.setAttribute('aria-expanded', String(menuOpen));
+    menuTrigger = more;
+    tools.insertBefore(more, tools.lastElementChild);
+    box.append(kind, id, tools);
+    paintMenu();
   }
+
+  interface MenuItem {
+    label: string;
+    ic: IconName;
+    run: () => void;
+    hint?: string;
+    pressed?: boolean;
+    danger?: boolean;
+    attr?: string;
+  }
+
+  function menuItems(): MenuItem[] {
+    const items: MenuItem[] = [];
+    const vw = isView();
+    if (!vw) {
+      items.push({ label: 'Capas', ic: 'layers', run: () => setView('layers') });
+      items.push({
+        label: 'Navegar por el DOM',
+        ic: 'move',
+        hint: '↑↓←→',
+        pressed: navActive,
+        run: () => {
+          navActive = !navActive;
+          paint('nav');
+          opts.announce(navActive ? 'Navegador del DOM visible.' : 'Navegador del DOM oculto.');
+        },
+      });
+      items.push({
+        label: 'Sumar elemento',
+        ic: 'plus',
+        hint: 'Shift+clic',
+        pressed: addMode,
+        run: () => {
+          addMode = !addMode;
+          paint('strip');
+          opts.announce(addMode ? 'Modo sumar: el siguiente clic añade un elemento.' : 'Modo sumar desactivado.');
+        },
+      });
+    }
+    items.push({ label: 'Elegir otro elemento', ic: 'select', run: () => opts.onPick(ctx.draft) });
+    if (!sections.full) {
+      items.push({
+        label: 'Añadir sección',
+        ic: 'plus',
+        run: () => {
+          sections.add();
+          if (view !== 'comment') setView('comment');
+          else paint('body');
+        },
+      });
+    }
+    if (floating) items.push({ label: 'Minimizar panel', ic: 'min', run: () => floating!.setMinimized(true) });
+    if (!vw) items.push({ label: 'Eliminar elemento', ic: 'trash', danger: true, attr: 'data-pf-remove', run: () => void doSave(true) });
+    return items;
+  }
+
+  function paintMenu(): void {
+    menuEl.textContent = '';
+    for (const it of menuItems()) {
+      const b = mk('button', it.danger ? 'pf-ov-mi pf-dk-key pf-dk-key--ghost pf-ov-mi--danger' : 'pf-ov-mi pf-dk-key pf-dk-key--ghost');
+      b.type = 'button';
+      b.setAttribute('role', it.pressed === undefined ? 'menuitem' : 'menuitemcheckbox');
+      if (it.pressed !== undefined) b.setAttribute('aria-checked', String(it.pressed));
+      if (it.attr) b.setAttribute(it.attr, '');
+      b.tabIndex = -1;
+      b.disabled = ctx.busy;
+      b.append(icon(doc, it.ic, 14), doc.createTextNode(it.label));
+      if (it.hint) b.appendChild(mk('kbd', 'pf-dk-kb pf-ov-mi-k', it.hint));
+      onc(b, 'click', () => {
+        closeMenu(false);
+        it.run();
+      });
+      menuEl.appendChild(b);
+    }
+    menuEl.hidden = !menuOpen;
+  }
+
+  function toggleMenu(open = !menuOpen): void {
+    if (destroyed) return;
+    menuOpen = open;
+    menuEl.hidden = !open;
+    menuTrigger?.setAttribute('aria-expanded', String(open));
+    if (open) menuEl.querySelector<HTMLElement>('button:not(:disabled)')?.focus();
+  }
+  function closeMenu(refocus: boolean): void {
+    if (!menuOpen) return;
+    toggleMenu(false);
+    if (refocus) menuTrigger?.focus();
+  }
+  onc(menuEl, 'keydown', (e) => {
+    const k = e as KeyboardEvent;
+    const items = Array.from(menuEl.querySelectorAll<HTMLElement>('button:not(:disabled)'));
+    const i = items.indexOf((menuEl.getRootNode() as Document | ShadowRoot).activeElement as HTMLElement);
+    let to = -1;
+    if (k.key === 'ArrowDown') to = (i + 1) % items.length;
+    else if (k.key === 'ArrowUp') to = (i - 1 + items.length) % items.length;
+    else if (k.key === 'Home') to = 0;
+    else if (k.key === 'End') to = items.length - 1;
+    else if (k.key === 'Tab') closeMenu(false);
+    if (to < 0) return;
+    k.preventDefault();
+    k.stopPropagation();
+    items[to]?.focus();
+  });
+  // Clic fuera del menú (en la página o en el panel): se cierra sin más.
+  onc(doc, 'pointerdown', (e) => {
+    if (!menuOpen) return;
+    const path = e.composedPath();
+    if (path.includes(menuEl) || (menuTrigger && path.includes(menuTrigger))) return;
+    closeMenu(false);
+  });
 
   // --- Bandeja de nodos (solo multi) -------------------------------------------------------------
 
@@ -349,7 +495,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     if (box.hidden) return;
     box.setAttribute('aria-label', 'Elementos seleccionados');
     sel.nodes.forEach((n, i) => {
-      const chip = mk('span', 'pf-ov-tchip');
+      const chip = mk('span', i === sel.focusIndex ? 'pf-ov-tchip pf-dk-chip pf-dk-chip--on' : 'pf-ov-tchip pf-dk-chip');
       if (i === sel.focusIndex) chip.setAttribute('aria-current', 'true');
       const num = mk('i', undefined, String(i + 1));
       const f = mk('button', 'pf-ov-tfocus', describe(n.el));
@@ -367,24 +513,25 @@ export function createEditor(opts: EditorOptions): EditorHandle {
         sel.remove(i);
         afterFocusChange(true);
       });
-      chip.append(num, f, x);
+      chip.append(dkLed(doc, i === sel.focusIndex), num, f, x);
       box.appendChild(chip);
     });
-    box.appendChild(mk('span', 'pf-ov-hint', 'Shift+clic suma'));
+    box.appendChild(mk('span', 'pf-ov-hint pf-dk-ts', 'Shift+clic suma'));
   }
 
-  // --- Objetivo: alcance, navegador ↑↓←→, sumar, elegir otro --------------------------------------
+  // --- Alcance (solo en la base) ---------------------------------------------------------------------------
 
   function paintStrip(box: HTMLElement): void {
     box.textContent = '';
-    const view = isView();
-    const multi = sel.multi && !view;
-    const row = mk('div', 'pf-ov-row');
-    const seg = mk('div', 'pf-ov-seg');
+    box.hidden = view !== 'comment';
+    if (box.hidden) return;
+    const vw = isView();
+    const multi = sel.multi && !vw;
+    const seg = mk('div', 'pf-ov-seg pf-dk-tray');
     seg.setAttribute('role', 'group');
     seg.setAttribute('aria-label', 'Alcance del comentario');
     const segBtn = (label: string, pressed: boolean, onClick: () => void, disabled = false) => {
-      const b = mk('button', 'pf-ov-segbtn', label);
+      const b = mk('button', 'pf-ov-segbtn pf-dk-key', label);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(pressed));
       b.disabled = disabled;
@@ -392,94 +539,93 @@ export function createEditor(opts: EditorOptions): EditorHandle {
       return b;
     };
     seg.append(
-      segBtn(multi ? `${sel.size} elementos` : 'Este elemento', !view, () => setScope('element'), sel.size === 0),
-      segBtn('Toda la vista', view, () => setScope('view')),
+      segBtn(multi ? `${sel.size} elementos` : 'Este elemento', !vw, () => setScope('element'), sel.size === 0),
+      segBtn('Toda la vista', vw, () => setScope('view')),
     );
-    row.appendChild(seg);
-    box.appendChild(row);
-
-    const nav = mk('div', view ? 'pf-ov-nav pf-ov-nav--off' : 'pf-ov-nav');
-    nav.setAttribute('role', 'group');
-    nav.setAttribute('aria-label', 'Moverse por el DOM');
-    const av = navAvailability(view ? null : (sel.focus?.el ?? null));
-    const pos = !view && sel.focus ? siblingPos(sel.focus.el) : { pos: 0, count: 0 };
-    const g1 = mk('div', 'pf-ov-ngrp');
-    g1.append(ibtn('Padre (↑)', 'up', () => navigate('parent'), !av.parent), ibtn('Primer hijo (↓)', 'down', () => navigate('child'), !av.child));
-    const g2 = mk('div', 'pf-ov-ngrp');
-    const posEl = mk('span', 'pf-ov-pos', view ? '–' : `${pos.pos + 1}/${pos.count}`);
-    posEl.title = 'Posición entre hermanos';
-    g2.append(ibtn('Hermano anterior (←)', 'left', () => navigate('prev'), !av.prev), posEl, ibtn('Hermano siguiente (→)', 'right', () => navigate('next'), !av.next));
-    const sp = mk('span', 'pf-ov-sp');
-    const add = tbtn(addMode ? 'pf-btn pf-btn--sm pf-btn--on' : 'pf-btn pf-btn--sm', 'Sumar', () => {
-      addMode = !addMode;
-      paintStrip(box);
-      opts.announce(addMode ? 'Modo sumar: el siguiente clic añade un elemento.' : 'Modo sumar desactivado.');
-    }, 'plus');
-    add.setAttribute('aria-pressed', String(addMode));
-    add.title = 'Sumar otro elemento (Shift+clic)';
-    add.disabled = view || ctx.busy;
-    const pick = ibtn('Elegir otro elemento', 'select', () => opts.onPick(ctx.draft));
-    nav.append(g1, g2, sp, add, pick);
-    box.appendChild(nav);
-  }
-
-  // --- Pestañas -------------------------------------------------------------------------------------
-
-  function paintTabs(box: HTMLElement): void {
-    box.textContent = '';
-    const view = isView();
-    for (const t of STATUS_TABS) {
-      const b = mk('button', t.id === tab ? 'pf-ov-tab pf-ov-tab--on' : 'pf-ov-tab');
-      b.type = 'button';
-      b.setAttribute('role', 'tab');
-      b.setAttribute('aria-selected', String(t.id === tab));
-      b.tabIndex = t.id === tab ? 0 : -1;
-      b.append(icon(doc, t.icon, 14), mk('span', undefined, t.label));
-      let badge = 0;
-      let dot = false;
-      let off = '';
-      if (t.id === 'comment') badge = att.count;
-      if (t.id === 'content') {
-        badge = contentCount();
-        if (!contentOk()) off = view ? 'Elige un elemento' : 'Este elemento no tiene texto propio';
-      }
-      if (t.id === 'styles') {
-        badge = styleCount();
-        if (view) off = 'Elige un elemento';
-      }
-      if (t.id === 'struct') {
-        badge = moves().length;
-        if (view) off = 'Elige un elemento';
-      }
-      if (t.id === 'queue') dot = !!ctx.binding;
-      if (off) {
-        b.disabled = true;
-        b.title = off;
-      }
-      if (badge) b.appendChild(mk('span', 'pf-ov-badge', String(badge)));
-      if (dot) b.appendChild(mk('span', 'pf-ov-badge pf-ov-badge--dot'));
-      onc(b, 'click', () => setTab(t.id));
-      box.appendChild(b);
+    box.appendChild(seg);
+    if (addMode) {
+      const s = dkChip(doc, 'Clic en la página para sumar · Esc cancela', { on: true, led: true });
+      s.setAttribute('role', 'status');
+      box.appendChild(s);
     }
-    box.onkeydown = (e) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight' && e.key !== 'Home' && e.key !== 'End') return;
-      const enabled = STATUS_TABS.filter((t) => !(box.children[STATUS_TABS.indexOf(t)] as HTMLButtonElement).disabled);
-      const i = enabled.findIndex((t) => t.id === tab);
-      const next =
-        e.key === 'Home' ? enabled[0] : e.key === 'End' ? enabled[enabled.length - 1] : enabled[(i + (e.key === 'ArrowRight' ? 1 : -1) + enabled.length) % enabled.length];
-      if (!next) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setTab(next.id);
-      (box.children[STATUS_TABS.indexOf(next)] as HTMLElement).focus();
-    };
   }
 
-  function setTab(t: PanelTab): void {
-    tab = t;
-    paint('tabs');
-    paint('body');
-    opts.onFocusChange();
+  // --- Navegador ↑↓←→: fila delgada solo mientras se navega (o en Capas) ---------------------------------
+
+  function paintNav(box: HTMLElement): void {
+    box.textContent = '';
+    const show = !isView() && !!sel.focus && (navActive || view === 'layers');
+    box.hidden = !show;
+    if (!show) return;
+    const av = navAvailability(sel.focus!.el);
+    const pos = siblingPos(sel.focus!.el);
+    const sq = 'pf-dk-key pf-dk-key--sq';
+    const g1 = mk('div', 'pf-ov-ngrp pf-dk-fx pf-dk-g6');
+    g1.append(ibtn('Padre (↑)', 'up', () => navigate('parent'), !av.parent, sq), ibtn('Primer hijo (↓)', 'down', () => navigate('child'), !av.child, sq));
+    const g2 = mk('div', 'pf-ov-ngrp pf-dk-fx pf-dk-g6');
+    const posEl = mk('span', 'pf-ov-pos pf-dk-chip', `${pos.pos + 1}/${pos.count}`);
+    posEl.title = 'Posición entre hermanos';
+    g2.append(ibtn('Hermano anterior (←)', 'left', () => navigate('prev'), !av.prev, sq), posEl, ibtn('Hermano siguiente (→)', 'right', () => navigate('next'), !av.next, sq));
+    box.append(g1, g2);
+  }
+
+  // --- Cabecera de subvista: «‹ Comentar» + título -------------------------------------------------------
+
+  function paintSub(box: HTMLElement): void {
+    box.textContent = '';
+    box.hidden = view === 'comment';
+    if (box.hidden) return;
+    const back = mk('button', 'pf-ov-back pf-dk-key pf-dk-key--sm');
+    back.type = 'button';
+    back.setAttribute('data-pf-back', '');
+    back.setAttribute('aria-label', 'Volver a Comentar');
+    back.append(icon(doc, 'left', 13), doc.createTextNode('Comentar'));
+    onc(back, 'click', () => setView('comment'));
+    const t = mk('h3', 'pf-ov-viewtitle pf-dk-t2', VIEW_TITLE[view]);
+    t.id = 'pf-ov-view-title';
+    box.append(back, t);
+  }
+
+  // --- Pila: abrir / cerrar una subvista --------------------------------------------------------------------
+
+  type FocusTo = 'auto' | 'note' | 'none';
+
+  function setView(v: PanelView, focusTo: FocusTo = 'auto'): void {
+    if (destroyed) return;
+    if (!viewAvailable(v)) v = 'comment';
+    if (v === view) return;
+    const prev = view;
+    closeMenu(false);
+    view = v;
+    if (v === 'layers') navActive = false;
+    for (const r of ['sub', 'strip', 'nav', 'body'] as const) paint(r);
+    animateView(v === 'comment' ? 'back' : 'fwd');
+    if (focusTo !== 'none') {
+      if (v !== 'comment') regions.sub.querySelector<HTMLElement>('[data-pf-back]')?.focus();
+      else {
+        const chip = focusTo === 'auto' ? regions.body.querySelector<HTMLElement>(`[data-pf-chip="${prev}"]`) : null;
+        (chip ?? regions.body.querySelector<HTMLElement>('textarea'))?.focus();
+      }
+    }
+    opts.announce(v === 'comment' ? 'Comentar.' : `Vista ${VIEW_TITLE[v]}.`);
+  }
+
+  /** Transición corta entre vistas (translate + fade ≤ 180 ms; sin movimiento con prefers-reduced-motion, ver CSS). */
+  function animateView(dir: 'fwd' | 'back'): void {
+    for (const el of [regions.sub, regions.body]) {
+      el.classList.remove('pf-ov-vt--fwd', 'pf-ov-vt--back');
+      void el.offsetWidth;
+      el.classList.add(dir === 'fwd' ? 'pf-ov-vt--fwd' : 'pf-ov-vt--back');
+    }
+  }
+  for (const el of [regions.sub, regions.body]) {
+    onc(el, 'animationend', () => el.classList.remove('pf-ov-vt--fwd', 'pf-ov-vt--back'));
+  }
+
+  /** Vuelve a la base sin quitarle el foco a quien lo tenga (p. ej. tras adjuntar una imagen pegada). */
+  function backToBase(): void {
+    if (view !== 'comment') setView('comment', 'none');
+    else paint('body');
   }
 
   // --- Cuerpo ------------------------------------------------------------------------------------------
@@ -487,12 +633,19 @@ export function createEditor(opts: EditorOptions): EditorHandle {
   function paintBody(box: HTMLElement): void {
     for (const f of bodyCleanups) f();
     bodyCleanups = [];
+    hoverEl = null;
     box.textContent = '';
-    box.id = `pf-ov-pane-${tab}`;
+    box.id = `pf-ov-pane-${view}`;
+    box.dataset.view = view;
+    if (view === 'comment') {
+      box.removeAttribute('aria-labelledby');
+      box.setAttribute('aria-label', 'Comentario');
+    } else {
+      box.removeAttribute('aria-label');
+      box.setAttribute('aria-labelledby', 'pf-ov-view-title');
+    }
     const e = ctx.edits();
-    if (tab === 'content' && !contentOk()) tab = 'comment';
-    if ((tab === 'styles' || tab === 'struct') && isView()) tab = 'comment';
-    switch (tab) {
+    switch (view) {
       case 'comment':
         renderComment(ctx, box);
         bindComment(box);
@@ -506,16 +659,29 @@ export function createEditor(opts: EditorOptions): EditorHandle {
       case 'struct':
         renderStruct(ctx, box);
         break;
-      case 'queue':
+      case 'layers':
+        renderLayers(ctx, box);
+        break;
+      case 'group':
         renderQueue(ctx, box);
         break;
     }
-    opts.onFocusChange(); // Estructura puede mostrar una línea de inserción.
+    opts.onFocusChange(); // Orden puede mostrar una línea de inserción.
   }
 
-  /** Pegar/soltar imágenes en la pestaña Comentar. */
+  /** Pegar/soltar imágenes en la base. La nota apaga el navegador ↑↓←→ al recibir el foco (ya no se navega). */
   function bindComment(box: HTMLElement): void {
     bodyCleanups.push(bindImagePaste(root, (files) => void addImages(files, 'paste', null)));
+    const note = box.querySelector<HTMLTextAreaElement>('#pf-ov-comment');
+    if (note) {
+      const off = () => {
+        if (!navActive) return;
+        navActive = false;
+        paint('nav');
+      };
+      note.addEventListener('focus', off);
+      bodyCleanups.push(() => note.removeEventListener('focus', off));
+    }
     box.querySelectorAll<HTMLElement>('[data-pf-dz]').forEach((zone) => {
       const sectionId = zone.getAttribute('data-pf-dz') || null;
       bodyCleanups.push(
@@ -538,9 +704,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     ctx.imgError = errors[0] ?? '';
     if (ctx.imgError) opts.announce(ctx.imgError);
     else opts.announce(`${att.count} de 20 imágenes adjuntas.`);
-    if (tab !== 'comment') tab = 'comment';
-    paint('tabs');
-    paint('body');
+    backToBase();
     paint('inc');
   }
 
@@ -553,8 +717,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
       const r = att.addCapture(shot, null);
       ctx.imgError = r.ok ? '' : r.error;
     }
-    paint('tabs');
-    paint('body');
+    backToBase();
     paint('inc');
   }
 
@@ -562,32 +725,33 @@ export function createEditor(opts: EditorOptions): EditorHandle {
 
   function paintInc(box: HTMLElement): void {
     box.textContent = '';
-    const chips: Array<{ tab: PanelTab; ic: IconName; label: string }> = [];
-    const view = isView();
-    if (sel.multi && !view) chips.push({ tab: 'comment', ic: 'node', label: `${sel.size} nodos` });
-    if (att.count) chips.push({ tab: 'comment', ic: 'img', label: `${att.count} ${att.count > 1 ? 'imágenes' : 'imagen'}` });
+    const chips: Array<{ view: PanelView; ic: IconName; label: string }> = [];
+    const vw = isView();
+    if (sel.multi && !vw) chips.push({ view: 'comment', ic: 'node', label: `${sel.size} nodos` });
+    if (att.count) chips.push({ view: 'comment', ic: 'img', label: `${att.count} ${att.count > 1 ? 'imágenes' : 'imagen'}` });
     const sc = styleCount();
-    if (sc) chips.push({ tab: 'styles', ic: 'style', label: `${sc} ${sc > 1 ? 'cambios de estilo' : 'cambio de estilo'}` });
+    if (sc) chips.push({ view: 'styles', ic: 'style', label: `${sc} ${sc > 1 ? 'cambios de estilo' : 'cambio de estilo'}` });
     const cc = contentCount();
     if (cc) {
       const first = ctx.allEdits().find((e) => e.content?.changeCount)?.content;
-      chips.push({ tab: 'content', ic: 'text', label: cc > 1 || !first ? `${cc} textos editados` : `texto: ${first.shortSummary()}` });
+      chips.push({ view: 'content', ic: 'text', label: cc > 1 || !first ? `${cc} textos editados` : `texto: ${first.shortSummary()}` });
     }
     const mv = moves()[0];
-    if (mv) chips.push({ tab: 'struct', ic: 'move', label: `mover ${mv.from} → ${mv.to}` });
+    if (mv) chips.push({ view: 'struct', ic: 'move', label: `mover ${mv.from} → ${mv.to}` });
     if (ctx.binding) {
       const queue = queueFor(ctx.binding.groupId, opts.groups?.comments() ?? []);
-      chips.push({ tab: 'queue', ic: 'queue', label: `Grupo ${ctx.binding.groupId} · paso ${bindingStep(ctx.binding, queue)}` });
+      chips.push({ view: 'group', ic: 'queue', label: `Grupo ${ctx.binding.groupId} · paso ${bindingStep(ctx.binding, queue)}` });
     }
     box.hidden = chips.length === 0;
     if (!chips.length) return;
     box.setAttribute('aria-label', 'Incluye este comentario');
-    box.appendChild(mk('small', undefined, 'Incluye'));
+    box.appendChild(mk('small', 'pf-dk-lab', 'Incluye'));
     for (const c of chips) {
-      const b = mk('button', 'pf-ov-ichip');
-      b.type = 'button';
-      b.append(icon(doc, c.ic, 13), doc.createTextNode(c.label));
-      onc(b, 'click', () => setTab(c.tab));
+      // En la base, lo que ya está a la vista (nodos, imágenes) no es un botón; el resto abre su vista.
+      const here = c.view === view;
+      const b = dkChip(doc, c.label, { on: true, led: true, ...(here ? {} : { tag: 'button' as const }) });
+      if (!here) onc(b, 'click', () => setView(c.view));
+      b.classList.add('pf-ov-ichip');
       box.appendChild(b);
     }
   }
@@ -595,31 +759,27 @@ export function createEditor(opts: EditorOptions): EditorHandle {
   function paintFoot(box: HTMLElement): void {
     box.textContent = '';
     if (ctx.error) {
-      const e = mk('p', 'pf-ov-error', ctx.error);
-      e.setAttribute('role', 'alert');
+      const e = dkWarn(doc, ctx.error, { bad: true });
+      e.classList.add('pf-ov-error');
       box.appendChild(e);
     }
-    const keys = mk('div', 'pf-ov-keys');
+    const keys = mk('div', 'pf-ov-keys pf-dk-ts pf-dk-grow');
     const k = (a: string[], t: string) => {
       const s = mk('span');
-      for (const x of a) s.appendChild(mk('kbd', undefined, x));
+      a.forEach((x, i) => {
+        if (i) s.appendChild(doc.createTextNode(' '));
+        s.appendChild(dkKb(doc, x));
+      });
       s.appendChild(doc.createTextNode(` ${t}`));
       return s;
     };
     keys.append(k(['Ctrl', '↵'], 'guardar'), k(['Esc'], 'cancelar'));
-    const cancel = tbtn('pf-btn', 'Cancelar', () => opts.onClose());
-    cancel.disabled = ctx.busy;
-    const save = mk('button', 'pf-btn pf-btn--primary');
-    save.type = 'button';
-    save.disabled = ctx.busy;
-    save.textContent = ctx.busy ? 'Guardando…' : ctx.binding ? 'Guardar en la cola' : 'Guardar';
+    const cancel = dkKey(doc, 'Cancelar', { variant: 'ghost', disabled: ctx.busy });
+    onc(cancel, 'click', () => opts.onClose());
+    const save = dkKey(doc, ctx.busy ? 'Guardando…' : ctx.binding ? 'Guardar en la cola' : 'Guardar', { variant: 'hot', disabled: ctx.busy });
     onc(save, 'click', () => void doSave());
-    const remove = tbtn('pf-btn', 'Eliminar elemento', () => void doSave(true));
-    remove.disabled = ctx.busy;
-    remove.title = 'Guarda un comentario pidiendo eliminar este elemento (la nota es opcional)';
-    remove.setAttribute('data-pf-remove', '');
-    const bar = mk('div', 'pf-ov-actions');
-    bar.append(keys, cancel, ...(isView() ? [] : [remove]), save);
+    const bar = mk('div', 'pf-ov-actions pf-dk-fx pf-dk-g8 pf-dk-wr');
+    bar.append(keys, cancel, save);
     box.appendChild(bar);
     root.setAttribute('aria-busy', String(ctx.busy));
   }
@@ -627,7 +787,6 @@ export function createEditor(opts: EditorOptions): EditorHandle {
   // --- Foco, navegación y selección ---------------------------------------------------------------------
 
   function afterFocusChange(selectionChanged = false): void {
-    copyOpen = false;
     if (selectionChanged && sel.size === 0) scope = 'view';
     paintAll();
     opts.onFocusChange();
@@ -638,6 +797,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     if (!n || isView() || ctx.busy) return;
     const next = navTarget(n.el, dir, childStack);
     if (!next) return;
+    navActive = true; // la fila ↑↓←→ aparece mientras se navega
     retarget(next, true);
   }
 
@@ -657,8 +817,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
   function setScope(s: Scope): void {
     if (s === 'element' && sel.size === 0) return;
     scope = s;
-    if (s === 'view' && tab !== 'comment' && tab !== 'queue') tab = 'comment';
-    afterFocusChange();
+    afterFocusChange(); // ensureView() devuelve a la base las vistas que no aplican a «toda la vista»
     opts.announce(s === 'element' ? 'Comentario sobre este elemento.' : 'Comentario sobre toda la vista.');
   }
 
@@ -699,7 +858,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     if (ctx.busy || destroyed) return;
     if (remove && (isView() || sel.nodes.length === 0)) {
       ctx.error = 'Elige un elemento para marcarlo como eliminar.';
-      if (tab !== 'comment') setTab('comment');
+      setView('comment', 'note');
       paint('foot');
       opts.announce(ctx.error);
       return;
@@ -724,7 +883,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     });
     if (!built.ok) {
       ctx.error = built.error;
-      if (tab !== 'comment') setTab('comment');
+      setView('comment', 'note');
       paint('foot');
       opts.announce(built.error);
       return;
@@ -795,11 +954,14 @@ export function createEditor(opts: EditorOptions): EditorHandle {
     get focusEl() {
       return scope === 'view' ? null : (sel.focus?.el ?? null);
     },
+    get hoverEl() {
+      return hoverEl?.isConnected ? hoverEl : null;
+    },
     get nodes() {
       return scope === 'view' ? [] : sel.nodes.map((n) => n.el);
     },
     reorderIndicator() {
-      if (tab !== 'struct') return null;
+      if (view !== 'struct') return null;
       return ctx.edits()?.reorder?.indicator() ?? null;
     },
     pickElement(el, additive) {
@@ -816,14 +978,21 @@ export function createEditor(opts: EditorOptions): EditorHandle {
       retarget(el);
     },
     setScope,
+    get view() {
+      return view;
+    },
     handleKey(e, info) {
       const act = interpretEditorKey(e, { typing: info.typing, own: info.own, hasElement: !isView() });
       if (!act) return false;
       if (act.type === 'cancel') {
-        if (copyOpen) {
-          copyOpen = false;
-          paint('head');
-        } else opts.onClose();
+        // Esc en pasos: menú «⋯» → modo sumar → subvista (vuelve a «Comentar») → recién entonces cierra.
+        if (menuOpen) closeMenu(true);
+        else if (addMode) {
+          addMode = false;
+          paint('strip');
+          opts.announce('Modo sumar desactivado.');
+        } else if (view !== 'comment') setView('comment');
+        else opts.onClose();
         return true;
       }
       if (act.type === 'save') {
@@ -852,9 +1021,7 @@ export function createEditor(opts: EditorOptions): EditorHandle {
         added++;
       }
       ctx.imgError = error ?? '';
-      if (tab !== 'comment') tab = 'comment';
-      paint('tabs');
-      paint('body');
+      backToBase();
       paint('inc');
       opts.announce(error ?? `${added} captura${added === 1 ? '' : 's'} adjunta${added === 1 ? '' : 's'}.`);
       return error ? { added, error } : { added };
@@ -872,8 +1039,16 @@ export function createEditor(opts: EditorOptions): EditorHandle {
   };
 
   opts.layer.appendChild(root);
-  const movable = makeMovable(root, regions.head, { kind: 'editor', onMoved: (p) => !p && opts.onPanelReset?.() });
-  cleanups.push(() => movable.destroy());
+  // Panel flotante: movible, anclable a un borde y minimizable a una píldora (floating.ts).
+  floating = makeFloating(root, regions.head, {
+    kind: 'editor',
+    layer: opts.layer,
+    label: () => (isView() ? 'toda la vista' : describe(sel.focus!.el)),
+    onClose: () => opts.onClose(),
+    onPanelReset: () => opts.onPanelReset?.(),
+  });
+  const movable: Movable = floating.movable;
+  cleanups.push(() => floating?.destroy());
   paintAll();
   return handle;
 }

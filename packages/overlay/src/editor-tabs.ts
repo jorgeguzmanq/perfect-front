@@ -2,20 +2,28 @@ import { LIMITS } from '@perfect-front/shared';
 import { downloadNameOf, formatBytes, imageToBlob, type PendingImage } from './attachments';
 import { downloadAll, mountShotActions } from './clipboard';
 import { growthPercent, renderTemplate } from './content-edit';
+import { chip as dkChip, tagk as dkTagk } from './deck';
 import { renderDesignPanel } from './design/design-panel';
 import { describe, h } from './dom';
-import type { EditorCtx } from './editor-ctx';
+import type { EditorCtx, PanelView } from './editor-ctx';
 import { bindingStep, queueFor, slugGroupId } from './groups';
 import { icon, type IconName } from './icons';
 import { ReorderModel } from './reorder';
 import { foundationReference, inspectStyles, splitUnit, type StyleInspection } from './style-edit';
 
-/** Cuerpos de las pestañas del editor v2. Cada función llena `box` y registra sus listeners. */
+/** Cuerpos de las vistas del editor v2 (base «Comentar» y subvistas). Cada función llena `box` y registra sus listeners. */
 
 type Box = HTMLElement;
 
+/** `pf-btn*` (heredado de los call sites) → teclas del deck. */
+const deckBtnCls = (cls: string): string =>
+  cls
+    .split(/\s+/)
+    .map((c) => (c === 'pf-btn' ? 'pf-dk-key' : c === 'pf-btn--primary' ? 'pf-dk-key--hot' : c === 'pf-btn--ghost' ? 'pf-dk-key--ghost' : c === 'pf-btn--sm' ? 'pf-dk-key--sm' : c))
+    .join(' ');
+
 const btn = (ctx: EditorCtx, cls: string, label: string, onClick: () => void, ic?: IconName): HTMLButtonElement => {
-  const b = h(ctx.doc, 'button', cls);
+  const b = h(ctx.doc, 'button', deckBtnCls(cls));
   b.type = 'button';
   if (ic) b.appendChild(icon(ctx.doc, ic, 13));
   if (label) b.appendChild(ctx.doc.createTextNode(ic ? ` ${label}` : label));
@@ -23,8 +31,8 @@ const btn = (ctx: EditorCtx, cls: string, label: string, onClick: () => void, ic
   return b;
 };
 
-const iconBtn = (ctx: EditorCtx, label: string, ic: IconName, onClick: () => void, disabled = false): HTMLButtonElement => {
-  const b = h(ctx.doc, 'button', 'pf-ov-iconbtn');
+const iconBtn = (ctx: EditorCtx, label: string, ic: IconName, onClick: () => void, disabled = false, cls = 'pf-ov-iconbtn'): HTMLButtonElement => {
+  const b = h(ctx.doc, 'button', cls);
   b.type = 'button';
   b.setAttribute('aria-label', label);
   b.title = label;
@@ -42,15 +50,15 @@ const note = (ctx: EditorCtx, cls: string, text: string, ic?: IconName): HTMLEle
 };
 
 const errorMsg = (ctx: EditorCtx, text: string): HTMLElement => {
-  const m = note(ctx, 'pf-ov-msg pf-ov-msg--err', text, 'warn');
+  const m = note(ctx, 'pf-ov-msg pf-ov-msg--err pf-dk-warn pf-dk-warn--bad', text, 'warn');
   m.setAttribute('role', 'alert');
   return m;
 };
 
-const sect = (ctx: EditorCtx, title: string): HTMLElement => h(ctx.doc, 'div', 'pf-ov-sect', title);
+const sect = (ctx: EditorCtx, title: string): HTMLElement => h(ctx.doc, 'div', 'pf-ov-sect pf-dk-lab', title);
 
 // =============================================================================================
-// Comentar
+// Comentar (vista base)
 // =============================================================================================
 
 function thumb(ctx: EditorCtx, m: PendingImage): HTMLElement {
@@ -62,7 +70,7 @@ function thumb(ctx: EditorCtx, m: PendingImage): HTMLElement {
   if (m.source === 'capture') th.appendChild(h(doc, 'span', 'pf-ov-th-k', 'captura'));
   const x = iconBtn(ctx, `Quitar ${m.name}`, 'close', () => {
     ctx.att.remove(m.clientId);
-    ctx.rerender('body', 'tabs', 'inc');
+    ctx.rerender('body', 'inc');
   }, ctx.busy);
   x.classList.add('pf-ov-th-x');
   x.setAttribute('data-pf-remove-img', '');
@@ -104,6 +112,7 @@ function thumbs(ctx: EditorCtx, list: readonly PendingImage[]): HTMLElement | nu
   return g;
 }
 
+/** Una sola franja de imágenes: «Pega o arrastra · Abrir… · Capturar». Sirve para las sueltas y para cada sección. */
 function dropzone(ctx: EditorCtx, sectionId: string | null): HTMLElement {
   const doc = ctx.doc;
   const dz = h(doc, 'div', 'pf-ov-dz');
@@ -115,10 +124,10 @@ function dropzone(ctx: EditorCtx, sectionId: string | null): HTMLElement {
   }
   // Mensaje de arrastre: se muestra por CSS al poner `pf-ov-dz--over` (sin redibujar durante el arrastre).
   const over = h(doc, 'div', 'pf-ov-dz-over');
-  over.append(icon(doc, 'img', 22), h(doc, 'b', undefined, 'Suelta para adjuntar'), h(doc, 'span', undefined, 'PNG, JPG o WebP · hasta 5 MB c/u'));
+  over.append(icon(doc, 'img', 22), h(doc, 'b', 'pf-dk-t2', 'Suelta para adjuntar'), h(doc, 'span', 'pf-dk-ts', 'PNG, JPG o WebP · hasta 5 MB c/u'));
   const idle = h(doc, 'div', 'pf-ov-dz-idle');
   const hint = h(doc, 'span');
-  hint.append(h(doc, 'b', undefined, 'Pega'), ' (Ctrl+V), ', h(doc, 'b', undefined, 'arrastra'), ' o abre imágenes');
+  hint.append(h(doc, 'b', undefined, 'Pega'), ' o ', h(doc, 'b', undefined, 'arrastra'), ' imágenes');
   idle.append(icon(doc, 'img', 18), hint);
   const input = h(doc, 'input');
   input.type = 'file';
@@ -133,23 +142,19 @@ function dropzone(ctx: EditorCtx, sectionId: string | null): HTMLElement {
   const open = btn(ctx, 'pf-btn pf-btn--sm', 'Abrir…', () => input.click(), 'folder');
   open.disabled = ctx.busy;
   idle.append(input, open);
-  if (ctx.canCapture) {
-    const cam = btn(ctx, 'pf-btn pf-btn--sm', '', () => void ctx.captureImage(), 'cam');
-    cam.title = 'Captura de la página';
-    cam.setAttribute('aria-label', 'Captura de la página');
-    cam.disabled = ctx.busy;
-    idle.appendChild(cam);
-  }
-  if (ctx.captureNodes) idle.appendChild(captureMenu(ctx, sectionId));
+  if (ctx.canCapture || ctx.captureNodes) idle.appendChild(captureMenu(ctx, sectionId));
   dz.append(over, idle);
   return dz;
 }
 
-/** «Capturar ▾»: menú con «Nodo seleccionado» (Alt+Mayús+S). El cierre por clic externo se libera con el cuerpo. */
+/**
+ * «Capturar»: un solo botón con un menú: «Vista visible» (toda la ventana) y «Nodo seleccionado» (Alt+Mayús+S, con
+ * escalas). El cierre por clic externo se libera con el cuerpo.
+ */
 function captureMenu(ctx: EditorCtx, sectionId: string | null): HTMLElement {
   const doc = ctx.doc;
   const wrap = h(doc, 'div', 'pf-ov-copywrap');
-  const trigger = btn(ctx, 'pf-btn pf-btn--sm', 'Capturar ▾', () => {
+  const trigger = btn(ctx, 'pf-btn pf-btn--sm', 'Capturar', () => {
     pop.hidden = !pop.hidden;
     trigger.setAttribute('aria-expanded', String(!pop.hidden));
   }, 'cam');
@@ -158,23 +163,75 @@ function captureMenu(ctx: EditorCtx, sectionId: string | null): HTMLElement {
   trigger.disabled = ctx.busy;
   const pop = h(doc, 'div', 'pf-ov-copypop');
   pop.hidden = true;
-  const item = btn(ctx, 'pf-ov-cp', '', () => {
+  pop.appendChild(h(doc, 'h5', undefined, 'Capturar'));
+  const close = () => {
     pop.hidden = true;
     trigger.setAttribute('aria-expanded', 'false');
-    ctx.captureNodes?.(sectionId);
-  });
-  const t = h(doc, 'span', undefined, 'Nodo seleccionado');
-  const k = h(doc, 'kbd', undefined, 'Alt+Mayús+S');
-  item.append(t, k);
-  pop.append(h(doc, 'h5', undefined, 'Capturar'), item);
+  };
+  const entry = (label: string, key: string | null, run: () => void): HTMLButtonElement => {
+    const item = btn(ctx, 'pf-ov-cp pf-dk-rack', '', () => {
+      close();
+      run();
+    });
+    item.append(h(doc, 'span', 'pf-dk-tg', label));
+    if (key) item.append(h(doc, 'kbd', 'pf-dk-kb', key));
+    pop.appendChild(item);
+    return item;
+  };
+  if (ctx.canCapture) {
+    const page = entry('Vista visible', null, () => void ctx.captureImage());
+    page.setAttribute('aria-label', 'Captura de la página');
+    page.disabled = ctx.busy;
+  }
+  if (ctx.captureNodes) entry('Nodo seleccionado', 'Alt+Mayús+S', () => ctx.captureNodes?.(sectionId));
   ctx.on(doc, 'keydown', (e) => {
-    if ((e as KeyboardEvent).key === 'Escape' && !pop.hidden) {
-      pop.hidden = true;
-      trigger.setAttribute('aria-expanded', 'false');
-    }
+    if ((e as KeyboardEvent).key === 'Escape' && !pop.hidden) close();
   });
   wrap.append(trigger, pop);
   return wrap;
+}
+
+/**
+ * Fila discreta «Proponer» bajo la nota: solo los chips que el mapa permite. Texto (solo si el foco tiene texto
+ * propio), Estilos (un nodo, o foco/todos), Orden (un nodo con hermanos), Grupo («Grupo A · paso 2» o «Agrupar»).
+ * Pulsar un chip abre ESA vista encima de la base.
+ */
+function proposeRow(ctx: EditorCtx): HTMLElement | null {
+  const doc = ctx.doc;
+  const edits = ctx.allEdits();
+  const has = {
+    content: edits.some((e) => (e.content?.changeCount ?? 0) > 0),
+    styles: edits.some((e) => (e.style?.count ?? 0) > 0),
+    struct: edits.some((e) => !!e.reorder?.changed),
+    group: !!ctx.binding,
+  };
+  const groupLabel = (): string => {
+    const b = ctx.binding;
+    if (!b) return 'Agrupar';
+    return `Grupo ${b.groupId} · paso ${bindingStep(b, queueFor(b.groupId, ctx.groupsPort?.comments() ?? []))}`;
+  };
+  const defs: Array<{ view: PanelView; label: () => string; ic: IconName; on: boolean }> = [
+    { view: 'content', label: () => 'Texto', ic: 'text', on: has.content },
+    { view: 'styles', label: () => 'Estilos', ic: 'style', on: has.styles },
+    { view: 'struct', label: () => 'Orden', ic: 'move', on: has.struct },
+    { view: 'group', label: groupLabel, ic: 'queue', on: has.group },
+  ];
+  const shown = defs.filter((d) => ctx.available(d.view));
+  if (!shown.length) return null;
+  const row = h(doc, 'div', 'pf-ov-propose pf-dk-fx pf-dk-g6 pf-dk-wr');
+  row.setAttribute('role', 'group');
+  row.setAttribute('aria-label', 'Proponer cambios');
+  row.appendChild(h(doc, 'small', 'pf-dk-lab pf-ov-propose-lab', 'Proponer cambios'));
+  for (const d of shown) {
+    const c = dkChip(doc, d.label(), { on: d.on, icon: d.ic, tag: 'button' });
+    ctx.on(c, 'click', () => ctx.setView(d.view));
+    c.classList.add('pf-ov-pchip');
+    c.setAttribute('data-pf-chip', d.view);
+    c.setAttribute('aria-label', `Proponer: ${d.label()}${d.on ? ' (con cambios)' : ''}`);
+    if (ctx.busy) (c as HTMLButtonElement).disabled = true;
+    row.appendChild(c);
+  }
+  return row;
 }
 
 export function renderComment(ctx: EditorCtx, box: Box): void {
@@ -185,10 +242,10 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
   const field = h(doc, 'div', ctx.error && !ctx.draft.trim() ? 'pf-ov-field pf-ov-field--bad' : 'pf-ov-field');
   const label = h(doc, 'label', 'pf-ov-sr-only', 'Comentario');
   label.htmlFor = 'pf-ov-comment';
-  const ta = h(doc, 'textarea', 'pf-input pf-ov-textarea');
+  const ta = h(doc, 'textarea', 'pf-input pf-ov-textarea pf-dk-lin');
   ta.id = 'pf-ov-comment';
   ta.maxLength = LIMITS.comment;
-  ta.rows = 5;
+  ta.rows = 3;
   ta.placeholder = view
     ? 'Qué habría que cambiar en esta vista…'
     : `Qué habría que cambiar ${multi ? 'en estos elementos' : 'en este elemento'}…`;
@@ -214,7 +271,7 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
       ctx.rerender('foot');
     }
   });
-  const foot = h(doc, 'div', 'pf-ov-fieldfoot');
+  const foot = h(doc, 'div', 'pf-ov-fieldfoot pf-dk-ts');
   foot.append(clear, counter);
   field.append(label, ta, foot);
   box.appendChild(field);
@@ -222,10 +279,10 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
   // Cambios directos (texto, estilos, orden): ya son el comentario; se muestra el texto generado y se puede editar.
   const auto = ctx.autoText();
   if (auto && !ctx.autoMerged) {
-    const gen = h(doc, 'div', 'pf-ov-hint');
+    const gen = h(doc, 'div', 'pf-ov-hint pf-dk-lcd pf-dk-lp');
     gen.append(
-      h(doc, 'b', undefined, ctx.draft.trim() ? 'Se añadirá al comentario:' : 'Comentario generado automáticamente:'),
-      h(doc, 'p', undefined, auto),
+      h(doc, 'b', 'pf-dk-ts', ctx.draft.trim() ? 'Se añadirá al comentario:' : 'Comentario generado automáticamente:'),
+      h(doc, 'p', 'pf-dk-tg', auto),
     );
     const edit = btn(ctx, 'pf-ov-linkbtn', 'Editar texto generado', () => {
       ctx.draft = `${ctx.draft.trim()}${ctx.draft.trim() ? '\n\n' : ''}${auto}`.slice(0, LIMITS.comment);
@@ -240,11 +297,11 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
 
   if (ctx.imgError) box.appendChild(errorMsg(ctx, ctx.imgError));
 
-  // Secciones: bloques extra con sus imágenes.
+  // Secciones: bloques extra con sus imágenes (solo existen si se añadieron desde el menú «⋯»).
   ctx.sections.items.forEach((s, i) => {
-    const sec = h(doc, 'div', 'pf-ov-section');
+    const sec = h(doc, 'div', 'pf-ov-section pf-dk-lcd pf-dk-lp');
     const head = h(doc, 'div', 'pf-ov-section-head');
-    const title = h(doc, 'input', 'pf-input');
+    const title = h(doc, 'input', 'pf-input pf-dk-lin');
     title.type = 'text';
     title.maxLength = LIMITS.sectionTitle;
     title.placeholder = `Título de la sección ${i + 1} (opcional)`;
@@ -258,7 +315,7 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
       ctx.rerender('body', 'inc');
     }, ctx.busy);
     head.append(title, del);
-    const st = h(doc, 'textarea', 'pf-input pf-ov-textarea pf-ov-textarea--sm');
+    const st = h(doc, 'textarea', 'pf-input pf-ov-textarea pf-ov-textarea--sm pf-dk-lin');
     st.maxLength = LIMITS.sectionText;
     st.rows = 3;
     st.value = s.text;
@@ -271,84 +328,80 @@ export function renderComment(ctx: EditorCtx, box: Box): void {
     if (t) sec.appendChild(t);
     box.appendChild(sec);
   });
-  const add = btn(ctx, 'pf-btn pf-btn--sm', 'Añadir sección', () => {
-    ctx.sections.add();
-    ctx.rerender('body');
-  }, 'plus');
-  add.disabled = ctx.busy || ctx.sections.full;
-  add.title = ctx.sections.full ? `Máximo ${LIMITS.sections} secciones` : 'Divide el comentario en bloques con sus propias imágenes';
 
-  // Imágenes sueltas + contador.
-  const sectHead = h(doc, 'div', 'pf-ov-sect');
-  sectHead.append(h(doc, 'span', undefined, 'Imágenes'));
-  const cnt = h(doc, 'span', ctx.att.full ? 'pf-ov-count pf-ov-count--full' : 'pf-ov-count', ctx.att.counter);
-  cnt.setAttribute('aria-label', `${ctx.att.count} de ${LIMITS.attachments} imágenes`);
-  sectHead.appendChild(cnt);
-  if (ctx.att.count > 1) {
-    sectHead.appendChild(btn(ctx, 'pf-ov-linkbtn', 'Descargar todas', () => {
-      void downloadAll(ctx.att.items.map((m) => ({ src: imageToBlob(m), name: downloadNameOf(m) })));
-      ctx.announce('Descargando imágenes');
-    }, 'down'));
-  }
-  box.appendChild(sectHead);
+  // Imágenes sueltas: UNA franja; el contador, «Descargar todas» y el destino solo aparecen si ya hay adjuntos.
   box.appendChild(dropzone(ctx, null));
-  const loose = thumbs(ctx, ctx.att.inSection(null));
-  if (loose) box.appendChild(loose);
   if (ctx.att.count) {
-    const dest = h(doc, 'div', 'pf-ov-dest');
+    const meta = h(doc, 'div', 'pf-ov-sect pf-dk-lab');
+    const cnt = h(doc, 'span', ctx.att.full ? 'pf-ov-count pf-ov-count--full' : 'pf-ov-count', `Imágenes ${ctx.att.counter}`);
+    cnt.setAttribute('aria-label', `${ctx.att.count} de ${LIMITS.attachments} imágenes`);
+    meta.appendChild(cnt);
+    if (ctx.att.count > 1) {
+      meta.appendChild(btn(ctx, 'pf-ov-linkbtn', 'Descargar todas', () => {
+        void downloadAll(ctx.att.items.map((m) => ({ src: imageToBlob(m), name: downloadNameOf(m) })));
+        ctx.announce('Descargando imágenes');
+      }, 'down'));
+    }
+    box.appendChild(meta);
+    const loose = thumbs(ctx, ctx.att.inSection(null));
+    if (loose) box.appendChild(loose);
+    const dest = h(doc, 'div', 'pf-ov-dest pf-dk-ts');
     dest.append(icon(doc, 'folder', 13), h(doc, 'span', undefined, 'Se copian a .perfect-front/attachments/ y quedan atadas a este comentario'));
     box.appendChild(dest);
   }
-  box.appendChild(add);
+
+  // «Proponer» va al final de la base: son herramientas sobre el elemento, no parte de la nota ni de las imágenes.
+  const propose = proposeRow(ctx);
+  if (propose) box.appendChild(propose);
 }
 
 // =============================================================================================
-// Contenido
+// Texto (vista «Contenido»)
 // =============================================================================================
 
 const KIND_INFO = {
-  fixed: ['Texto fijo', 'Escrito directo en el código', 'text'],
-  i18n: ['Clave i18n', 'Se traduce desde archivos de idioma', 'globe'],
-  dynamic: ['Dinámico', 'Mezcla texto fijo con datos', 'link'],
+  fixed: ['Texto fijo', 'Escrito directo en el código', 'Aa'],
+  i18n: ['Clave i18n', 'Se traduce desde archivos de idioma', 'i18n'],
+  dynamic: ['Dinámico', 'Mezcla texto fijo con datos', '{ }'],
 } as const;
 
 export function renderContent(ctx: EditorCtx, box: Box): void {
   const doc = ctx.doc;
   const ed = ctx.edits()?.content ?? null;
   if (!ed) {
-    const e = h(doc, 'div', 'pf-ov-empty');
-    e.append(icon(doc, 'text', 26));
+    const e = h(doc, 'div', 'pf-ov-empty pf-dk-lcd pf-dk-lp');
+    e.append(icon(doc, 'lock', 26));
     const t = h(doc, 'div');
-    t.append(h(doc, 'b', undefined, 'Este elemento no tiene texto propio'), doc.createElement('br'), 'Elige un botón, título o párrafo para editar su contenido.');
+    t.append(h(doc, 'b', 'pf-dk-t2', 'Este elemento no tiene texto propio'), doc.createElement('br'), h(doc, 'span', 'pf-dk-ts', 'Elige un botón, título o párrafo para editar su contenido.'));
     e.appendChild(t);
     box.appendChild(e);
     return;
   }
   const info = ed.info;
-  const [title, sub, ic] = KIND_INFO[info.kind];
+  const [title, sub, tagText] = KIND_INFO[info.kind];
   const where = info.kind === 'i18n' ? `locales/${ed.lang}.json` : (info.src ?? '');
-  const head = h(doc, 'div', `pf-ov-ck pf-ov-ck--${info.kind}`);
-  const hd = h(doc, 'div');
-  hd.append(h(doc, 'b', undefined, title), h(doc, 'small', undefined, sub));
-  const wh = h(doc, 'span', 'pf-ov-where', where);
+  const head = h(doc, 'div', `pf-ov-ck pf-ov-ck--${info.kind} pf-dk-lcd pf-dk-lp pf-dk-fx pf-dk-g12`);
+  const hd = h(doc, 'div', 'pf-dk-grow');
+  hd.append(h(doc, 'b', 'pf-dk-t2', title), h(doc, 'small', 'pf-dk-ts', sub));
+  const wh = h(doc, 'span', 'pf-ov-where pf-dk-ts', where);
   wh.title = where;
-  head.append(icon(doc, ic, 15), hd, wh);
+  head.append(dkTagk(doc, tagText), hd, wh);
   box.appendChild(head);
 
   if (info.kind === 'i18n') {
     const key = h(doc, 'div', 'pf-ov-ckey');
-    key.append(h(doc, 'code', undefined, info.key ?? ''));
+    key.append(h(doc, 'code', 'pf-dk-chip pf-dk-chip--on', info.key ?? ''));
     if (info.library) key.appendChild(h(doc, 'span', 'pf-ov-tagpill', info.library));
     if (info.uses !== null && info.uses !== undefined) key.appendChild(h(doc, 'span', 'pf-ov-hint', `en uso: ${info.uses}`));
     box.appendChild(key);
-    const langs = h(doc, 'div', 'pf-ov-langs');
+    const langs = h(doc, 'div', 'pf-ov-langs pf-dk-tray');
     langs.setAttribute('role', 'group');
     langs.setAttribute('aria-label', 'Idioma');
     for (const l of info.locales ?? []) {
-      const b = h(doc, 'button', 'pf-ov-langbtn');
+      const b = h(doc, 'button', 'pf-ov-langbtn pf-dk-key');
       b.type = 'button';
       b.setAttribute('aria-pressed', String(l.locale === ed.lang));
-      b.appendChild(h(doc, 'i', `pf-ov-dot ${ed.localeState(l.locale) ? `pf-ov-dot--${ed.localeState(l.locale)}` : ''}`));
+      b.appendChild(h(doc, 'i', `pf-ov-dot pf-dk-led ${ed.localeState(l.locale) ? `pf-ov-dot--${ed.localeState(l.locale)}` : ''}`));
       b.appendChild(doc.createTextNode(l.locale.toUpperCase()));
       ctx.on(b, 'click', () => {
         ed.setLang(l.locale);
@@ -359,14 +412,16 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
     box.appendChild(langs);
   }
 
-  const ta = h(doc, 'textarea', 'pf-input pf-ov-textarea pf-ov-ctext');
+  const ta = h(doc, 'textarea', 'pf-input pf-ov-textarea pf-ov-ctext pf-dk-lin');
   ta.rows = 3;
   ta.maxLength = LIMITS.proposalText;
   ta.value = ed.value;
   ta.disabled = ctx.busy;
   ta.setAttribute('aria-label', 'Nuevo texto');
   if (info.kind === 'i18n' && ed.originalOf(ed.lang) === null) ta.placeholder = `Sin traducir. Escribe la traducción a ${ed.lang.toUpperCase()}…`;
-  box.appendChild(ta);
+  const taBox = h(doc, 'div', 'pf-dk-lcd pf-dk-lp');
+  taBox.appendChild(ta);
+  box.appendChild(taBox);
 
   const dyn = h(doc, 'div', 'pf-ov-dyn');
   const diff = h(doc, 'div', 'pf-ov-diff-box');
@@ -376,10 +431,10 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
     const before = ed.originalOf(info.kind === 'i18n' ? ed.lang : '') ?? '';
     const after = ed.value;
     if (info.kind === 'dynamic') {
-      const vars = h(doc, 'div', 'pf-ov-vars');
+      const vars = h(doc, 'div', 'pf-ov-vars pf-dk-ts');
       vars.append(icon(doc, 'lock', 13), 'Variables fijas:');
       for (const [n, v] of Object.entries(info.variables ?? {})) {
-        const c = h(doc, 'span', 'pf-ov-vchip', `{${n}}`);
+        const c = h(doc, 'span', 'pf-ov-vchip pf-dk-chip pf-dk-chip--on', `{${n}}`);
         c.appendChild(h(doc, 'em', undefined, ` = ${v}`));
         vars.appendChild(c);
       }
@@ -390,14 +445,14 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
       }
     }
     if (info.kind === 'i18n' && ed.originalOf(ed.lang) === null && !after) {
-      diff.appendChild(note(ctx, 'pf-ov-msg pf-ov-msg--warn', `Falta la traducción a ${ed.lang.toUpperCase()}. En la página se ve el texto de respaldo.`, 'warn'));
+      diff.appendChild(note(ctx, 'pf-ov-msg pf-ov-msg--warn pf-dk-warn', `Falta la traducción a ${ed.lang.toUpperCase()}. En la página se ve el texto de respaldo.`, 'warn'));
       return;
     }
     if (before === after) {
-      diff.appendChild(h(doc, 'p', 'pf-ov-hint', 'Sin cambios todavía. Escribe arriba y verás el resultado en la página.'));
+      diff.appendChild(h(doc, 'p', 'pf-ov-hint pf-dk-ts', 'Sin cambios todavía. Escribe arriba y verás el resultado en la página.'));
       return;
     }
-    const d = h(doc, 'div', 'pf-ov-diff');
+    const d = h(doc, 'div', 'pf-ov-diff pf-dk-diff pf-dk-lcd pf-dk-lp');
     const a = h(doc, 'div');
     a.append(h(doc, 'small', undefined, 'Antes'), h(doc, 'del', undefined, before || '—'));
     const b = h(doc, 'div', 'pf-ov-diff-after');
@@ -405,9 +460,9 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
     d.append(a, b);
     diff.appendChild(d);
     const grow = growthPercent(before, after);
-    if (grow) diff.appendChild(note(ctx, 'pf-ov-msg pf-ov-msg--warn', `${grow}% más largo: puede desbordar el diseño. Revísalo en la vista previa.`, 'warn'));
+    if (grow) diff.appendChild(note(ctx, 'pf-ov-msg pf-ov-msg--warn pf-dk-warn', `${grow}% más largo: puede desbordar el diseño. Revísalo en la vista previa.`, 'warn'));
     if (info.kind === 'dynamic') {
-      const p = h(doc, 'p', 'pf-ov-hint');
+      const p = h(doc, 'p', 'pf-ov-hint pf-dk-ts');
       p.append('Vista previa: ', h(doc, 'b', undefined, renderTemplate(after, info.variables ?? {})));
       diff.appendChild(p);
     }
@@ -417,13 +472,13 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
   ctx.on(ta, 'input', () => {
     ed.setValue(ta.value);
     paintDiff();
-    // Si el idioma activo cambió de «sin traducir» a escrito, el punto del selector cambia: solo pestañas/inc.
-    ctx.rerender('tabs', 'inc');
+    // Si el idioma activo cambió de «sin traducir» a escrito, el punto del selector cambia: solo «Incluye».
+    ctx.rerender('inc');
   });
 
   if (info.kind === 'i18n') {
     box.appendChild(sect(ctx, 'Alcance del cambio'));
-    const pick = h(doc, 'div', 'pf-ov-pick');
+    const pick = h(doc, 'div', 'pf-ov-pick pf-dk-lcd pf-dk-lp');
     const radio = (value: 'all' | 'one', t: string, help: string) => {
       const l = h(doc, 'label');
       const r = h(doc, 'input');
@@ -433,7 +488,7 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
       r.checked = ed.scope === value;
       ctx.on(r, 'change', () => ed.setScope(value));
       const s = h(doc, 'span');
-      s.append(h(doc, 'b', undefined, t), doc.createElement('br'), h(doc, 'span', 'pf-ov-hint', help));
+      s.append(h(doc, 'b', 'pf-dk-tg', t), doc.createElement('br'), h(doc, 'span', 'pf-ov-hint pf-dk-ts', help));
       l.append(r, s);
       return l;
     };
@@ -442,7 +497,9 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
       radio('one', 'Solo aquí', `Se propone una clave nueva: ${ed.newKey ?? ''}.`),
     );
     box.appendChild(pick);
-    const rows = h(doc, 'div', 'pf-ov-lrows');
+    const more = h(doc, 'details', 'pf-ov-moreinfo');
+    more.appendChild(h(doc, 'summary', 'pf-dk-ts', 'Ver todos los idiomas'));
+    const rows = h(doc, 'div', 'pf-ov-lrows pf-dk-lcd pf-dk-lp');
     rows.setAttribute('aria-label', 'Todos los idiomas');
     for (const l of info.locales ?? []) {
       const v = ed.originalOf(l.locale);
@@ -452,13 +509,14 @@ export function renderContent(ctx: EditorCtx, box: Box): void {
       r.append(h(doc, 'b', undefined, l.locale.toUpperCase()), h(doc, 'span', shown ? '' : 'pf-ov-miss', shown || 'sin traducir'));
       rows.appendChild(r);
     }
-    box.appendChild(rows);
+    more.appendChild(rows);
+    box.appendChild(more);
   }
   box.appendChild(
     h(
       doc,
       'p',
-      'pf-ov-hint',
+      'pf-ov-hint pf-dk-ts',
       `Al guardar, el cambio viaja con el comentario como «antes → después».${ctx.draft.trim() ? '' : ' Si no escribes nada, se genera: «Cambiar texto de … a …».'}`,
     ),
   );
@@ -472,20 +530,15 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
   const doc = ctx.doc;
   const ed = ctx.edits()?.style;
   if (!ed) return;
-  const legend = h(doc, 'div', 'pf-ov-legend');
-  const lg = (cls: string, ic: IconName, b: string, t: string) => {
-    const d = h(doc, 'div', `pf-ov-lg ${cls}`);
-    const s = h(doc, 'span');
-    s.append(h(doc, 'b', undefined, b), t);
-    d.append(icon(doc, ic, 14), s);
-    return d;
-  };
-  legend.append(lg('pf-ov-lg--ed', 'style', 'Editable', 'Vive en el código del proyecto'), lg('pf-ov-lg--lk', 'lock', 'Foundation', 'Tokens, reset y librerías'));
+
+  // Conmutador Lista | Visual: lo primero de la vista.
   const mode = h(doc, 'div', 'pf-ov-applyto');
   mode.appendChild(h(doc, 'span', undefined, 'Vista'));
-  const mseg = h(doc, 'div', 'pf-ov-seg');
+  const mseg = h(doc, 'div', 'pf-ov-seg pf-dk-tray');
+  mseg.setAttribute('role', 'group');
+  mseg.setAttribute('aria-label', 'Modo de estilos');
   for (const [v, t] of [['list', 'Lista'], ['visual', 'Visual']] as const) {
-    const b = h(doc, 'button', 'pf-ov-segbtn', t);
+    const b = h(doc, 'button', 'pf-ov-segbtn pf-dk-key', t);
     b.type = 'button';
     b.setAttribute('aria-pressed', String(ctx.styleMode === v));
     ctx.on(b, 'click', () => {
@@ -496,14 +549,15 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
   }
   mode.appendChild(mseg);
   box.appendChild(mode);
-  if (ctx.styleMode === 'list') box.appendChild(legend);
 
   if (ctx.sel.multi) {
     const a = h(doc, 'div', 'pf-ov-applyto');
     a.appendChild(h(doc, 'span', undefined, 'Aplicar a'));
-    const seg = h(doc, 'div', 'pf-ov-seg');
+    const seg = h(doc, 'div', 'pf-ov-seg pf-dk-tray');
+    seg.setAttribute('role', 'group');
+    seg.setAttribute('aria-label', 'Aplicar estilos a');
     const mk = (v: 'focus' | 'all', t: string) => {
-      const b = h(doc, 'button', 'pf-ov-segbtn', t);
+      const b = h(doc, 'button', 'pf-ov-segbtn pf-dk-key', t);
       b.type = 'button';
       b.setAttribute('aria-pressed', String(ed.appliesTo === v));
       ctx.on(b, 'click', () => {
@@ -518,26 +572,43 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
   }
 
   if (ed.count) {
-    const s = h(doc, 'div', 'pf-ov-summ');
+    const s = h(doc, 'div', 'pf-ov-summ pf-dk-lcd pf-dk-lp');
     const sp = h(doc, 'span');
     sp.append(h(doc, 'b', undefined, String(ed.count)), ` cambio${ed.count > 1 ? 's' : ''} propuesto${ed.count > 1 ? 's' : ''}. Vista previa activa; el código no se toca.`);
     s.append(icon(doc, 'style', 14), sp, btn(ctx, 'pf-ov-linkbtn', 'Revertir todo', () => {
       ed.revertAll();
-      ctx.rerender('body', 'tabs', 'inc');
+      ctx.rerender('body', 'inc');
     }));
     box.appendChild(s);
   }
 
   if (ctx.styleMode === 'visual') {
     const target = ctx.edits()?.el;
-    if (target) renderDesignPanel({ doc, el: target, ed, disabled: ctx.busy, changed: () => ctx.rerender('tabs', 'inc') }, box);
+    if (target) renderDesignPanel({ doc, el: target, ed, disabled: ctx.busy, changed: () => ctx.rerender('inc') }, box);
     return;
   }
 
-  if (!inspection.groups.length) box.appendChild(h(doc, 'p', 'pf-ov-hint', 'No se encontraron propiedades editables en este elemento.'));
-  for (const g of inspection.groups) {
+  if (!inspection.groups.length) box.appendChild(h(doc, 'p', 'pf-ov-hint pf-dk-ts', 'No se encontraron propiedades editables en este elemento.'));
+  // Secciones plegadas por defecto, salvo la que tiene cambios y la primera.
+  inspection.groups.forEach((g, gi) => {
+    const changed = g.rows.filter((r) => ed.changes.has(r.property)).length;
+    const open = ctx.styleOpen[g.name] ?? (gi === 0 || changed > 0);
     const grp = h(doc, 'div', 'pf-ov-sgroup');
-    grp.appendChild(h(doc, 'h6', undefined, g.name));
+    const gh = h(doc, 'button', 'pf-ov-collapse pf-ov-gh pf-dk-key');
+    gh.type = 'button';
+    gh.setAttribute('aria-expanded', String(open));
+    gh.append(h(doc, 'b', undefined, g.name));
+    if (changed) gh.appendChild(h(doc, 'span', 'pf-ov-badge pf-dk-cnt', String(changed)));
+    gh.appendChild(icon(doc, 'chev', 14));
+    ctx.on(gh, 'click', () => {
+      ctx.styleOpen[g.name] = !open;
+      ctx.rerender('body');
+    });
+    grp.appendChild(gh);
+    if (!open) {
+      box.appendChild(grp);
+      return;
+    }
     for (const r of g.rows) {
       const c = ed.changes.get(r.property);
       const row = h(doc, 'div', c ? 'pf-ov-srow pf-ov-srow--chg' : 'pf-ov-srow');
@@ -574,7 +645,7 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
       const commit = () => ed.set(r.property, r.kind === 'num' ? `${input.value}${unit}` : input.value);
       ctx.on(input, 'input', () => {
         commit();
-        ctx.rerender('tabs', 'inc');
+        ctx.rerender('inc');
       });
       ctx.on(input, 'change', () => ctx.rerender('body'));
       const wrap = h(doc, 'span', r.kind === 'num' ? 'pf-ov-numw' : r.kind === 'color' ? 'pf-ov-colw' : 'pf-ov-selw');
@@ -588,24 +659,27 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
       row.appendChild(wrap);
       row.appendChild(iconBtn(ctx, `Revertir ${r.property}`, 'undo', () => {
         ed.revert(r.property);
-        ctx.rerender('body', 'tabs', 'inc');
+        ctx.rerender('body', 'inc');
       }, !c));
       grp.appendChild(row);
     }
     box.appendChild(grp);
-  }
+  });
 
+  // Foundation (tokens, reset y librerías): solo lectura, bajo UNA sola divulgación.
   const fnd = h(doc, 'div', 'pf-ov-sgroup pf-ov-sgroup--fnd');
-  const col = h(doc, 'button', 'pf-ov-collapse');
+  const col = h(doc, 'button', 'pf-ov-collapse pf-dk-key');
   col.type = 'button';
   col.setAttribute('aria-expanded', String(ctx.fndOpen));
-  col.append(icon(doc, 'lock', 13), 'Foundations · solo lectura', h(doc, 'span', 'pf-ov-badge', String(inspection.foundations.length)), icon(doc, 'chev', 14));
+  col.title = 'Tokens, reset y librerías: se ven y se comentan, no se editan aquí';
+  col.append(icon(doc, 'lock', 13), 'Foundation · solo lectura', h(doc, 'span', 'pf-ov-badge pf-dk-cnt', String(inspection.foundations.length)), icon(doc, 'chev', 14));
   ctx.on(col, 'click', () => {
     ctx.fndOpen = !ctx.fndOpen;
     ctx.rerender('body');
   });
   fnd.appendChild(col);
   if (ctx.fndOpen) {
+    fnd.appendChild(h(doc, 'p', 'pf-ov-hint pf-dk-ts', 'Tokens, reset y librerías: se ven y se comentan, no se editan aquí.'));
     for (const f of inspection.foundations) {
       const r = h(doc, 'div', 'pf-ov-fr');
       const v = h(doc, 'span', 'pf-ov-v');
@@ -621,8 +695,7 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
         h(doc, 'small', undefined, f.sourceLabel),
         btn(ctx, 'pf-btn pf-btn--sm', 'Comentar', () => {
           ctx.draft = `${ctx.draft}${ctx.draft && !ctx.draft.endsWith('\n') ? '\n' : ''}${foundationReference(f)}`.slice(0, LIMITS.comment);
-          ctx.tab = 'comment';
-          ctx.rerender('tabs', 'body');
+          ctx.setView('comment');
         }),
       );
       r.lastElementChild?.setAttribute('title', 'Agregar la referencia al comentario');
@@ -635,7 +708,7 @@ export function renderStyles(ctx: EditorCtx, box: Box, inspection: StyleInspecti
 export const inspectFor = (el: Element): StyleInspection => inspectStyles(el);
 
 // =============================================================================================
-// Estructura
+// Orden (vista «Estructura»)
 // =============================================================================================
 
 export function renderStruct(ctx: EditorCtx, box: Box): void {
@@ -662,7 +735,7 @@ export function renderStruct(ctx: EditorCtx, box: Box): void {
   });
   if (chain.length) box.appendChild(crumbs);
 
-  const pb = h(doc, 'div', 'pf-ov-parentbox');
+  const pb = h(doc, 'div', 'pf-ov-parentbox pf-dk-lcd');
   const head = h(doc, 'header');
   head.append(icon(doc, 'layers', 13), doc.createTextNode(parent ? describe(parent) : 'documento'));
   head.appendChild(h(doc, 'span', undefined, `${rm.siblingCount} hijos · arrastra o usa los botones`));
@@ -671,7 +744,7 @@ export function renderStruct(ctx: EditorCtx, box: Box): void {
   const order = rm.virtualOrder;
   order.forEach((s, i) => {
     const isMe = s === rm.moved;
-    const row = h(doc, 'div', 'pf-ov-sib');
+    const row = h(doc, 'div', isMe ? 'pf-ov-sib pf-dk-rack pf-dk-rack--cur' : 'pf-ov-sib pf-dk-rack');
     if (isMe) row.setAttribute('aria-current', 'true');
     if (isMe && rm.changed) row.classList.add('pf-ov-sib--moved');
     row.draggable = isMe;
@@ -681,25 +754,25 @@ export function renderStruct(ctx: EditorCtx, box: Box): void {
         g.appendChild(icon(doc, 'grip', 14));
         return g;
       })(),
-      h(doc, 'span', 'pf-ov-i', String(i + 1)),
+      h(doc, 'span', 'pf-ov-i pf-dk-num', String(i + 1)),
     );
     const l = h(doc, 'span', 'pf-ov-l', describe(s));
     const txt = (s.textContent ?? '').replace(/\s+/g, ' ').trim().slice(0, 60);
     if (txt) l.appendChild(h(doc, 'small', undefined, txt));
     row.appendChild(l);
     if (isMe) {
-      const btns = h(doc, 'span', 'pf-ov-btns');
+      const btns = h(doc, 'span', 'pf-ov-btns pf-dk-fx pf-dk-g6');
       btns.append(
         iconBtn(ctx, 'Mover antes', 'up', () => {
           rm.moveUp();
-          ctx.rerender('body', 'tabs', 'inc');
+          ctx.rerender('body', 'inc');
           ctx.focusNode(el);
-        }, !rm.canUp || ctx.busy),
+        }, !rm.canUp || ctx.busy, 'pf-dk-key pf-dk-key--sq'),
         iconBtn(ctx, 'Mover después', 'down', () => {
           rm.moveDown();
-          ctx.rerender('body', 'tabs', 'inc');
+          ctx.rerender('body', 'inc');
           ctx.focusNode(el);
-        }, !rm.canDown || ctx.busy),
+        }, !rm.canDown || ctx.busy, 'pf-dk-key pf-dk-key--sq'),
       );
       row.appendChild(btns);
       ctx.on(row, 'dragstart', (e) => {
@@ -714,7 +787,7 @@ export function renderStruct(ctx: EditorCtx, box: Box): void {
     ctx.on(row, 'drop', (e) => {
       e.preventDefault();
       if (rm.dropOn(s)) {
-        ctx.rerender('body', 'tabs', 'inc');
+        ctx.rerender('body', 'inc');
         ctx.focusNode(el);
       }
     });
@@ -723,32 +796,32 @@ export function renderStruct(ctx: EditorCtx, box: Box): void {
   box.appendChild(pb);
 
   if (rm.changed) {
-    const m = h(doc, 'div', 'pf-ov-mvnote');
+    const m = h(doc, 'div', 'pf-ov-mvnote pf-dk-lcd pf-dk-lp pf-dk-tx');
     const sp = h(doc, 'span');
     sp.append('Propuesta: mover ', h(doc, 'b', undefined, describe(el)), ' de la posición ', h(doc, 'b', undefined, String(rm.from)), ' a la ', h(doc, 'b', undefined, `${rm.to}.`));
-    m.append(icon(doc, 'move', 14), sp, btn(ctx, 'pf-ov-linkbtn', 'Deshacer', () => {
+    m.append(h(doc, 'i', 'pf-dk-led pf-dk-led--on pf-dk-led--amber'), sp, btn(ctx, 'pf-btn pf-btn--sm', 'Deshacer', () => {
       rm.undo();
-      ctx.rerender('body', 'tabs', 'inc');
+      ctx.rerender('body', 'inc');
       ctx.focusNode(el);
     }));
     box.appendChild(m);
   } else {
-    const p = h(doc, 'p', 'pf-ov-hint');
+    const p = h(doc, 'p', 'pf-ov-hint pf-dk-ts');
     p.append('Reordenar es una ', h(doc, 'b', undefined, 'propuesta'), ': se previsualiza en la página y viaja con el comentario. El código no cambia.');
     box.appendChild(p);
   }
-  box.appendChild(h(doc, 'p', 'pf-ov-hint', 'Las flechas ↑↓ siguen subiendo al padre y bajando al hijo; ←→ cambian de hermano sin reordenar.'));
+  box.appendChild(h(doc, 'p', 'pf-ov-hint pf-dk-ts', 'Las flechas ↑↓ siguen subiendo al padre y bajando al hijo; ←→ cambian de hermano sin reordenar.'));
 }
 
 // =============================================================================================
-// Cola
+// Grupo (vista «Cola»)
 // =============================================================================================
 
 export function renderQueue(ctx: EditorCtx, box: Box): void {
   const doc = ctx.doc;
   const port = ctx.groupsPort;
   if (!port) {
-    box.appendChild(note(ctx, 'pf-ov-hint', 'Los grupos no están disponibles en este momento.'));
+    box.appendChild(note(ctx, 'pf-ov-hint pf-dk-ts', 'Los grupos no están disponibles en este momento.'));
     return;
   }
   const b = ctx.binding;
@@ -756,10 +829,10 @@ export function renderQueue(ctx: EditorCtx, box: Box): void {
   const comments = port.comments();
 
   if (!b) {
-    const e = h(doc, 'div', 'pf-ov-empty');
-    e.append(icon(doc, 'queue', 26));
+    const e = h(doc, 'div', 'pf-ov-empty pf-dk-lcd pf-dk-lp');
+    e.append(icon(doc, 'layers', 26));
     const t = h(doc, 'div');
-    t.append(h(doc, 'b', undefined, 'Este comentario va suelto'), doc.createElement('br'), 'Átalo a un grupo para que se lea junto con otros, en orden y con contexto.');
+    t.append(h(doc, 'b', 'pf-dk-t2', 'Este comentario va suelto'), doc.createElement('br'), h(doc, 'span', 'pf-dk-ts', 'Átalo a un grupo para que se lea junto con otros, en orden y con contexto.'));
     e.appendChild(t);
     const row = h(doc, 'div', 'pf-ov-row');
     row.append(
@@ -814,12 +887,12 @@ export function renderQueue(ctx: EditorCtx, box: Box): void {
   });
   gsel.append(sel, iconBtn(ctx, 'Sacar del grupo', 'close', () => {
     ctx.binding = null;
-    ctx.rerender('body', 'inc', 'foot', 'tabs');
+    ctx.rerender('body', 'inc', 'foot');
   }));
   box.appendChild(gsel);
 
   box.appendChild(sect(ctx, 'Contexto del grupo'));
-  const noteTa = h(doc, 'textarea', 'pf-input pf-ov-textarea pf-ov-gnote');
+  const noteTa = h(doc, 'textarea', 'pf-input pf-ov-textarea pf-ov-gnote pf-dk-lin');
   noteTa.rows = 3;
   noteTa.maxLength = LIMITS.groupNote;
   noteTa.value = group?.note ?? '';
@@ -831,7 +904,7 @@ export function renderQueue(ctx: EditorCtx, box: Box): void {
   });
   box.appendChild(noteTa);
 
-  const tgl = h(doc, 'label', 'pf-ov-tgl');
+  const tgl = h(doc, 'label', 'pf-ov-tgl pf-dk-ts');
   const tl = h(doc, 'span');
   tl.append('Entender el grupo antes de actuar', h(doc, 'small', undefined, 'Quien ejecute lee la nota y toda la cola, en orden'));
   const sw = h(doc, 'input', 'pf-ov-sw');
@@ -848,25 +921,24 @@ export function renderQueue(ctx: EditorCtx, box: Box): void {
   // Cola de lectura con este comentario insertado en su paso.
   const queue = queueFor(b.groupId, comments);
   const step = bindingStep(b, queue);
-  const head = h(doc, 'div', 'pf-ov-sect');
+  const head = h(doc, 'div', 'pf-ov-sect pf-dk-lab');
   head.appendChild(h(doc, 'span', undefined, 'Cola de lectura'));
   head.appendChild(btn(ctx, 'pf-ov-linkbtn', 'Atar a un comentario…', () => {
-    ctx.tab = 'queue';
     attachPicker(ctx, box, queue, comments);
   }));
   box.appendChild(head);
   const list = h(doc, 'div', 'pf-ov-q');
-  const me = h(doc, 'div', 'pf-ov-qi pf-ov-qi--me');
+  const me = h(doc, 'div', 'pf-ov-qi pf-ov-qi--me pf-dk-rack pf-dk-rack--cur');
   const meC = h(doc, 'div', 'pf-ov-qc');
   meC.append(h(doc, 'p', undefined, ctx.draft.trim() || 'Este comentario (borrador)'), h(doc, 'small', undefined, `nuevo · ${ctx.sel.focus ? describe(ctx.sel.focus.el) : 'vista'}`));
-  me.append(h(doc, 'span', 'pf-ov-qn', String(step)), meC);
+  me.append(h(doc, 'span', 'pf-ov-qn pf-dk-num', String(step)), meC);
   const rows = queue.map((c, i) => {
-    const qi = h(doc, 'div', c.status === 'resolved' ? 'pf-ov-qi pf-ov-qi--done' : 'pf-ov-qi');
+    const qi = h(doc, 'div', c.status === 'resolved' ? 'pf-ov-qi pf-ov-qi--done pf-dk-rack' : 'pf-ov-qi pf-dk-rack');
     const qc = h(doc, 'div', 'pf-ov-qc');
     const small = h(doc, 'small');
     small.append(h(doc, 'span', `pf-chip pf-chip--${c.status}`, STATUS_LABEL[c.status] ?? c.status), ` ${c.location.selector ? c.location.selector.split(' > ').pop()! : 'vista'}`);
     qc.append(h(doc, 'p', undefined, c.comment.slice(0, 140)), small);
-    qi.append(h(doc, 'span', 'pf-ov-qn', String(i + 1)), qc);
+    qi.append(h(doc, 'span', 'pf-ov-qn pf-dk-num', String(i + 1)), qc);
     return qi;
   });
   rows.splice(Math.min(step - 1, rows.length), 0, me);
@@ -886,7 +958,7 @@ function newGroupForm(ctx: EditorCtx, box: Box): void {
   if (!port) return;
   box.textContent = '';
   box.appendChild(sect(ctx, 'Grupo nuevo'));
-  const name = h(doc, 'input', 'pf-input');
+  const name = h(doc, 'input', 'pf-input pf-dk-lin');
   name.type = 'text';
   name.maxLength = LIMITS.groupName;
   name.placeholder = 'Nombre del grupo (p. ej. Rediseño de precios)';
@@ -901,7 +973,7 @@ function newGroupForm(ctx: EditorCtx, box: Box): void {
     // El grupo se crea al guardar el comentario: si se cancela el editor no queda un grupo vacío.
     const id = slugGroupId(n, new Set(port.groups().map((g) => g.id as string)));
     ctx.binding = { groupId: id, afterId: null, create: { name: n } };
-    ctx.rerender('body', 'inc', 'foot', 'tabs');
+    ctx.rerender('body', 'inc', 'foot');
   });
   row.append(btn(ctx, 'pf-btn pf-btn--ghost', 'Volver', () => ctx.rerender('body')), ok);
   ctx.on(name, 'keydown', (e) => {
@@ -925,8 +997,8 @@ function attachPicker(
   if (!b) return;
   box.textContent = '';
   box.appendChild(sect(ctx, 'Atar a un comentario'));
-  box.appendChild(h(doc, 'p', 'pf-ov-hint', 'Se coloca justo después del elegido'));
-  const pick = h(doc, 'div', 'pf-ov-pick');
+  box.appendChild(h(doc, 'p', 'pf-ov-hint pf-dk-ts', 'Se coloca justo después del elegido'));
+  const pick = h(doc, 'div', 'pf-ov-pick pf-dk-lcd pf-dk-lp');
   let chosen: { afterId: string | null; joinWith?: string } = { afterId: b.afterId };
   const option = (label: string, help: string, tag: string | null, value: { afterId: string | null; joinWith?: string }, checked: boolean) => {
     const l = h(doc, 'label');
@@ -936,7 +1008,7 @@ function attachPicker(
     r.checked = checked;
     ctx.on(r, 'change', () => (chosen = value));
     const s = h(doc, 'span');
-    s.append(h(doc, 'b', undefined, label), doc.createElement('br'), h(doc, 'span', 'pf-ov-hint', help.slice(0, 120)));
+    s.append(h(doc, 'b', 'pf-dk-tg', label), doc.createElement('br'), h(doc, 'span', 'pf-ov-hint pf-dk-ts', help.slice(0, 120)));
     if (tag) s.append(doc.createElement('br'), h(doc, 'span', 'pf-ov-tagpill', tag));
     l.append(r, s);
     pick.appendChild(l);
@@ -944,7 +1016,7 @@ function attachPicker(
   queue.forEach((c, i) => option(`Después de #${i + 1}`, c.comment, `Grupo ${b.groupId}`, { afterId: c.id }, b.afterId === c.id));
   const free = comments.filter((c) => !c.group && (c.status === 'pending' || c.status === 'in_progress')).slice(0, 8);
   for (const c of free) option(`${c.id.slice(-6)} · sin grupo`, c.comment, 'Se crea un grupo con ambos', { afterId: c.id, joinWith: c.id }, false);
-  if (!queue.length && !free.length) pick.appendChild(h(doc, 'p', 'pf-ov-hint', 'No hay otros comentarios abiertos para atar.'));
+  if (!queue.length && !free.length) pick.appendChild(h(doc, 'p', 'pf-ov-hint pf-dk-ts', 'No hay otros comentarios abiertos para atar.'));
   box.appendChild(pick);
   const row = h(doc, 'div', 'pf-ov-row');
   row.append(

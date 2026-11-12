@@ -2,8 +2,11 @@ import { captureViewport } from './capture';
 import { imageToBlob } from './attachments';
 import { mountShotActions } from './clipboard';
 import { createDrawer, type DrawerHandle } from './drawer';
+import { CROSS_ORIGIN_MSG, locateElement } from './frame';
+import type { OpenApi } from './open-code';
 import type { GroupsPort } from './editor-ctx';
-import type { AgentApi, AgentRequestInfo, GroupsApi, QueueComment } from './groups';
+import type { AgentApi, AgentRequestInfo, CommentsApi, GroupsApi, QueueComment } from './groups';
+import { connectLive, createNotices, progressFor, type LiveHandle, type NoticesHandle } from './live';
 import { createLauncher, type LauncherHandle } from './launcher';
 import { onNavigate } from './navigation';
 import { createOverlay } from './overlay';
@@ -96,10 +99,10 @@ export function bootPage(opts: BootOptions): PfApi {
   };
 
   /** Llamada REST JSON (mismo origen, con el token). Devuelve el cuerpo ya validado como `ok`. */
-  const call = async <T extends object>(path: string, method: string, payload?: unknown): Promise<T> => {
+  const call = async <T extends object>(path: string, method: string, payload?: unknown, extra: Record<string, string> = {}): Promise<T> => {
     const res = await doFetch(`${base}${path}`, {
       method,
-      headers: headers(payload === undefined ? {} : { 'Content-Type': 'application/json' }),
+      headers: headers({ ...(payload === undefined ? {} : { 'Content-Type': 'application/json' }), ...extra }),
       ...(payload === undefined ? {} : { body: JSON.stringify(payload) }),
     });
     const body = await res
@@ -127,6 +130,45 @@ export function bootPage(opts: BootOptions): PfApi {
     },
   };
 
+  // Editar/eliminar comentarios guardados: PATCH con control de concurrencia (updatedAt) y DELETE.
+  const commentsApi: CommentsApi = {
+    update: async (id, text, expectedUpdatedAt) => {
+      const res = await call<{ comment?: { updatedAt?: string } }>(
+        `/comments/${gid(id)}`,
+        'PATCH',
+        { comment: text },
+        expectedUpdatedAt ? { 'X-PF-Expected-Updated-At': expectedUpdatedAt } : {},
+      );
+      notices?.own(id, res.comment?.updatedAt); // cambio propio: sin aviso en vivo
+    },
+    remove: async (id) => {
+      await call(`/comments/${gid(id)}`, 'DELETE');
+      notices?.own(id);
+    },
+  };
+
+  // «Abrir en el código»: el servidor local abre el editor. Contrato: {ok:true} o error con code `editor_not_found`.
+  const openApi: OpenApi = {
+    open: async (target) => {
+      const res = await doFetch(`${base}/open`, {
+        method: 'POST',
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(target),
+      });
+      const body = await res
+        .json()
+        .then((j: unknown) => j as ApiErrorBody | null)
+        .catch(() => null);
+      if (!res.ok || !body || body.ok === false) {
+        const code = body?.error?.code;
+        throw new Error(
+          body?.error?.message ??
+            (code === 'editor_not_found' ? 'No se encontró un editor para abrir el archivo.' : `El servidor respondió ${res.status}.`),
+        );
+      }
+    },
+  };
+
   // Buzón del agente: el widget solo envía IDs; el estado (enviada/tomada/resuelta) lo deriva el servidor.
   const agentApi: AgentApi = {
     send: async (req) => (await call<{ request: AgentRequestInfo }>('/agent/requests', 'POST', req)).request,
@@ -135,6 +177,9 @@ export function bootPage(opts: BootOptions): PfApi {
 
   // Caché sincrónica que lee el editor (`GroupsPort`); se renueva al cargar comentarios/grupos.
   let groupsCache: ReadingGroup[] = [];
+  let requestsCache: AgentRequestInfo[] = [];
+  let notices: NoticesHandle | null = null;
+  let live: LiveHandle | null = null;
   let commentsCache: QueueComment[] = [];
   const groupsPort: GroupsPort = { api: groupsApi, groups: () => groupsCache, comments: () => commentsCache };
 
@@ -168,29 +213,29 @@ export function bootPage(opts: BootOptions): PfApi {
   /** Cajón de comentarios (cola y grupos): vive en el Shadow Root del lanzador. */
   let drawer: DrawerHandle | null = null;
   const route = () => doc.location.pathname || '/';
-  const openDrawer = () => {
-    if (!launcher || gone) return;
-    drawer ??= createDrawer({
+  const ensureDrawer = (): DrawerHandle | null => {
+    if (!launcher || gone) return null;
+    return (drawer ??= createDrawer({
       doc,
       layer: launcher.layer,
       load: async () => {
         const [comments, requests] = await Promise.all([loadComments(), agentApi.list().catch((): AgentRequestInfo[] => []), refreshGroups()]);
+        requestsCache = requests;
         return { comments, groups: groupsCache, requests };
       },
       api: groupsApi,
       agent: agentApi,
+      comments: commentsApi,
+      onChanged: () => void pins?.refresh(),
       route,
+      openCode: openApi,
       onGoto: (c) => {
-        // Solo desplaza la vista hasta el nodo; no modifica la página.
-        const sels = [c.location.selector].filter((x): x is string => !!x);
-        for (const s of sels) {
-          try {
-            const el = doc.querySelector(s);
-            if (el) return el.scrollIntoView({ block: 'center', behavior: 'smooth' });
-          } catch {
-            /* selector inválido */
-          }
-        }
+        // Solo desplaza la vista hasta el nodo; no modifica la página. Entra en los marcos del mismo origen.
+        const r = locateElement(doc, c.location);
+        if (r.ok) {
+          r.frameEl?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+          r.el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        } else if (r.reason === 'cross-origin') launcher?.showHint(CROSS_ORIGIN_MSG);
       },
       onAddToGroup: (groupId) => {
         if (!overlay) return;
@@ -198,8 +243,33 @@ export function bootPage(opts: BootOptions): PfApi {
         overlay.startInGroup(groupId);
       },
       announce: (m) => launcher?.showHint(m),
+    }));
+  };
+  const openDrawer = () => ensureDrawer()?.toggle();
+
+  /** Cambios en vivo (SSE/polling): recarga pines, grupos, solicitudes y el cajón abierto. */
+  const onLiveChange = async () => {
+    if (gone || !pins) return;
+    const [reqs] = await Promise.all([agentApi.list().catch(() => null), refreshGroups()]);
+    if (reqs) requestsCache = reqs;
+    await pins?.refresh(); // detecta transiciones → pulso/fantasma en el pin y aviso
+    if (drawer?.isOpen) await drawer.refresh();
+  };
+
+  const startLive = () => {
+    if (live || gone || !isTop) return; // un solo canal por pestaña: solo la ventana superior
+    notices ??= createNotices({
+      announce: (text, f) => launcher?.showHint(text, { label: 'Ver', run: () => ensureDrawer()?.open(f.tab, f.id) }),
+      progress: (id) => progressFor(id, commentsCache, requestsCache),
+      openLeft: () => pins?.total ?? 0,
     });
-    drawer.toggle();
+    live = connectLive({ base, token: opts.token, window: win, onChange: () => void onLiveChange() });
+  };
+  const stopLive = () => {
+    live?.close();
+    live = null;
+    notices?.destroy();
+    notices = null;
   };
 
   // El lanzador solo vive en la ventana superior; en iframes la capa funciona con Alt+clic.
@@ -227,9 +297,10 @@ export function bootPage(opts: BootOptions): PfApi {
       passive: true,
       onSubmit: postComment,
       groups: groupsPort,
+      openCode: openApi,
       onStateChange: (st) => {
         launcher?.setSelecting(st === 'SELECTING');
-        if (st === 'EDITING') void refreshGroups(); // la pestaña «Cola» lee la caché de grupos
+        if (st === 'EDITING') void refreshGroups(); // la vista «Grupo» lee la caché de grupos
       },
       onShotCard: (card) => {
         // Copiar/Descargar por cada captura; se liberan al cambiar el resultado o al cerrar la capa.
@@ -258,8 +329,13 @@ export function bootPage(opts: BootOptions): PfApi {
       document: doc,
       loadComments,
       onStats: (st) => launcher?.setStats({ total: st.total, here: st.here, route: st.route }),
+      comments: commentsApi,
+      groupName: (id) => groupsCache.find((g) => g.id === id)?.name,
+      onChanged: () => void drawer?.refresh(),
+      onTransitions: (list) => notices?.push(list),
     });
     void pins.refresh();
+    startLive();
     stopNav = onNavigate(win, () => {
       pins?.relocate();
       void pins?.refresh();
@@ -271,6 +347,7 @@ export function bootPage(opts: BootOptions): PfApi {
     readyCleanup = null;
     stopNav?.();
     stopNav = null;
+    stopLive();
     pins?.destroy();
     pins = null;
     for (const f of shotOffs.splice(0)) f();

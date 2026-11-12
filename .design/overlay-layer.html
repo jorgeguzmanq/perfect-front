@@ -41,52 +41,59 @@ body{margin:0;background:var(--cv-bg);background-image:radial-gradient(var(--cv-
 button,input,select,textarea{font:inherit;color:inherit}
 code{font-family:var(--pf-font-mono);font-size:.92em}
 
-/* ===== Lienzo ===== */
-.top{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;padding:10px 24px;background:color-mix(in srgb,var(--cv-bg) 88%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--pf-color-border)}
-.top b{font-size:14px;white-space:nowrap}.top nav{display:flex;gap:2px;flex-wrap:wrap;margin-inline:auto}
-.top nav a{padding:4px 9px;border-radius:99px;color:var(--pf-color-text-muted);text-decoration:none;font-size:13px}
-.top nav a:hover{background:var(--pf-color-surface);color:var(--pf-color-text)}
+/* ===== Documento ===== */
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--pf-color-bg);color:var(--pf-color-text);font:15px/1.7 var(--pf-font-sans)}
+button,input,select,textarea{font:inherit;color:inherit}
+code{font-family:var(--pf-font-mono);font-size:.9em;padding:0 4px;border-radius:4px;background:var(--pf-color-surface)}
+.layout{display:grid;grid-template-columns:232px minmax(0,1fr);max-width:1360px;margin:0 auto}
+.side{position:sticky;top:0;align-self:start;height:100vh;overflow:auto;padding:28px 18px 22px 28px;border-right:1px solid var(--pf-color-border);display:flex;flex-direction:column;gap:18px;font-size:13.5px}
+.side .brand{font-weight:700;font-size:14px;line-height:1.3}
+.side .brand small{display:block;font-weight:400;color:var(--pf-color-text-muted);font-size:12px}
+.side nav{display:flex;flex-direction:column;gap:1px}
+.side nav a{color:var(--pf-color-text-muted);text-decoration:none;padding:3px 0}
+.side nav a:hover{color:var(--pf-color-accent)}
+.side .theme{margin-top:auto;align-self:flex-start}
 .theme{display:flex;border:1px solid var(--pf-color-border);border-radius:99px;overflow:hidden}
-.theme button{border:0;background:transparent;padding:4px 12px;cursor:pointer;font-size:13px;color:var(--pf-color-text-muted)}
+.theme button{border:0;background:transparent;padding:3px 11px;cursor:pointer;font-size:12.5px;color:var(--pf-color-text-muted)}
 .theme button[aria-pressed=true]{background:var(--pf-color-text);color:var(--pf-color-bg)}
-main{max-width:1380px;margin:0 auto;padding:32px 24px 96px}
-.sec{margin-top:80px;scroll-margin-top:70px}.sec:first-child{margin-top:0}
-.sec h2{font-size:22px;margin:0 0 4px;letter-spacing:-.01em}
-.sec .lede{margin:0 0 24px;color:var(--pf-color-text-muted);max-width:76ch}
-.num{display:inline-grid;place-items:center;min-width:26px;height:26px;padding:0 6px;border-radius:8px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font-size:13px;font-weight:600;margin-right:8px;vertical-align:2px}
-.hero h1{font-size:34px;line-height:1.15;margin:0 0 10px;letter-spacing:-.02em;max-width:26ch}
-.hero p{max-width:74ch;color:var(--pf-color-text-muted);margin:0 0 6px}
-.grid{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start}
-.ab{display:flex;flex-direction:column;gap:8px;margin:0}
-.ab>.cap{font-size:12px;color:var(--pf-color-text-muted);display:flex;gap:8px;align-items:center}
-.ab>.cap b{color:var(--cv-ink);font-weight:600}
+main{padding:44px 52px 140px;min-width:0}
+.doc{counter-reset:fig}
+.doc h1{font-size:30px;line-height:1.2;margin:0 0 10px;letter-spacing:-.02em}
+.doc .lead{font-size:16.5px;color:var(--pf-color-text-muted);max-width:66ch;margin:0 0 8px}
+.doc section{margin-top:76px;scroll-margin-top:24px}
+.doc section:first-of-type{margin-top:40px}
+.doc h2{font-size:22px;margin:0 0 14px;padding-bottom:8px;border-bottom:1px solid var(--pf-color-border);letter-spacing:-.01em}
+.doc h3{font-size:16px;margin:34px 0 6px}
+.doc p,.doc ul,.doc ol,.doc dl{max-width:68ch}
+.doc p{margin:0 0 12px}
+.doc ul,.doc ol{margin:0 0 14px;padding-left:20px}.doc li{margin:3px 0}
+.doc dl{margin:6px 0 14px}.doc dt{font-weight:600;margin-top:10px}.doc dd{margin:0;color:var(--pf-color-text-muted)}
+.doc blockquote{margin:16px 0;padding:2px 0 2px 14px;border-left:3px solid var(--pf-color-accent);color:var(--pf-color-text-muted);max-width:64ch}
+.doc blockquote p{margin:0 0 6px}
+.doc pre.tree{font:13px/1.65 var(--pf-font-mono);color:var(--pf-color-text-muted);margin:12px 0;overflow:auto;white-space:pre}
+.doc table{border-collapse:collapse;font-size:13.5px;margin:14px 0 6px;width:100%;max-width:900px}
+.doc th,.doc td{padding:6px 10px;text-align:center;border-bottom:1px solid var(--pf-color-border)}
+.doc th{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--pf-color-text-muted);font-weight:600}
+.doc td:first-child,.doc th:first-child{text-align:left}.doc td:first-child{font-weight:500}
+.y{color:var(--pf-status-resolved-fg);font-weight:700}.n{color:var(--pf-color-text-muted);opacity:.5}.c{color:var(--pf-status-pending-fg);font-weight:600;font-size:12px}
+.figs{display:flex;flex-wrap:wrap;gap:34px 38px;align-items:flex-start;margin:20px 0 12px}
+.ab{display:flex;flex-direction:column;gap:9px;margin:0;counter-increment:fig}
+.ab>.cap{font-size:12.5px;line-height:1.45;color:var(--pf-color-text-muted);max-width:28rem}
+.ab>.cap::before{content:"Fig. " counter(fig) " · ";font-weight:600;color:var(--pf-color-text)}
+.ab>.cap b{color:var(--pf-color-text);font-weight:600}
+.figs .panel,.figs .drawer,.figs .capcard{zoom:.9}
 .tag{font:600 11px var(--pf-font-mono);padding:1px 6px;border-radius:4px;background:var(--pf-color-surface);border:1px solid var(--pf-color-border)}
-.tag.new{background:var(--pf-status-resolved-bg);color:var(--pf-status-resolved-fg);border-color:transparent}
-.bench{padding:28px;border:1px dashed var(--pf-color-border);border-radius:16px;background:color-mix(in srgb,var(--cv-page-2) 60%,transparent);display:flex;gap:32px;flex-wrap:wrap}
-.note{max-width:24rem;font-size:13px;color:var(--pf-color-text-muted);display:flex;flex-direction:column;gap:8px}
-.note h4{margin:0;font-size:14px;color:var(--cv-ink)}
+.tag.new{background:var(--pf-status-resolved-bg);color:var(--pf-status-resolved-fg);border-color:transparent;margin-right:4px}
+.note{max-width:24rem;font-size:13.5px;color:var(--pf-color-text-muted);display:flex;flex-direction:column;gap:8px}
+.note h4{margin:0;font-size:14px;color:var(--pf-color-text)}
 .note ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
-.note li{display:flex;gap:8px}.note li b{color:var(--cv-ink)}
-.dot{flex:none;display:grid;place-items:center;width:18px;height:18px;border-radius:99px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 10px var(--pf-font-mono);margin-top:2px}
-
-/* ===== Mapa de jerarquía ===== */
-.ia{display:grid;grid-template-columns:minmax(320px,1fr) minmax(420px,1.5fr);gap:32px;width:100%}
-.lvl{display:flex;flex-direction:column;gap:0}
-.lv{position:relative;padding:12px 14px 12px 44px;border:1px solid var(--pf-color-border);background:var(--pf-color-surface-raised);margin-top:-1px}
-.lv:first-child{border-radius:12px 12px 0 0}.lv:last-child{border-radius:0 0 12px 12px}
-.lv i{position:absolute;left:12px;top:12px;display:grid;place-items:center;width:22px;height:22px;border-radius:6px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 11px var(--pf-font-mono);font-style:normal}
-.lv b{display:block;font-size:13.5px}.lv span{display:block;font-size:12px;color:var(--pf-color-text-muted)}
-.lv.sub{margin-left:28px;border-left:3px solid var(--pf-color-accent)}
-.verbs{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
-.verb{padding:12px;border:1px solid var(--pf-color-border);border-radius:12px;background:var(--pf-color-surface-raised)}
-.verb b{display:block;font-size:15px}.verb em{font-style:normal;font-size:12px;color:var(--pf-color-text-muted)}
-.verb div{margin-top:8px;display:flex;gap:4px;flex-wrap:wrap}
-.mx{width:100%;border-collapse:collapse;font-size:12.5px;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:12px;overflow:hidden}
-.mx th,.mx td{padding:7px 10px;border-bottom:1px solid var(--pf-color-border);text-align:center}
-.mx th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--pf-color-text-muted);background:var(--pf-color-surface)}
-.mx td:first-child,.mx th:first-child{text-align:left;font-weight:600}
-.mx tr:last-child td{border:0}
-.y{color:var(--pf-status-resolved-fg);font-weight:700}.n{color:var(--pf-color-text-muted);opacity:.5}.c{color:var(--pf-status-pending-fg);font-weight:600;font-size:11px}
+.note li{display:flex;gap:8px}.note li b{color:var(--pf-color-text)}
+.dot{flex:none;display:grid;place-items:center;min-width:18px;height:18px;padding:0 3px;border-radius:99px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 10px var(--pf-font-mono);margin-top:3px}
+@media (max-width:980px){.layout{grid-template-columns:1fr}.side{position:static;height:auto;border:0;border-bottom:1px solid var(--pf-color-border);padding:16px 20px}.side nav{flex-direction:row;flex-wrap:wrap;gap:2px 14px}main{padding:24px 20px 80px}}
+/* lienzo de las artboards con página falsa: variables propias del ejemplo */
+:root{--cv-page:#fff;--cv-page-2:#f3f4f7;--cv-page-ink:#1c2030}
+:root[data-theme="dark"]{--cv-page:#161a22;--cv-page-2:#1d222c;--cv-page-ink:#dfe3ec}
 
 /* ===== Página falsa observada ===== */
 .pg{position:relative;overflow:hidden;background:var(--cv-page);color:var(--cv-page-ink);border:1px solid var(--pf-color-border);border-radius:12px;font-family:Georgia,"Times New Roman",serif}
@@ -392,6 +399,45 @@ svg.links polygon{fill:var(--pf-color-accent)}
 .lrows span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.lrows .miss{color:var(--pf-status-pending-fg);font-style:italic}
 .lpill{position:absolute;right:14px;top:56px;display:flex;padding:2px;border-radius:99px;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);box-shadow:var(--pf-shadow-md);font:600 11px var(--pf-font-sans);color:var(--pf-color-text-muted)}
 .lpill span{padding:2px 9px;border-radius:99px}.lpill .on{background:var(--pf-color-accent);color:var(--pf-color-accent-fg)}
+/* CAPTURA */
+.capmenu{display:flex;flex-direction:column;border:1px solid var(--pf-color-border);border-radius:var(--pf-radius-md);overflow:hidden;background:var(--pf-color-surface-raised);box-shadow:var(--pf-shadow-md)}
+.cm{display:flex;align-items:center;gap:10px;width:100%;padding:8px 12px;border:0;border-top:1px solid var(--pf-color-border);background:transparent;text-align:start}
+.cm:first-child{border-top:0}.cm:hover{background:var(--pf-color-surface)}
+.cm b{display:block;font-size:var(--pf-font-size-sm)}.cm small{display:block;font:11px var(--pf-font-mono);color:var(--pf-color-text-muted)}
+.cm kbd{margin-left:auto}.cm .cmi{flex:none;display:grid;place-items:center;width:28px;height:28px;border-radius:8px;background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg)}
+.cut{position:absolute;pointer-events:none;border-radius:6px;box-shadow:0 0 0 2000px rgb(8 10 16/.58),0 0 0 2px var(--pf-color-accent)}
+.cut i{position:absolute;width:9px;height:9px;background:var(--pf-color-bg);border:2px solid var(--pf-color-accent);border-radius:2px}
+.cut i:nth-child(1){left:-6px;top:-6px}.cut i:nth-child(2){right:-6px;top:-6px}.cut i:nth-child(3){left:-6px;bottom:-6px}.cut i:nth-child(4){right:-6px;bottom:-6px}
+.cut b{position:absolute;left:50%;top:calc(100% + 10px);transform:translateX(-50%);padding:2px 8px;border-radius:99px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:600 11px var(--pf-font-mono);white-space:nowrap}
+.cap-bar{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:8px 8px 8px 12px;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:var(--pf-radius-lg);box-shadow:var(--pf-shadow-lg);white-space:nowrap}
+.cap-bar .sp{width:1px;height:30px;background:var(--pf-color-border)}
+.scales{display:flex;gap:6px}
+.sc{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:62px;padding:5px 8px;border:1px solid var(--pf-color-border);border-radius:var(--pf-radius-md);background:var(--pf-color-bg);line-height:1.2}
+.sc b{font-size:15px}.sc small{font:10.5px var(--pf-font-mono);color:var(--pf-color-text-muted)}
+.sc[aria-pressed=true]{border-color:var(--pf-color-accent);background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg)}
+.sc[aria-pressed=true] small{color:inherit}
+.sc:disabled{opacity:.5;cursor:not-allowed;background:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--pf-color-border) 40%,transparent) 6px 7px)}
+.capcard{width:30rem}.capcard .dest{white-space:normal;align-items:flex-start}
+.capcard .scales .sc{flex:1}
+.optgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px 12px}
+.optgrid .sect{margin-bottom:4px}
+.tiles{display:flex;align-items:flex-end;gap:16px;padding:14px;border:1px solid var(--pf-color-border);border-radius:var(--pf-radius-md);background-color:var(--pf-color-bg);background-image:linear-gradient(45deg,color-mix(in srgb,var(--pf-color-text) 7%,transparent) 25%,transparent 25% 75%,color-mix(in srgb,var(--pf-color-text) 7%,transparent) 75%),linear-gradient(45deg,color-mix(in srgb,var(--pf-color-text) 7%,transparent) 25%,transparent 25% 75%,color-mix(in srgb,var(--pf-color-text) 7%,transparent) 75%);background-size:14px 14px;background-position:0 0,7px 7px;overflow:hidden}
+.tile{display:flex;flex-direction:column;align-items:flex-start;gap:6px}
+.tile em{font:600 10.5px var(--pf-font-mono);font-style:normal;color:var(--pf-color-text-muted)}
+.mb{display:inline-block;background:var(--cv-page-ink);color:var(--cv-page);font-family:var(--pf-font-sans);font-weight:500;white-space:nowrap}
+.prow{display:grid;grid-template-columns:34px 1fr 90px;align-items:center;gap:10px;font-size:12px}
+.prow b{font-size:14px}.prow span{font:11px var(--pf-font-mono);color:var(--pf-color-text-muted);text-align:right}
+.pbar{height:6px;border-radius:99px;background:var(--pf-color-surface);overflow:hidden}.pbar i{display:block;height:100%;background:var(--pf-color-accent)}
+.pbar.ok i{background:var(--pf-status-resolved-fg)}
+.res{display:flex;align-items:center;gap:10px;padding:6px 8px;border:1px solid var(--pf-color-border);border-radius:var(--pf-radius-md)}
+.res .rt{flex:none;width:52px;height:34px;display:grid;place-items:center;border-radius:6px;overflow:hidden;background-color:var(--pf-color-bg);background-image:linear-gradient(45deg,color-mix(in srgb,var(--pf-color-text) 7%,transparent) 25%,transparent 25% 75%,color-mix(in srgb,var(--pf-color-text) 7%,transparent) 75%);background-size:8px 8px}
+.res .rn{flex:1;min-width:0;font:600 12px var(--pf-font-mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.res .rn small{display:block;font:11px var(--pf-font-sans);font-weight:400;color:var(--pf-color-text-muted)}
+.cmp2{display:flex;gap:14px}
+.cbox{display:flex;flex-direction:column;gap:10px;align-items:flex-start;padding:16px;min-width:20rem;border:1px solid var(--pf-color-border);border-radius:var(--pf-radius-lg);background:var(--pf-color-surface-raised)}
+.cbox small{font:11px var(--pf-font-mono);color:var(--pf-color-text-muted)}
+.tg{padding:1px 8px;border-radius:99px;font-size:11px;font-weight:700}
+.tg.bad{background:color-mix(in srgb,var(--pf-color-danger) 14%,transparent);color:var(--pf-color-danger)}
+.tg.ok{background:var(--pf-status-resolved-bg);color:var(--pf-status-resolved-fg)}
 /* PINES */
 .pin{position:absolute;display:inline-grid;place-items:center;min-width:1.375rem;height:1.375rem;padding:0 4px;border:2px solid var(--pf-color-accent-fg);border-radius:99px 99px 99px 4px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font-size:var(--pf-font-size-xs);font-weight:700;box-shadow:var(--pf-shadow-md)}
 .pin.done{background:var(--pf-status-resolved-fg)}
@@ -403,148 +449,165 @@ svg.links polygon{fill:var(--pf-color-accent)}
 </style>
 </head>
 <body>
-<header class="top">
-  <b>Perfect Front · capa de comentarios v2</b>
-  <nav>
-    <a href="#jerarquia">Jerarquía</a><a href="#panel">Panel</a><a href="#navegar">Navegar y reordenar</a><a href="#estilos">Estilos</a><a href="#contenido">Contenido</a>
-    <a href="#imagenes">Imágenes</a><a href="#copiar">Ubicación</a><a href="#cola">Grupos y cola</a><a href="#cajon">Cajón</a>
+<div class="layout">
+<aside class="side">
+  <div class="brand">Perfect Front<small>Capa de comentarios · manual de diseño v2</small></div>
+  <nav aria-label="Contenido">
+    <a href="#jerarquia">1. Jerarquía</a><a href="#panel">2. El panel</a><a href="#navegar">3. Navegar y reordenar</a><a href="#estilos">4. Estilos</a>
+    <a href="#contenido">5. Contenido e i18n</a><a href="#imagenes">6. Imágenes</a><a href="#captura">7. Captura del nodo</a><a href="#copiar">8. Copiar ubicación</a>
+    <a href="#cola">9. Grupos y cola</a><a href="#cajon">10. Cajón y lanzador</a>
   </nav>
   <div class="theme" role="group" aria-label="Tema">
     <button data-theme-btn="auto" aria-pressed="true">Auto</button><button data-theme-btn="light" aria-pressed="false">Claro</button><button data-theme-btn="dark" aria-pressed="false">Oscuro</button>
   </div>
-</header>
+</aside>
+<main class="doc">
+<h1>Capa de comentarios: manual de diseño</h1>
+<p class="lead">Cómo se organiza el editor que aparece sobre el front: qué hace cada zona, cuándo aparece cada función y cómo se ve en cada estado. Es solo diseño; no hay lógica ni cambios en el código del proyecto.</p>
+<p class="lead">La regla de fondo: <b>cada zona responde una sola pregunta</b>, y una función solo aparece cuando tiene sentido.</p>
 
-<main>
-<section class="sec hero">
-  <h1>Ocho funciones nuevas sin que el panel se vea revuelto.</h1>
-  <p>La regla: <b>cada zona responde una sola pregunta</b> y las funciones aparecen solo cuando tienen sentido. Escribir un comentario y revisar los existentes dejan de compartir pantalla.</p>
+<section id="jerarquia">
+<h2>1. Jerarquía de la información</h2>
+<p>Todas las funciones caen en tres verbos. Escribir un comentario cubre los dos primeros; el tercero tiene su propio lugar de lectura, el cajón.</p>
+<dl>
+  <dt>Apuntar: ¿a qué nodos me refiero?</dt><dd>Navegar con ↑↓←→, selección múltiple, estructura y reordenar, copiar ubicación.</dd>
+  <dt>Describir: ¿qué debería cambiar?</dt><dd>Texto del comentario, contenido (texto e i18n), estilos propuestos, imágenes y captura de nodo.</dd>
+  <dt>Organizar: ¿con qué otros comentarios se entiende?</dt><dd>Grupo, cola de lectura y el cajón para verlos y ordenarlos.</dd>
+</dl>
+<h3>Niveles</h3>
+<pre class="tree">0  Lanzador                     siempre presente; entrada al editor y al cajón
+├─ 1  Barra de selección        solo mientras eliges un elemento
+├─ 2  Editor (panel)            un solo comentario en construcción
+│    ├─ A  Identidad            qué nodo es + copiar ubicación
+│    ├─ B  Objetivo             alcance, navegador ↑↓←→, sumar nodos
+│    ├─ C  Contenido            pestañas: Comentar · Contenido · Estilos · Estructura · Cola
+│    ├─ D  Incluye y acciones   resumen de lo adjunto y Guardar
+│    └─ E  Capa de captura      solo al capturar: marco del nodo y escalas 1×–4×
+└─ 3  Cajón de comentarios      leer, filtrar y ordenar grupos; aparte del editor</pre>
+<h3>Qué aparece y cuándo</h3>
+<table aria-label="Qué aparece cuándo">
+  <thead><tr><th>Pieza</th><th>Reposo</th><th>Eligiendo</th><th>1 nodo</th><th>Varios</th><th>Vista</th></tr></thead>
+  <tbody>
+    <tr><td>Lanzador</td><td class="y">●</td><td class="y">●</td><td class="c">compacto</td><td class="c">compacto</td><td class="c">compacto</td></tr>
+    <tr><td>Barra de selección</td><td class="n">—</td><td class="y">●</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
+    <tr><td>Identidad y copiar</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="c">sin copiar</td></tr>
+    <tr><td>Bandeja de nodos</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="n">—</td></tr>
+    <tr><td>Navegador ↑↓←→</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="n">apagado</td></tr>
+    <tr><td>Pestaña Comentar</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="y">●</td></tr>
+    <tr><td>Pestaña Contenido</td><td class="n">—</td><td class="n">—</td><td class="c">si tiene texto</td><td class="c">solo foco</td><td class="n">apagada</td></tr>
+    <tr><td>Pestaña Estilos</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="c">foco o todos</td><td class="n">apagada</td></tr>
+    <tr><td>Pestaña Estructura</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="c">solo foco</td><td class="n">apagada</td></tr>
+    <tr><td>Pestaña Cola</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="y">●</td></tr>
+    <tr><td>Barra «Incluye»</td><td class="n">—</td><td class="n">—</td><td class="c">si hay algo</td><td class="c">si hay algo</td><td class="c">si hay algo</td></tr>
+    <tr><td>Capa de captura</td><td class="n">—</td><td class="n">—</td><td class="c">al capturar</td><td class="c">al capturar</td><td class="c">solo vista</td></tr>
+    <tr><td>Cajón</td><td class="c">desde menú</td><td class="c">desde menú</td><td class="n">se cierra</td><td class="n">se cierra</td><td class="n">se cierra</td></tr>
+  </tbody>
+</table>
+<blockquote>
+<p><b>Reglas.</b> (1) Lo que cambia <i>el contexto</i> (qué nodo) está fuera de las pestañas y siempre visible; lo que cambia <i>el contenido</i> va dentro.</p>
+<p>(2) Lo que no aplica se <b>oculta</b> si es ruido (la bandeja de nodos) y se <b>apaga</b> si el usuario lo espera ahí (las pestañas).</p>
+<p>(3) Lo raro va en un menú (formatos de copia). (4) Lo que ya está en el comentario se resume en «Incluye», para no abrir pestañas a ver qué hay.</p>
+</blockquote>
 </section>
 
-<!-- 1 JERARQUÍA -->
-<section class="sec" id="jerarquia">
-  <h2><span class="num">1</span>Jerarquía de la información</h2>
-  <p class="lede">Todas las funciones nuevas caen en tres verbos. El editor solo cubre los dos primeros por elemento; el tercero tiene su propio lugar de lectura (el cajón).</p>
-  <div class="verbs">
-    <div class="verb"><b>1 · Apuntar</b><em>¿A qué nodos me refiero?</em><div><span class="tag">navegar ↑↓←→</span><span class="tag">selección múltiple</span><span class="tag">estructura / reordenar</span><span class="tag">copiar ubicación</span></div></div>
-    <div class="verb"><b>2 · Describir</b><em>¿Qué debería cambiar?</em><div><span class="tag">texto</span><span class="tag">contenido / i18n</span><span class="tag">imágenes</span><span class="tag">estilos propuestos</span></div></div>
-    <div class="verb"><b>3 · Organizar</b><em>¿Con qué otros se entiende?</em><div><span class="tag">grupo</span><span class="tag">cola de lectura</span><span class="tag">ver / ordenar todos (cajón)</span></div></div>
-  </div>
-  <div class="ia">
-    <div class="lvl">
-      <div class="lv"><i>0</i><b>Lanzador</b><span>Siempre presente. Entrada al editor y al cajón.</span></div>
-      <div class="lv sub"><i>1</i><b>Barra de selección</b><span>Solo mientras eliges. Teclas, no frases.</span></div>
-      <div class="lv sub"><i>2</i><b>Editor (panel)</b><span>Un solo comentario en construcción.</span></div>
-      <div class="lv sub" style="margin-left:56px"><i>A</i><b>Identidad</b><span>Qué nodo es + copiar ubicación.</span></div>
-      <div class="lv sub" style="margin-left:56px"><i>B</i><b>Objetivo</b><span>Alcance, navegador 4 direcciones, sumar nodos.</span></div>
-      <div class="lv sub" style="margin-left:56px"><i>C</i><b>Contenido por pestañas</b><span>Comentar · Contenido · Estilos · Estructura · Cola.</span></div>
-      <div class="lv sub" style="margin-left:56px"><i>D</i><b>Incluye + acciones</b><span>Resumen de lo adjunto y Guardar.</span></div>
-      <div class="lv sub"><i>3</i><b>Cajón de comentarios</b><span>Leer, filtrar y ordenar grupos. Aparte del editor.</span></div>
-    </div>
-    <div>
-      <table class="mx" aria-label="Qué aparece cuándo">
-        <thead><tr><th>Pieza</th><th>Reposo</th><th>Eligiendo</th><th>1 nodo</th><th>Varios</th><th>Vista</th></tr></thead>
-        <tbody>
-          <tr><td>Lanzador</td><td class="y">●</td><td class="y">●</td><td class="c">compacto</td><td class="c">compacto</td><td class="c">compacto</td></tr>
-          <tr><td>Barra de selección</td><td class="n">—</td><td class="y">●</td><td class="n">—</td><td class="n">—</td><td class="n">—</td></tr>
-          <tr><td>Identidad + copiar</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="c">sin copiar</td></tr>
-          <tr><td>Bandeja de nodos</td><td class="n">—</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="n">—</td></tr>
-          <tr><td>Navegador ↑↓←→</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="n">apagado</td></tr>
-          <tr><td>Pestaña Comentar</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="y">●</td></tr>
-          <tr><td>Pestaña Contenido</td><td class="n">—</td><td class="n">—</td><td class="c">si tiene texto</td><td class="c">solo foco</td><td class="n">apagada</td></tr>
-          <tr><td>Pestaña Estilos</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="c">foco o todos</td><td class="n">apagada</td></tr>
-          <tr><td>Pestaña Estructura</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="c">solo foco</td><td class="n">apagada</td></tr>
-          <tr><td>Pestaña Cola</td><td class="n">—</td><td class="n">—</td><td class="y">●</td><td class="y">●</td><td class="y">●</td></tr>
-          <tr><td>Barra «Incluye»</td><td class="n">—</td><td class="n">—</td><td class="c">si hay algo</td><td class="c">si hay algo</td><td class="c">si hay algo</td></tr>
-          <tr><td>Cajón</td><td class="c">desde menú</td><td class="c">desde menú</td><td class="n">se cierra</td><td class="n">se cierra</td><td class="n">se cierra</td></tr>
-        </tbody>
-      </table>
-      <p class="help" style="margin-top:10px;max-width:60ch"><b>Reglas:</b> (1) lo que cambia <i>el contexto</i> (qué nodo) está fuera de las pestañas y siempre visible; lo que cambia <i>el contenido</i> va dentro. (2) Lo que no aplica se <b>oculta</b> si es ruido (bandeja) o se <b>apaga</b> si el usuario lo espera ahí (pestañas). (3) Lo raro va en un menú (copiar formatos). (4) Lo que ya está en el comentario se resume en «Incluye» para no tener que abrir pestañas a ver qué hay.</p>
-    </div>
-  </div>
+<section id="panel">
+<h2>2. El panel</h2>
+<p>El editor tiene cuatro zonas fijas: <b>identidad</b> (qué nodo es), <b>objetivo</b> (alcance y navegación), <b>pestañas</b> (el contenido) y <b>acciones</b> (Guardar y atajos). Solo cambian la bandeja de nodos, la barra «Incluye» y las pestañas apagadas, según el modo.</p>
+<div class="figs" id="panel-modes"></div>
 </section>
 
-<!-- 2 PANEL -->
-<section class="sec" id="panel">
-  <h2><span class="num">2</span>El panel con todo integrado</h2>
-  <p class="lede">Tres modos del mismo panel: un nodo, varios nodos y toda la vista. Fíjate en qué cambia (bandeja, «Incluye», pestañas apagadas) y qué no (cabecera, franja de objetivo, pie).</p>
-  <div class="grid" id="panel-modes"></div>
+<section id="navegar">
+<h2>3. Navegar, sumar y reordenar</h2>
+<p>Navegar mueve el <b>foco</b> en cuatro direcciones: ↑ padre, ↓ primer hijo, ← y → entre hermanos. No cambia nada. Reordenar es una <b>propuesta</b> de cambio de posición entre hermanos: se previsualiza en la página, viaja con el comentario («mover de 3 a 1») y es reversible. El código no se toca.</p>
+<div class="figs" id="onpage"></div>
+<h3>Estructura y orden</h3>
+<p>La pestaña Estructura lista los hermanos del nodo con su posición. Reordenar exige ir a esta pestaña: es un gesto deliberado y siempre ofrece «Deshacer».</p>
+<div class="figs" id="structure"></div>
 </section>
 
-<!-- 3 NAVEGAR -->
-<section class="sec" id="navegar">
-  <h2><span class="num">3</span>Navegar, sumar y reordenar</h2>
-  <p class="lede">Navegar es mover el <b>foco</b> (cuatro direcciones). Reordenar es <b>proponer</b> un cambio de posición entre hermanos: el comentario lleva «mover de 3 a 1», no toca el código. Todo es previsualizable en la página y reversible.</p>
-  <div class="grid" id="onpage"></div>
-  <div class="grid" id="structure" style="margin-top:28px"></div>
+<section id="estilos">
+<h2>4. Estilos: editable y foundations</h2>
+<p>La división depende del <b>origen</b> de cada regla, no del proyecto. Si vive en el código del proyecto (CSS del componente, clases utilitarias, estilos en línea) es <b>editable</b>. Si viene de tokens, reset o librerías es una <b>foundation</b>: se ve, se referencia y se comenta, pero no se edita aquí.</p>
+<div class="figs" id="styles"></div>
+<h3>Cómo se decide el origen</h3>
+<ul>
+  <li><b>Editable:</b> regla declarada en archivos del proyecto (módulos CSS, Tailwind en JSX, styled o inline, CSS global propio).</li>
+  <li><b>Foundation:</b> variables de <code>:root</code> o del tema, design tokens, reset, estilos de <code>node_modules</code> y valores heredados del navegador.</li>
+  <li><b>Usa un token:</b> la propiedad es editable (eliges otro token o un valor propio), pero el token en sí es foundation.</li>
+</ul>
+<h3>Qué se guarda</h3>
+<ul>
+  <li>Una lista «antes → después» por propiedad, ligada al comentario. El overlay no modifica código fuente.</li>
+  <li>Vista previa en vivo sobre la página; «Revertir» o cerrar la deshace.</li>
+  <li>Con selección múltiple, «Aplicar a» el foco o todos los elementos.</li>
+  <li>Comentar una foundation agrega su referencia (por ejemplo <code>--pf-color-accent</code>) al texto del comentario, no un cambio.</li>
+</ul>
 </section>
 
-<!-- 4 ESTILOS -->
-<section class="sec" id="estilos">
-  <h2><span class="num">4</span>Estilos: editable vs. foundations</h2>
-  <p class="lede">La división no depende del proyecto, depende del <b>origen</b> de cada regla. Si vive en el código del proyecto (CSS del componente, clases utilitarias, estilos en línea) es <b>editable</b>. Si viene de tokens, reset o librerías, es <b>foundation</b>: se ve, se referencia y se comenta, pero no se edita aquí.</p>
-  <div class="grid" id="styles"></div>
-  <div class="bench" style="margin-top:28px">
-    <div class="note"><h4>Cómo se decide el origen (cualquier proyecto)</h4><ul>
-      <li><span class="dot">✎</span><span><b>Editable</b>: regla declarada en archivos del proyecto (módulos CSS, Tailwind en JSX, styled/inline, CSS global propio).</span></li>
-      <li><span class="dot" style="background:var(--pf-color-text-muted)">🔒</span><span><b>Foundation</b>: variables de <code>:root</code>/tema, design tokens, reset/preflight, estilos de <code>node_modules</code> y valores heredados del navegador.</span></li>
-      <li><span class="dot" style="background:var(--pf-status-archived-fg)">↪</span><span><b>Usa un token</b>: la propiedad es editable (eliges <i>otro</i> token o un valor propio) pero el token en sí es foundation.</span></li>
-    </ul></div>
-    <div class="note"><h4>Qué se guarda</h4><ul>
-      <li><span class="dot">1</span><span>Lista «antes → después» por propiedad, ligada al comentario. Sin tocar el código fuente (SPEC: no se modifica código desde el overlay).</span></li>
-      <li><span class="dot">2</span><span>Vista previa en vivo sobre la página; «Revertir» o cerrar la deshace.</span></li>
-      <li><span class="dot">3</span><span>Si había selección múltiple: «Aplicar a» foco o a todos.</span></li>
-      <li><span class="dot">4</span><span>Comentar una foundation agrega la referencia (p. ej. <code>--pf-color-accent</code>) al texto, no un cambio.</span></li>
-    </ul></div>
-  </div>
+<section id="contenido">
+<h2>5. Contenido: editar un texto y ver cómo queda</h2>
+<p>Se toca un label, se escribe cómo debería decir y la página cambia al instante. Se guarda en el comentario como «antes → después». Si el proyecto usa i18n, el panel lo detecta y distingue <b>tres casos</b>; si no, solo aparecen «texto fijo» y «dinámico». La pestaña se apaga cuando el nodo no tiene texto propio.</p>
+<div class="figs" id="content"></div>
+<h3>Los tres casos</h3>
+<ol>
+  <li><b>Texto fijo:</b> literal en JSX o HTML. Se edita el texto y listo.</li>
+  <li><b>Clave i18n:</b> <code>t('clave')</code>, <code>&lt;Trans&gt;</code>, <code>$t</code>… Se edita por idioma, se ven los que faltan y se elige si el cambio aplica a todas las apariciones de la clave o solo a esta.</li>
+  <li><b>Dinámico:</b> mezcla texto con variables, plurales o datos de API o CMS. Se edita el texto; las <code>{variables}</code> quedan bloqueadas y no se pueden borrar.</li>
+</ol>
+<h3>Vista previa y guardado</h3>
+<ul>
+  <li>El cambio se pinta en la página mientras se escribe; «Cancelar» lo deshace.</li>
+  <li>Se guarda «antes → después», por idioma si aplica. Si el comentario queda vacío, se genera «Cambiar texto de … a …».</li>
+  <li>Aviso si el texto nuevo es mucho más largo: puede romper el layout.</li>
+  <li>Cambiar de idioma en el panel cambia el idioma de la vista previa; si falta la traducción se ve el fallback.</li>
+</ul>
 </section>
 
-<!-- 5 CONTENIDO -->
-<section class="sec" id="contenido">
-  <h2><span class="num">5</span>Contenido: editar un texto y ver cómo queda</h2>
-  <p class="lede">Toca un label, escribe cómo debería decir y la página cambia al instante. Se guarda en el comentario como «antes → después». Si el proyecto usa i18n, el panel lo detecta y distingue <b>tres casos</b>; si no, solo aparecen «texto fijo» y «dinámico».</p>
-  <div class="grid" id="content"></div>
-  <div class="bench" style="margin-top:28px">
-    <div class="note"><h4>Los tres casos</h4><ul>
-      <li><span class="dot">1</span><span><b>Texto fijo</b>: literal en JSX/HTML. Editas el texto y listo.</span></li>
-      <li><span class="dot" style="background:var(--pf-status-archived-fg)">2</span><span><b>Clave i18n</b>: <code>t('clave')</code>, <code>&lt;Trans&gt;</code>, <code>$t</code>… Editas por idioma, ves cuáles faltan y eliges si el cambio aplica a todas las apariciones de la clave o solo a esta.</span></li>
-      <li><span class="dot" style="background:var(--pf-status-pending-fg)">3</span><span><b>Dinámico</b>: mezcla texto con variables, plurales o datos de API/CMS. Se edita el texto; las <code>{variables}</code> quedan bloqueadas y no se pueden borrar.</span></li></ul></div>
-    <div class="note"><h4>Qué se guarda y cómo se previsualiza</h4><ul>
-      <li><span class="dot">✎</span><span>El cambio se pinta en la página mientras escribes; «Cancelar» lo deshace.</span></li>
-      <li><span class="dot">↔</span><span>Se guarda «antes → después» (y por idioma). Si dejas el comentario vacío, se genera «Cambiar texto de … a …».</span></li>
-      <li><span class="dot">⚠</span><span>Aviso si el texto nuevo es mucho más largo (puede romper el layout).</span></li>
-      <li><span class="dot">🌐</span><span>Cambiar de idioma en el panel cambia el idioma de la vista previa; si falta la traducción se ve el fallback.</span></li></ul></div>
-  </div>
+<section id="imagenes">
+<h2>6. Imágenes: pegar, soltar o abrir</h2>
+<p>Una sola zona en la pestaña Comentar. Cada imagen se copia a la carpeta del proyecto y queda atada al comentario como referencia relativa. El esquema ya admite hasta 20 adjuntos.</p>
+<div class="figs" id="images"></div>
 </section>
 
-<!-- 6 IMÁGENES -->
-<section class="sec" id="imagenes">
-  <h2><span class="num">6</span>Imágenes: pegar, soltar o abrir</h2>
-  <p class="lede">Una sola zona en la pestaña Comentar. Cada imagen se copia a la carpeta del proyecto y queda atada al comentario como referencia relativa (el esquema ya admite hasta 20 adjuntos).</p>
-  <div class="grid" id="images"></div>
+<section id="captura">
+<h2>7. Captura del nodo con escalado real</h2>
+<p>Una capa propia sobre la página enmarca el nodo y ofrece 1×, 2×, 3× y 4× (una o varias a la vez). Cada escala se <b>renderiza de nuevo</b> a esa densidad de píxeles; no se agranda una imagen de 1×. El resultado se adjunta al comentario como cualquier otra imagen.</p>
+<div class="figs" id="capture"></div>
+<h3>Cómo funciona</h3>
+<ul>
+  <li>Se entra por <b>Comentar → Capturar → Nodo seleccionado</b> o con <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>S</kbd>. Con varios nodos se elige «por separado» o «juntos».</li>
+  <li>La barra muestra el tamaño <b>real en píxeles</b> de cada escala antes de capturar.</li>
+  <li>El overlay se oculta mientras se captura, para no salir en la imagen.</li>
+  <li>Se guardan como <code>nodo-button-cta@2x.png</code> en la carpeta del comentario y quedan atadas a él.</li>
+</ul>
+<h3>Reglas y límites</h3>
+<ul>
+  <li>Una escala se <b>apaga</b>, con su motivo, si el resultado pasa de 16 384 px por lado o de 5 MB por archivo.</li>
+  <li>Si el nodo está fuera de pantalla, la página se desplaza sola antes de capturar.</li>
+  <li>Fondo transparente o el de la página; margen de 0 a 24 px; PNG o WebP.</li>
+  <li>Las imágenes de otro origen sin CORS pueden salir en blanco: se avisa antes de capturar.</li>
+</ul>
 </section>
 
-<!-- 6 UBICACIÓN -->
-<section class="sec" id="copiar">
-  <h2><span class="num">7</span>Copiar la ubicación de un nodo</h2>
-  <p class="lede">Un botón en la identidad del nodo. Un clic copia lo más útil (archivo:línea); el menú ofrece los demás formatos para pegar en otro comentario, un chat, un PR o un prompt.</p>
-  <div class="grid" id="copy"></div>
+<section id="copiar">
+<h2>8. Copiar la ubicación de un nodo</h2>
+<p>Un botón en la identidad del nodo. Un clic copia lo más útil (archivo y línea); el menú ofrece los demás formatos, para pegar en otro comentario, un chat, un PR o un prompt.</p>
+<div class="figs" id="copy"></div>
 </section>
 
-<!-- 7 COLA -->
-<section class="sec" id="cola">
-  <h2><span class="num">8</span>Grupos y cola de lectura</h2>
-  <p class="lede">Un grupo es un tema («Rediseño de precios») con una nota de contexto y un orden. Quien lo ejecute lee la nota y los comentarios en orden antes de actuar. Se ata desde la pestaña Cola; en la página los pines del grupo se unen con una línea.</p>
-  <div class="grid" id="queue"></div>
+<section id="cola">
+<h2>9. Grupos y cola de lectura</h2>
+<p>Un grupo es un tema («Rediseño de precios») con una nota de contexto y un orden. Quien lo ejecute lee la nota y los comentarios en orden antes de actuar. Se ata desde la pestaña Cola; en la página, los pines del grupo se unen con una línea.</p>
+<div class="figs" id="queue"></div>
 </section>
 
-<!-- 8 CAJÓN -->
-<section class="sec" id="cajon">
-  <h2><span class="num">9</span>Cajón de comentarios · lanzador · selección</h2>
-  <p class="lede">Leer y organizar vive aparte del editor. El lanzador deja de ser un texto de conteos y abre el cajón.</p>
-  <div class="grid" id="drawer"></div>
+<section id="cajon">
+<h2>10. Cajón de comentarios y lanzador</h2>
+<p>Leer y organizar vive aparte del editor. El lanzador deja de ser un texto de conteos y abre el cajón; tras guardar, un aviso con enlace «Ver» confirma dónde quedó.</p>
+<div class="figs" id="drawer"></div>
 </section>
-
 </main>
+</div>
 
 <script>
 /* ===== utilidades ===== */
@@ -571,7 +634,7 @@ function setTheme(t){const r=document.documentElement;
   if(t==='auto'){r.removeAttribute('data-theme');if(matchMedia('(prefers-color-scheme: dark)').matches)r.setAttribute('data-theme','dark')}else r.setAttribute('data-theme',t);
   document.querySelectorAll('[data-theme-btn]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.themeBtn===t)))}
 document.querySelectorAll('[data-theme-btn]').forEach(b=>b.onclick=()=>setTheme(b.dataset.themeBtn));setTheme('auto');
-const ab=(cap,html,tag)=>`<figure class="ab"><figcaption class="cap">${tag?`<span class="tag new">${tag}</span>`:''}<b>${cap[0]}</b>${cap[1]||''}</figcaption>${html}</figure>`;
+const ab=(cap,html,tag)=>`<figure class="ab">${html}<figcaption class="cap">${tag?`<span class="tag new">${tag}</span>`:''}<b>${cap[0]}</b> ${cap[1]||''}</figcaption></figure>`;
 const STATUS={pending:'Pendiente',in_progress:'En curso',resolved:'Resuelto'};
 
 /* ===== Datos de muestra ===== */
@@ -655,14 +718,14 @@ function commentBody(s){
   const thumbs=s.images.length?`<div class="thumbs">${s.images.map((m,i)=>`<div class="th"><span class="img" style="background-image:${m.url?`url(${m.url})`:m.bg}"></span>${m.k?`<span class="k">${m.k}</span>`:''}${m.up!=null?`<span class="bar2"><i style="width:${m.up}%"></i></span>`:''}<button class="x" data-act="imgx" data-i="${i}" aria-label="Quitar ${esc(m.n)}">${ic('close',11)}</button><div class="meta"><span title="${esc(m.n)}">${esc(m.n)}</span><span>${esc(m.s)}</span></div></div>`).join('')}</div>
    <div class="dest">${ic('folder',13)}<span>Se copian a <b>.perfect-front/attachments/c-0${s.live?'05':'04'}/</b> y quedan atadas a este comentario</span></div>`:'';
   const dz=s.dropping?`<div class="dz over" data-dz>${ic('img',22)}<b>Suelta para adjuntar</b><span style="flex:none">PNG, JPG, WebP o GIF · hasta 5 MB c/u</span></div>`
-   :`<div class="dz" data-dz>${ic('img',20)}<span><b>Pega</b> (<kbd>Ctrl</kbd>+<kbd>V</kbd>), <b>arrastra</b> o abre imágenes</span><button class="btn sm" data-act="open" ${busy?'disabled':''}>${ic('folder',13)} Abrir…</button><button class="btn sm" data-act="shoton" ${busy?'disabled':''} title="Captura de la página">${ic('cam',13)}</button></div>`;
+   :`<div class="dz" data-dz>${ic('img',20)}<span><b>Pega</b> o <b>arrastra</b> imágenes</span><button class="btn sm" data-act="open" ${busy?'disabled':''}>${ic('folder',13)} Abrir…</button><button class="btn sm ${s.capMenu?'on':''}" data-act="capmenu" aria-haspopup="menu" aria-expanded="${!!s.capMenu}" ${busy?'disabled':''} title="Capturar nodo o vista">${ic('cam',13)} Capturar ${ic('chev',12)}</button></div>`;
   return `<div class="field ${s.status==='empty'?'bad':''}"><label class="sr" for="${s.id}-ta">Comentario</label>
     <textarea id="${s.id}-ta" data-act="draft" placeholder="${view?'Qué habría que cambiar en esta vista…':'Qué habría que cambiar'+(s.nodes.length>1?' en estos elementos':' en este elemento')+'…'}" ${busy?'disabled':''} maxlength="10000" aria-invalid="${s.status==='empty'}">${esc(s.draft||'')}</textarea>
     <div class="foot"><button type="button" data-act="clear" ${(!cnt||busy)?'disabled':''}>${ic('trash',13)} Descartar</button><span>${cnt.toLocaleString('es')} / 10.000</span></div></div>
    ${s.status==='empty'?`<div class="msg err" role="alert">${ic('warn')}<span>Escribe un comentario antes de guardar.</span></div>`:''}
    ${s.status==='server'?`<div class="msg err" role="alert">${ic('warn')}<span>No se pudo guardar: el servidor local no responde. Tu comentario se conservó.</span><button class="btn sm" data-act="save">${ic('undo',13)} Reintentar</button></div>`:''}
    ${s.imgErr?`<div class="msg err" role="alert">${ic('warn')}<span>${esc(s.imgErr)}</span></div>`:''}
-   ${dz}${thumbs}`;
+   ${dz}${s.capMenu?capMenuHtml(s):''}${thumbs}`;
 }
 function contentBody(s){
   const c=s.content;
@@ -696,6 +759,46 @@ function contentBody(s){
     <div class="lrows" aria-label="Todos los idiomas">${ord.map(k=>`<div><b>${k.toUpperCase()}</b><span class="${L[k].v||L[k].o?'':'miss'}">${esc(L[k].v||L[k].o||'sin traducir')}</span></div>`).join('')}</div>`;
   }
   return `${head}${main}<p class="help">Al guardar, el cambio viaja con el comentario como «antes → después».${(s.draft||'').trim()?'':' Si no escribes nada, se genera: «Cambiar texto de … a …».'}</p>`;
+}
+const CAPMAX=16384;
+const capDims=(n,pad,sc)=>{const w=Math.round((n.w+2*pad)*sc),h=Math.round((n.h+2*pad)*sc);const mb=w*h/1000*.55/1024;return{w,h,mb,bad:w>CAPMAX||h>CAPMAX||mb>5,why:(w>CAPMAX||h>CAPMAX)?'px':'mb'}};
+const capKb=(n,pad,sc,fmt)=>{const d=capDims(n,pad,sc);return Math.max(1,Math.round(d.w*d.h/1000*(fmt==='webp'?.3:.55)))};
+function capMenuHtml(s){const n=s.nodes[s.focus];
+  return `<div class="capmenu" role="menu" aria-label="Capturar"><button class="cm" role="menuitem" data-act="capnode"><span class="cmi">${ic('node',15)}</span><span><b>Nodo seleccionado</b><small>${esc(n.tag+n.cls)} · escala 1× a 4×</small></span><kbd>Alt+⇧+S</kbd></button>
+  <button class="cm" role="menuitem" data-act="shoton"><span class="cmi">${ic('cam',15)}</span><span><b>Vista visible</b><small>toda la ventana · 1×</small></span></button></div>`}
+function capBar(s){const n=s.cnode,sel=s.sel||[2],pad=s.pad==null?8:s.pad;
+  const chips=[1,2,3,4].map(sc=>{const d=capDims(n,pad,sc);return `<button class="sc" aria-pressed="${sel.includes(sc)&&!d.bad}" ${d.bad?'disabled':''}><b>${sc}×</b><small>${d.w}×${d.h}</small></button>`}).join('');
+  return `<div class="cap-bar pf"><span class="p-kind" style="width:30px;height:30px;min-width:30px">${ic('cam',16)}</span><div><b style="font-size:13px">Capturar nodo</b><div style="font:11px var(--pf-font-mono);color:var(--pf-color-text-muted)">${esc(n.tag)} · ${n.w}×${n.h} px</div></div><span class="sp"></span><div class="scales" role="group" aria-label="Escalas">${chips}</div><button class="ibtn" aria-label="Opciones" title="Opciones">${ic('more')}</button><button class="btn btn--ghost">Cancelar</button><button class="btn btn--primary">${ic('cam',13)} Capturar ${sel.length}</button></div>`}
+function capCard(s){
+  const n=s.cnode,sel=s.sel||[2],ph=s.phase||'idle',bg=s.bg||'t',fmt=s.fmt||'png',pad=s.pad==null?8:s.pad,mode=s.cmode||'sep';
+  const ok=sel.filter(sc=>!capDims(n,pad,sc).bad),totKb=ok.reduce((a,sc)=>a+capKb(n,pad,sc,fmt),0);
+  const seg=(name,opts,cur)=>`<div class="seg" style="grid-template-columns:repeat(${opts.length},1fr)" role="group" aria-label="${name}">${opts.map(([v,l])=>`<button data-act="cap${name}" data-v="${v}" aria-pressed="${String(v)===String(cur)}">${l}</button>`).join('')}</div>`;
+  const chips=[1,2,3,4].map(sc=>{const d=capDims(n,pad,sc);return `<button class="sc" data-act="capscale" data-v="${sc}" aria-pressed="${sel.includes(sc)&&!d.bad}" ${d.bad||ph!=='idle'?'disabled':''} ${d.bad?'title="Supera 16 384 px por lado"':''}><b>${sc}×</b><small>${d.w}×${d.h}</small></button>`}).join('');
+  const offs=[1,2,3,4].filter(sc=>capDims(n,pad,sc).bad);
+  const tiles=`<div class="tiles" aria-label="Tamaños relativos">${ok.map(sc=>{const k=sc*.5;return `<div class="tile"><span class="mb" style="font-size:${13*k}px;padding:${7*k}px ${14*k}px;border-radius:${8*k}px">Elegir plan</span><em>${sc}× · ${capDims(n,pad,sc).w}×${capDims(n,pad,sc).h}</em></div>`}).join('')||'<span class="help">Elige al menos una escala.</span>'}</div>`;
+  let body='',foot='';
+  if(ph==='idle'){
+    body=`<div><div class="sect"><span>Escala · render real</span><span>elige una o varias</span></div><div class="scales" style="margin-top:6px">${chips}</div></div>
+    <p class="help">Cada escala se <b>vuelve a renderizar</b> a esa densidad de píxeles: texto, bordes y SVG salen nítidos. No se agranda una imagen de 1×.</p>
+    ${offs.length?`<div class="lw">${ic('warn',13)}<span><b>${offs.map(sc=>sc+'×').join(', ')} apagada${offs.length>1?'s':''}:</b> ${offs.map(sc=>{const d=capDims(n,pad,sc);return d.why==='px'?sc+'× daría '+d.w+'×'+d.h+' px (máx. '+CAPMAX.toLocaleString('es')+' por lado)':sc+'× pesaría ≈ '+Math.round(d.mb)+' MB (máx. 5 MB)'}).join('; ')}. Elige una escala menor o captura solo una parte.</span></div>`:''}
+    <div class="optgrid"><div><div class="sect"><span>Fondo</span></div>${seg('bg',[['t','Transparente'],['p','De la página']],bg)}</div><div><div class="sect"><span>Formato</span></div>${seg('fmt',[['png','PNG'],['webp','WebP']],fmt)}</div>
+    <div><div class="sect"><span>Margen</span></div>${seg('pad',[[0,'0'],[8,'8'],[16,'16'],[24,'24']],pad)}</div>
+    <div><div class="sect"><span>Aislar nodo</span></div><label class="tgl"><span><small>Oculta el resto de la página</small></span><input class="sw" type="checkbox" role="switch" ${s.iso?'checked':''}></label></div></div>
+    ${n.count>1?`<div><div class="sect"><span>${n.count} nodos seleccionados</span></div>${seg('cmode',[['sep','Cada uno por separado'],['join','Todos juntos']],mode)}</div>`:''}
+    <div><div class="sect"><span>Vista previa</span><span>tamaños relativos</span></div><div style="margin-top:6px">${tiles}</div></div>`;
+    foot=`<div class="keys" style="margin-right:auto;font-size:12px;color:var(--pf-color-text-muted)">${ok.length} archivo${ok.length===1?'':'s'} · ≈ ${totKb} KB</div><button class="btn btn--ghost">Cancelar</button><button class="btn btn--primary" ${ok.length?'':'disabled'}>${ic('cam',13)} Capturar ${ok.length} tamaño${ok.length===1?'':'s'}</button>`;
+  }else if(ph==='run'){
+    const pr=s.prog||{};
+    body=`<div class="tgl"><i class="spin" style="color:var(--pf-color-accent);flex:none"></i><span><b>Renderizando a ${ok[Math.min(ok.length-1,Object.keys(pr).filter(k=>pr[k]>=100).length)]}×</b> (${Math.min(ok.length,Object.keys(pr).filter(k=>pr[k]>=100).length+1)} de ${ok.length})<small>El overlay se oculta para no salir en la imagen</small></span></div>
+    ${ok.map(sc=>{const v=pr[sc]||0;return `<div class="prow"><b>${sc}×</b><div class="pbar ${v>=100?'ok':''}"><i style="width:${v}%"></i></div><span>${v>=100?'✓ '+capKb(n,pad,sc,fmt)+' KB':v+'%'}</span></div>`}).join('')}`;
+    foot=`<div class="keys" style="margin-right:auto;font-size:12px;color:var(--pf-color-text-muted)">No muevas la página</div><button class="btn btn--ghost">Cancelar</button><button class="btn btn--primary" disabled><span class="spin"></span> Capturando…</button>`;
+  }else{
+    body=`<div class="sect"><span>Resultado</span><span>${ok.length} archivos · ${totKb} KB</span></div>
+    ${ok.map(sc=>{const d=capDims(n,pad,sc),k=sc*.16;return `<div class="res"><span class="rt"><span class="mb" style="font-size:${13*k}px;padding:${7*k}px ${14*k}px;border-radius:${8*k}px">Elegir plan</span></span><span class="rn">${esc(n.file)}@${sc}x.${fmt}<small>${d.w}×${d.h} px · ${capKb(n,pad,sc,fmt)} KB · render real a ${sc}×</small></span><button class="ibtn" aria-label="Quitar">${ic('close',13)}</button></div>`}).join('')}
+    <div class="dest">${ic('folder',13)}<span>Se guardan en <b>.perfect-front/attachments/c-004/</b> y quedan atadas al comentario</span></div>`;
+    foot=`<button class="btn btn--ghost" style="margin-right:auto">${ic('undo',13)} Capturar de nuevo</button><button class="btn btn--ghost">Cancelar</button><button class="btn btn--primary">${ic('check',13)} Adjuntar ${ok.length}</button>`;
+  }
+  return `<div class="panel capcard pf" role="dialog" aria-label="Capturar nodo"><div class="p-head"><span class="p-kind" aria-hidden="true">${ic('cam',16)}</span><div class="p-id"><h2>Capturar nodo</h2><p>${esc(n.tag)} · ${n.w}×${n.h} px a 1×</p></div><button class="ibtn" aria-label="Cerrar">${ic('close')}</button></div><div class="p-body" style="border-top:1px solid var(--pf-color-border);min-height:0;max-height:none">${body}</div><div class="p-foot">${foot}</div></div>`;
 }
 function stylesBody(s){
   const ch=s.changes||{},nCh=Object.keys(ch).length,multi=s.nodes.length>1,st=s.styles;
@@ -731,13 +834,13 @@ function queueBody(s){
 }
 
 /* ===== página falsa y overlays posicionados ===== */
-const page=(inner,w=680,h=400,cls='',o={})=>`<div class="pg ${cls}" style="width:${w}px;height:${h}px" data-pg><div class="pg-nav" data-id="nav">Perfect<span>Planes</span><span>Docs</span><i>Entrar</i></div><div class="pg-hero"><h3 data-id="h1">${o.h1||'Precios claros para equipos'}</h3><p>Elige un plan y cámbialo cuando quieras.</p></div><div class="pg-cards" data-id="plans"><div class="pg-card" data-id="card1"><b>Básico</b><span>Para empezar</span><button class="cta" data-id="cta1">Elegir plan</button></div><div class="pg-card" data-id="card2"><b>Pro</b><span>Para equipos</span><button class="cta" data-id="cta2">${o.cta2||'Elegir plan'}</button></div><div class="pg-card" data-id="card3"><b>Empresa</b><span>Soporte dedicado</span><button class="cta" data-id="cta3">Hablar</button></div></div>${inner}</div>`;
+const page=(inner,w=680,h=400,cls='',o={})=>`<div class="pg ${cls}" style="width:${w}px;height:${h}px" data-pg><div class="pg-nav" data-id="nav">Perfect<span>Planes</span><span>Docs</span><i>Entrar</i></div><div class="pg-hero"><h3 data-id="h1">${o.h1||'Precios claros para equipos'}</h3><p>Elige un plan y cámbialo cuando quieras.</p></div><div class="pg-cards" data-id="plans"><div class="pg-card" data-id="card1"><b>Básico</b><span>Para empezar</span><button class="cta" data-id="cta1">Elegir plan</button></div><div class="pg-card" data-id="card2"><b>Pro</b><span>Para equipos</span><button class="cta" data-id="cta2" style="${o.cta2s||''}">${o.cta2||'Elegir plan'}</button></div><div class="pg-card" data-id="card3"><b>Empresa</b><span>Soporte dedicado</span><button class="cta" data-id="cta3">Hablar</button></div></div>${inner}</div>`;
 function layout(){
   document.querySelectorAll('[data-pg]').forEach(pg=>{
     const R=pg.getBoundingClientRect();
     const box=id=>{const e=pg.querySelector(`[data-id="${id}"]`);if(!e)return null;const r=e.getBoundingClientRect();return{x:r.left-R.left,y:r.top-R.top,w:r.width,h:r.height,r:r.right-R.left,b:r.bottom-R.top}};
     pg.querySelectorAll('[data-at]').forEach(o=>{const b=box(o.dataset.at);if(!b)return;const pos=o.dataset.pos||'box',pad=+(o.dataset.pad||0);
-      if(pos==='box'){o.style.left=b.x-pad+'px';o.style.top=b.y-pad+'px';o.style.width=b.w+2*pad+'px';o.style.height=b.h+2*pad+'px'}
+      if(pos==='box'){o.style.left=b.x-pad+'px';o.style.top=b.y-pad+'px';o.style.width=b.w+2*pad+'px';o.style.height=b.h+2*pad+'px';if(o.dataset.dim!==undefined){const t=o.querySelector('b');if(t)t.textContent=Math.round(b.w)+' × '+Math.round(b.h)+' px'}}
       else if(pos==='tr'){o.style.left=b.r-10+'px';o.style.top=b.y-10+'px'}
       else if(pos==='below'){o.style.left=b.x+'px';o.style.top=b.b+10+'px'}
       else if(pos==='left'){o.style.left=b.x-12-(+o.dataset.dx||0)+'px';o.style.top=b.y+b.h/2-12+'px'}
@@ -798,7 +901,23 @@ $('#images').innerHTML=
  ab(['Subiendo','· copia a la carpeta'],panel(base({images:[Object.assign({},IMGS[1],{up:62}),Object.assign({},IMGS[2],{up:18})],status:'saving'})))+
  ab(['Archivo no válido',''],panel(base({imgErr:'«plan.pdf» no es una imagen. Usa PNG, JPG, WebP o GIF de hasta 5 MB.',draft:'Ver adjunto.'})));
 
-/* ===== 6 Copiar ===== */
+/* ===== 7 Captura ===== */
+const CNb={tag:'button.cta',w:124,h:34,file:'nodo-button-cta'};
+const CNmain={tag:'main',w:1200,h:5400,file:'nodo-main'};
+const CNmulti={tag:'3 nodos',w:124,h:34,file:'nodo',count:3};
+const CAPIMG=[{n:'nodo-button-cta@2x.png',s:'6 KB',k:'nodo 2×',bg:'linear-gradient(135deg,#7c9cff,#2f5bea)'},{n:'nodo-button-cta@3x.png',s:'13 KB',k:'nodo 3×',bg:'linear-gradient(135deg,#9bb3ff,#2349c4)'},{n:'nodo-button-cta@4x.png',s:'23 KB',k:'nodo 4×',bg:'linear-gradient(135deg,#7fdc9b,#2c8c6b)'}];
+$('#capture').innerHTML=
+ ab(['Entrada','· desde la pestaña Comentar'],panel(base({capMenu:true,draft:'Comparar el botón en distintos tamaños.'})),'nuevo')+
+ ab(['Capa sobre la página','· marco del nodo + barra de escalas'],page(`<div class="cut" data-at="cta2" data-pad="4" data-dim><i></i><i></i><i></i><i></i><b></b></div>${capBar({cnode:CNb,sel:[2,3]})}`,780,440,'',{cta2s:'width:124px;height:34px'}),'nuevo')+
+ ab(['Opciones','· escalas 2× y 3× elegidas'],capCard({cnode:CNb,sel:[2,3]}),'nuevo')+
+ ab(['Renderizando','· una escala tras otra'],capCard({cnode:CNb,sel:[2,3,4],phase:'run',prog:{2:100,3:58}}),'nuevo')+
+ ab(['Resultado','· revisar antes de adjuntar'],capCard({cnode:CNb,sel:[2,3,4],phase:'done'}),'nuevo')+
+ ab(['Límite de tamaño','· 4× apagado con motivo'],capCard({cnode:CNmain,sel:[1,2,3,4],pad:0}),'nuevo')+
+ ab(['Varios nodos','· por separado o juntos'],capCard({cnode:CNmulti,sel:[1,2],cmode:'join'}),'nuevo')+
+ ab(['Escalado real vs. estirado','· ilustración'],`<div class="cmp2"><div class="cbox"><span class="tg bad">Estirada desde 1×</span><span class="mb" style="font-size:26px;padding:14px 28px;border-radius:16px;filter:blur(1.5px)">Elegir plan</span><small>124×34 → 496×136 · bordes y texto borrosos</small></div><div class="cbox"><span class="tg ok">Renderizada a 4×</span><span class="mb" style="font-size:26px;padding:14px 28px;border-radius:16px">Elegir plan</span><small>496×136 reales · nítida</small></div></div>`,'nuevo')+
+ ab(['Resultado en el comentario','· atadas con su escala'],panel(base({images:CAPIMG,draft:'Comparar el botón en distintos tamaños.'})),'nuevo');
+
+/* ===== 8 Copiar ===== */
 $('#copy').innerHTML=
  ab(['Menú de formatos','· un clic en el icono'],`<div style="padding-bottom:230px">${panel(base({copy:true,draft:'',tab:'comment'}))}</div>`,'nuevo')+
  ab(['Copiado','· confirmación en el ítem'],`<div style="padding-bottom:230px">${panel(base({copy:true,copied:'file'}))}</div>`)+

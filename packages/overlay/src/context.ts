@@ -1,4 +1,7 @@
 import { COMMENT_VERSION, LIMITS, type CreateCommentRequest } from '@perfect-front/shared';
+import { parseSrc } from './dom';
+import { frameInfo } from './frame';
+import { cachedNextSource } from './next-source';
 import { reactComponents, sourceAnnotation } from './react';
 import { generateSelectorCandidates } from './selector';
 
@@ -120,7 +123,7 @@ export function snapshotElement(el: Element): ElementSnapshot {
   const candidates = generateSelectorCandidates(el);
   const r = el.getBoundingClientRect();
   const components = reactComponents(el);
-  const src = sourceAnnotation(el);
+  const src = sourceAnnotation(el) ?? cachedNextSource(el);
   const hint = [components?.join(' < '), src ? `(${src})` : null].filter(Boolean).join(' ');
   return {
     selector: candidates[0] ?? el.localName,
@@ -151,6 +154,8 @@ export function buildRequest(
   snap: ElementSnapshot | null,
 ): unknown {
   const base = locationBase(doc);
+  const source = snap ? parseSrc(snap.src) : null;
+  const frame = frameInfo(doc);
   const req: Record<string, unknown> = {
     version: COMMENT_VERSION,
     scope: snap ? 'element' : 'view',
@@ -162,6 +167,8 @@ export function buildRequest(
       text: snap ? snap.text : null,
       html: snap ? snap.html : null,
       componentHint: snap ? snap.componentHint : null,
+      ...(source ? { source } : {}),
+      ...(frame ? { frame } : {}),
     },
     viewport: snap ? snap.viewport : viewportOf(doc),
     elementRect: snap ? snap.rect : null,

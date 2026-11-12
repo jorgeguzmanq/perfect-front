@@ -1,6 +1,10 @@
 import tokensCss from '@perfect-front/design-tokens/tokens.css?inline';
 import baseCss from '@perfect-front/design-tokens/base.css?inline';
 import { overlayV2Css } from './styles-v2';
+import { deckCss } from './styles-deck';
+import { captureDeckCss } from './styles-capture';
+import { drawerDeckCss } from './styles-drawer';
+import { floatDeckCss } from './styles-float';
 
 /**
  * CSS propio del overlay: solo variables --pf-* y clases .pf-*.
@@ -339,7 +343,13 @@ const overlayCss = `
 }
 `;
 
-export const CSS = tokensCss + '\n' + baseCss + '\n' + overlayCss + '\n' + overlayV2Css;
+/**
+ * PUNTO ÚNICO DE ENSAMBLADO del CSS del overlay. El deck (`styles-deck.ts`) va después de v2 para ganar a las reglas
+ * viejas; los módulos por capa (`styles-<capa>.ts`) se añaden a esta lista, siempre después de `deckCss`.
+ */
+const CSS_MODULES: readonly string[] = [tokensCss, baseCss, overlayCss, overlayV2Css, deckCss, captureDeckCss, drawerDeckCss, floatDeckCss];
+
+export const CSS = CSS_MODULES.join('\n');
 
 export function injectStylesIntoShadowRoot(shadowRoot: ShadowRoot, doc: Document = document): HTMLStyleElement {
   const style = doc.createElement('style');

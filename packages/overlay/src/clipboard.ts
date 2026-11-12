@@ -151,7 +151,7 @@ export function mountShotActions(container: HTMLElement, opts: ShotActionsOption
     throw new Error('sin imagen');
   };
   const mk = (label: string, ic: 'copy' | 'down', title: string, run: () => Promise<void>): HTMLButtonElement => {
-    const b = h(doc, 'button', 'pf-btn pf-btn--sm pf-ov-clip-btn');
+    const b = h(doc, 'button', 'pf-dk-key pf-dk-key--sm pf-ov-clip-btn');
     b.type = 'button';
     b.title = title;
     b.disabled = !!opts.disabled;
