@@ -152,6 +152,8 @@ Responsibilities:
 - save confirmation;
 - not interfering with application events while disabled.
 
+The overlay uses the «Comment Deck» look (`packages/overlay/src/deck.ts`: reusable `pf-dk-*` DOM pieces with no state of their own) and floating panels (`floating.ts`): movable, anchored to an edge, resizable from the border, minimizable to a pill over the dock, with focus management.
+
 #### Dashboard
 
 Responsibilities:
@@ -166,7 +168,8 @@ Responsibilities:
 - mark comments as pending, in progress, resolved, or ignored;
 - open the route related to a comment;
 - display the screenshot, selector, and HTML context;
-- export optional reports.
+- export optional reports;
+- Audit view (`/projects/<id>/audit`): every comment of the project in queue order with status, step/group chips, element count, sections and proposals, attachment thumbnails, filters by status, group and route, text search, and open-in-code (`POST /api/projects/:id/open`). Pure logic in `apps/dashboard/src/lib/audit.ts`.
 
 ## 5. Main flow
 
@@ -350,7 +353,8 @@ The example above is v1. v1 stays readable and is migrated on read (new fields e
 - `extraTargets[]` (≤19): the rest of a multi-selection; the primary element stays in `location`/`elementRect`.
 - `proposals[]` (≤50): proposals that **never modify the observed project**; they travel with the comment. Types: `text_fixed`, `text_dynamic` (fixed variables, which must be preserved), `text_i18n` (per-language changes; `scope: one` requires `newKey`), `style` (`before→after` changes with `origin: editable|foundation`; foundation is reference-only); each change may carry an optional informative `tailwind` (`classes before → classes after`, set only when the element uses Tailwind; never written anywhere). The Styles tab has a "List | Visual" switch: Visual mode is a section-based control panel (layout, spacing, size, typography, color, border, effects, position) that only produces these style proposals (before = computed value, after = chosen value; theme swatches come from `design-tokens`), with a reversible inline preview that is cleared on cancel/save/close and `reorder` ("move from N to M", 1-based, `from ≠ to`).
 - `group: { id, position } | null`: membership in a reading group. Name, note and `readFirst` live on the group (`ReadingGroup`); the queue is the order by `position`.
-- `location.source` and each proposal/target may carry `{ file, line }` for "copy location" (formats `file`, `selector`, `pf`, `markdown`).
+- `location.source` and each proposal/target may carry `{ file, line }` for "copy location" (formats `file`, `selector`, `pf`, `markdown`). It also feeds the "open in code" action.
+- `location.frame` (optional, `null`/absent = top window): set when the comment was made inside an `<iframe>`. `{ url, selector, hostRoute? }`: `url` is the frame page (`location.url`/`route` also describe the frame page, so older readers keep working), `selector` is the `<iframe>` element in the host page (`null` when the host is unreadable, e.g. cross-origin) and `hostRoute` the host page path. Same-origin frames only; cross-origin frames cannot be inspected and the overlay says so instead of failing.
 
 ### 6.3.1 Agent inbox and auto-generated comment
 
@@ -559,6 +563,10 @@ comment --no-open
 
 Main command. Equivalent to detect, register, start or connect, and open.
 
+### 11.1.0 `perfect-front claude`
+
+`perfect-front claude [--force] [--home <dir>] [--json]` installs the Claude Code integration from `packages/cli/claude/` into `<home>/.claude`: the `perfect-front` skill and the commands `/pf`, `/pf-watch` and `/pf-status`. It links instead of copying (symlink, junction for folders on Windows, copy fallback with a warning), is idempotent, skips anything that exists and is not from this repo, and with `--force` backs it up as `<name>.bak-<date>` before replacing. Exit codes: 0 ok, 2 usage, 1 error. Implementation: `packages/cli/src/claude-install.ts`.
+
 ### 11.1.1 Execution mode
 
 The `perfect-front` process runs in the **foreground**. Ctrl+C shuts down everything:
@@ -603,6 +611,7 @@ GET    /api/projects/:id/comments
 POST   /api/projects/:id/comments
 GET    /api/projects/:id/comments/:commentId
 PATCH  /api/projects/:id/comments/:commentId
+DELETE /api/projects/:id/comments/:commentId
 POST   /api/projects/:id/comments/:commentId/move
 POST   /api/projects/:id/comments/:commentId/resolve
 GET    /api/projects/:id/collections
@@ -611,6 +620,28 @@ GET    /api/events
 ```
 
 The API must not accept absolute paths sent by the overlay. It must receive a `projectId` and resolve the registered root internally.
+
+`DELETE /api/projects/:id/comments/:commentId` permanently removes the comment JSON and its files in `.perfect-front/attachments`, compacts the queue positions of its reading group (1..n) and responds `{ ok: true, deleted: { id, collection } }`. It publishes `comment.deleted` (plus `comment.updated` for each renumbered comment). It requires the session token and is irreversible; the proxy forwards it as `DELETE /__pf/comments/:id` (and `PATCH` with `X-PF-Expected-Updated-At` for optimistic concurrency). The CLI equivalent is `perfect-front delete <id> [--yes]`.
+
+### 12.1 Open in editor
+
+`POST /api/projects/:id/open` with body `{ "file": string, "line"?: int, "column"?: int }` opens the file in VS Code (`code -g <abs>:<line>:<col>`, run with `execFile`, no shell, fixed arguments). `file` is relative to the registered project root (the typical value is the path from `data-pf-src`); the resolved real path must stay inside that root (no traversal, no external absolute paths, no escaping symlinks) and be an existing file. Requires the session/CLI token; the extension role is rejected.
+
+- `200 { ok: true, opened: { file, line, column } }`
+- `400 invalid_request` (bad body or path outside the project), `404 not_found` (file missing)
+- `424 { ok: false, error: { code: "editor_not_found", message } }` when `code` is not on the PATH (on Windows the `Code.exe` next to `code.cmd` is used)
+
+The overlay calls it through the proxy as `POST /__pf/open` (same body, same `x-pf-token`/same-origin rules as `/__pf/groups`); the dashboard calls the API route directly with its Bearer token.
+
+#### 12.1.1 Live changes: `GET /__pf/events`
+
+The overlay learns about claims, resolutions, reopenings, edits and deletions within ~1 s through a same-origin SSE stream. The proxy opens `GET /api/events` on the local server (Bearer token) and forwards only `comment.*` / `collection.*` events whose `projectId` is the proxy's project, reduced to `{ type, projectId, at, commentId, status, updatedAt }` (no comment text or images). `EventSource` cannot send headers, so this route (and only this one) also accepts the overlay token as the `pf_token` query parameter; a missing or wrong token is `401`. Responses are `text/event-stream` with `Cache-Control: no-cache` and `X-Accel-Buffering: no`, a `: ping` heartbeat every 15 s, backpressure on slow clients, and the upstream request is aborted as soon as the browser disconnects. The proxy allows 8 concurrent streams and relays the server's `429` when its SSE client limit is reached. If SSE is unavailable or drops, the overlay reconnects with backoff (1 s to 10 s) and meanwhile polls (3 s visible tab, 15 s hidden) with an immediate refetch on `visibilitychange`, `focus` and `online`; bursts are debounced by 150 ms.
+
+### 12.2 Exact file location (`data-pf-src`)
+
+For Vite + React projects the CLI starts the dev server with a wrapper config generated in the Perfect Front state dir (`<stateDir>/wrappers/<hash>/vite.pf.config.mjs`, never inside the project). It imports the user's config and prepends `perfectFrontSource()` (`packages/source-plugin`), which adds `data-pf-src="relative/path:line:column"` to every JSX element of `.jsx`/`.tsx` files in dev mode, always on the same line (line numbers do not shift). `--no-source` disables it. Angular is not supported yet.
+
+Next.js (no plugin, no project changes): `packages/overlay/src/next-source.ts` reads React 19's dev-only `_debugStack` of the element's fiber (the JSX creation site), drops React/Next/`node_modules` frames, and asks the dev server to map the bundled frame to the original file via same-origin `POST /__nextjs_original-stack-frames` (the proxy forwards it untouched). It only runs when the page looks like Next (`window.next` or a `/_next/` script) and the element has no `data-pf-src`; results are cached per stack, with a 1.5 s timeout and silent failure. The path is returned as Next reports it (`[project]/` stripped); the local server validates it against the real project root. Selection fills `snap.src` asynchronously and fires `Selection.onSource` so the UI can repaint.
 
 ## 13. Chrome extension
 

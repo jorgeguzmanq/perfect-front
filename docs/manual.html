@@ -7,74 +7,73 @@
 <meta name="description" content="Manual de uso de la capa de comentarios de Perfect Front: instalación, atajos, captura de nodo, grupos, CLI para agentes y dónde se guarda todo.">
 <meta name="color-scheme" content="light dark">
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/bricolage-grotesque@5.2.10/index.css">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource-variable/jetbrains-mono@5.2.8/index.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@400;500;600;700&family=Google+Sans+Code:wght@400;500;600&display=swap">
 <script>try{var t=localStorage.getItem('pf-theme');if(t==='light'||t==='dark')document.documentElement.setAttribute('data-theme',t)}catch(e){}</script>
 <style>
 /* ===== Tokens (los mismos de index.html / design-tokens) ===== */
 :root{
   color-scheme:light;
-  --pf-color-bg:#fff;--pf-color-surface:#f6f7f9;--pf-color-surface-raised:#fff;--pf-color-border:#d5d9e0;
-  --pf-color-text:#14161a;--pf-color-text-muted:#5b6270;--pf-color-accent:#2f5bea;--pf-color-accent-hover:#2349c4;
-  --pf-color-accent-fg:#fff;--pf-color-danger:#c42b1c;--pf-color-focus:#2f5bea;
+  --pf-color-bg:#fafafa;--pf-color-surface:#f4f4f5;--pf-color-surface-raised:#ffffff;--pf-color-border:#e4e4e7;
+  --pf-color-text:#18181b;--pf-color-text-muted:#5b5b66;--pf-color-accent:#6c5ce7;--pf-color-accent-hover:#5a49d6;
+  --pf-color-accent-fg:#ffffff;--pf-color-danger:#c42b1c;--pf-color-focus:#6c5ce7;
   --pf-status-pending-fg:#8a5300;--pf-status-pending-bg:#fff1d6;
-  --pf-status-in-progress-fg:#1d4ed8;--pf-status-in-progress-bg:#e0e9ff;
+  --pf-status-in-progress-fg:#4b3bc4;--pf-status-in-progress-bg:#ecebff;
   --pf-status-resolved-fg:#146c2e;--pf-status-resolved-bg:#dcf5e3;
   --pf-status-archived-fg:#5b4b8a;--pf-status-archived-bg:#ece8f7;
-  --pf-font-sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  --pf-font-mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-  --pf-radius-sm:4px;--pf-radius-md:8px;--pf-radius-lg:12px;--pf-radius-full:9999px;
+  --pf-font-sans:"Google Sans Flex","Google Sans",system-ui,sans-serif;
+  --pf-font-mono:"Google Sans Code","Google Sans Flex",ui-monospace,Consolas,monospace;
+  --pf-radius-sm:5px;--pf-radius-md:8px;--pf-radius-lg:12px;--pf-radius-full:9999px;
   --pf-shadow-sm:0 1px 2px rgb(0 0 0/.08);--pf-shadow-md:0 4px 12px rgb(0 0 0/.12);--pf-shadow-lg:0 12px 32px rgb(0 0 0/.18);
   --pf-focus-ring:2px solid var(--pf-color-focus);
-  --cv-bg:#eceef2;--cv-dot:#cfd3db;--cv-ink:#14161a;--cv-page:#fff;--cv-page-2:#f3f4f7;--cv-page-ink:#1c2030;
-  --lp-display:"Bricolage Grotesque Variable","Bricolage Grotesque",var(--pf-font-sans);
-  --lp-mono:"JetBrains Mono Variable","JetBrains Mono",var(--pf-font-mono);
+  --cv-bg:#fafafa;--cv-dot:#e4e4e7;--cv-ink:#18181b;--cv-page:#ffffff;--cv-page-2:#f4f4f5;--cv-page-ink:#18181b;
+  --lp-display:"Google Sans Flex","Google Sans",system-ui,sans-serif;
+  --lp-mono:"Google Sans Code","Google Sans Flex",ui-monospace,Consolas,monospace;
   --lp-glow:color-mix(in srgb,var(--pf-color-accent) 35%,transparent);
   --lp-ease:cubic-bezier(.2,.8,.2,1);
-  --v2-fg:#8a3d00;--v2-bg:#ffe9d6;
+  --v2-fg:#0b6b78;--v2-bg:#d9f6fa;
   --code-bg:#0b0d11;--code-fg:#d7dce5;
 }
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   color-scheme:dark;
-  --pf-color-bg:#0f1115;--pf-color-surface:#181b21;--pf-color-surface-raised:#1e222a;--pf-color-border:#2c313a;
-  --pf-color-text:#e8eaee;--pf-color-text-muted:#a0a7b4;--pf-color-accent:#7c9cff;--pf-color-accent-hover:#9bb3ff;
-  --pf-color-accent-fg:#0b1020;--pf-color-danger:#ff7b6e;--pf-color-focus:#9bb3ff;
+  --pf-color-bg:#0a0a0b;--pf-color-surface:#111113;--pf-color-surface-raised:#161618;--pf-color-border:#27272a;
+  --pf-color-text:#fafafa;--pf-color-text-muted:#a1a1aa;--pf-color-accent:#8f83f0;--pf-color-accent-hover:#b9afff;
+  --pf-color-accent-fg:#0a0a0b;--pf-color-danger:#ff7b6e;--pf-color-focus:#00e5ff;
   --pf-status-pending-fg:#ffc766;--pf-status-pending-bg:#3a2a08;
-  --pf-status-in-progress-fg:#9db8ff;--pf-status-in-progress-bg:#16264d;
+  --pf-status-in-progress-fg:#c9c2fb;--pf-status-in-progress-bg:#1d1a3d;
   --pf-status-resolved-fg:#7fdc9b;--pf-status-resolved-bg:#10301b;
   --pf-status-archived-fg:#c3b5f0;--pf-status-archived-bg:#2a2342;
   --pf-shadow-sm:0 1px 2px rgb(0 0 0/.4);--pf-shadow-md:0 4px 12px rgb(0 0 0/.5);--pf-shadow-lg:0 12px 32px rgb(0 0 0/.6);
-  --cv-bg:#0b0d11;--cv-dot:#222733;--cv-ink:#e8eaee;--cv-page:#161a22;--cv-page-2:#1d222c;--cv-page-ink:#dfe3ec;
-  --v2-fg:#ffb98a;--v2-bg:#3a1f0b;
+  --cv-bg:#0a0a0b;--cv-dot:#1c1c1e;--cv-ink:#fafafa;--cv-page:#111113;--cv-page-2:#161618;--cv-page-ink:#e4e4e7;
+  --v2-fg:#7fe7f5;--v2-bg:#0b2a30;
 }}
 :root[data-theme="dark"]{
   color-scheme:dark;
-  --pf-color-bg:#0f1115;--pf-color-surface:#181b21;--pf-color-surface-raised:#1e222a;--pf-color-border:#2c313a;
-  --pf-color-text:#e8eaee;--pf-color-text-muted:#a0a7b4;--pf-color-accent:#7c9cff;--pf-color-accent-hover:#9bb3ff;
-  --pf-color-accent-fg:#0b1020;--pf-color-danger:#ff7b6e;--pf-color-focus:#9bb3ff;
+  --pf-color-bg:#0a0a0b;--pf-color-surface:#111113;--pf-color-surface-raised:#161618;--pf-color-border:#27272a;
+  --pf-color-text:#fafafa;--pf-color-text-muted:#a1a1aa;--pf-color-accent:#8f83f0;--pf-color-accent-hover:#b9afff;
+  --pf-color-accent-fg:#0a0a0b;--pf-color-danger:#ff7b6e;--pf-color-focus:#00e5ff;
   --pf-status-pending-fg:#ffc766;--pf-status-pending-bg:#3a2a08;
-  --pf-status-in-progress-fg:#9db8ff;--pf-status-in-progress-bg:#16264d;
+  --pf-status-in-progress-fg:#c9c2fb;--pf-status-in-progress-bg:#1d1a3d;
   --pf-status-resolved-fg:#7fdc9b;--pf-status-resolved-bg:#10301b;
   --pf-status-archived-fg:#c3b5f0;--pf-status-archived-bg:#2a2342;
   --pf-shadow-sm:0 1px 2px rgb(0 0 0/.4);--pf-shadow-md:0 4px 12px rgb(0 0 0/.5);--pf-shadow-lg:0 12px 32px rgb(0 0 0/.6);
-  --cv-bg:#0b0d11;--cv-dot:#222733;--cv-ink:#e8eaee;--cv-page:#161a22;--cv-page-2:#1d222c;--cv-page-ink:#dfe3ec;
-  --v2-fg:#ffb98a;--v2-bg:#3a1f0b;
+  --cv-bg:#0a0a0b;--cv-dot:#1c1c1e;--cv-ink:#fafafa;--cv-page:#111113;--cv-page-2:#161618;--cv-page-ink:#e4e4e7;
+  --v2-fg:#7fe7f5;--v2-bg:#0b2a30;
 }
 
 /* ===== Base ===== */
 *,*::before,*::after{box-sizing:border-box}
 html{scroll-behavior:smooth;-webkit-text-size-adjust:100%;scroll-padding-top:76px}
-body{margin:0;min-height:100vh;background-color:var(--cv-bg);background-image:radial-gradient(var(--cv-dot) 1px,transparent 1px);background-size:20px 20px;color:var(--pf-color-text);font:16px/1.65 var(--pf-font-sans);overflow-x:clip}
+body{margin:0;min-height:100vh;background-color:var(--cv-bg);color:var(--pf-color-text);font:16px/1.65 var(--pf-font-sans);overflow-x:clip}
 button,input{font:inherit;color:inherit}
 a{color:var(--pf-color-accent)}
 code,kbd,pre{font-family:var(--lp-mono)}
-code{font-size:.88em;padding:1px 6px;border-radius:6px;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);word-break:break-word}
+code{font-size:.88em;padding:1px 6px;border-radius:8px;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);word-break:break-word}
 pre code{padding:0;border:0;background:none;font-size:inherit}
 :focus-visible{outline:var(--pf-focus-ring);outline-offset:2px}
 .sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
-.skip{position:absolute;left:16px;top:-60px;z-index:200;padding:8px 14px;border-radius:8px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font-weight:600;text-decoration:none}
+.skip{position:absolute;left:16px;top:-60px;z-index:200;padding:8px 14px;border-radius:10px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font-weight:600;text-decoration:none}
 .skip:focus{top:12px}
-kbd{display:inline-block;font:600 11.5px/1.5 var(--lp-mono);padding:0 6px;border:1px solid var(--pf-color-border);border-bottom-width:2px;border-radius:4px;background:var(--pf-color-surface);color:var(--pf-color-text);white-space:nowrap}
+kbd{display:inline-block;font:600 11.5px/1.5 var(--lp-mono);padding:0 6px;border:1px solid var(--pf-color-border);border-bottom-width:2px;border-radius:5px;background:var(--pf-color-surface);color:var(--pf-color-text);white-space:nowrap}
 h1,h2,h3{font-family:var(--lp-display);color:var(--cv-ink);margin:0;letter-spacing:-.02em}
 h1{font-size:clamp(2rem,6vw,3.2rem);font-weight:800;line-height:1.02;letter-spacing:-.035em}
 h2{font-size:clamp(1.55rem,3.6vw,2.2rem);font-weight:750;line-height:1.1}
@@ -83,23 +82,23 @@ p{margin:12px 0}
 ul,ol{margin:10px 0;padding-left:22px}
 li{margin:4px 0}
 .muted{color:var(--pf-color-text-muted)}
-.eyebrow{margin:0 0 10px;font:600 12px/1 var(--lp-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--pf-color-accent)}
+.eyebrow{margin:0 0 10px;font:600 12px/1 var(--lp-mono);letter-spacing:0;color:var(--pf-color-accent)}
 
 /* ===== Barra superior ===== */
 .top{position:sticky;top:0;z-index:60;background:color-mix(in srgb,var(--cv-bg) 84%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid color-mix(in srgb,var(--pf-color-border) 70%,transparent)}
 .top .in{display:flex;align-items:center;gap:10px;height:56px;max-width:1240px;margin:0 auto;padding:0 clamp(16px,3vw,32px)}
-.back{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:99px;border:1px solid var(--pf-color-border);background:var(--pf-color-surface-raised);color:var(--pf-color-text);text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap}
+.back{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;border:1px solid var(--pf-color-border);background:var(--pf-color-surface-raised);color:var(--pf-color-text);text-decoration:none;font-size:14px;font-weight:600;white-space:nowrap}
 .back:hover{background:var(--pf-color-surface)}
 .brand{display:inline-flex;align-items:center;gap:8px;color:var(--cv-ink);font:700 16px var(--lp-display);white-space:nowrap}
 .top .sp{flex:1}
 .search{position:relative;display:flex;align-items:center}
-.search input{width:190px;max-width:34vw;height:34px;padding:0 10px 0 32px;border:1px solid var(--pf-color-border);border-radius:99px;background:var(--pf-color-surface-raised);font-size:14px}
+.search input{width:190px;max-width:34vw;height:34px;padding:0 10px 0 32px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-surface-raised);font-size:14px}
 .search input::placeholder{color:var(--pf-color-text-muted)}
 .search svg{position:absolute;left:10px;color:var(--pf-color-text-muted);pointer-events:none}
-.theme{display:flex;border:1px solid var(--pf-color-border);border-radius:99px;overflow:hidden;background:var(--pf-color-surface-raised)}
+.theme{display:flex;border:1px solid var(--pf-color-border);border-radius:8px;overflow:hidden;background:var(--pf-color-surface-raised)}
 .theme button{border:0;background:transparent;padding:5px 10px;cursor:pointer;font-size:12.5px;color:var(--pf-color-text-muted)}
 .theme button[aria-pressed=true]{background:var(--pf-color-text);color:var(--pf-color-bg)}
-.tocbtn{display:none;height:34px;padding:0 12px;border:1px solid var(--pf-color-border);border-radius:99px;background:var(--pf-color-surface-raised);cursor:pointer;font-size:13px;font-weight:600}
+.tocbtn{display:none;height:34px;padding:0 12px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-surface-raised);cursor:pointer;font-size:13px;font-weight:600}
 @media (max-width:900px){.tocbtn{display:inline-flex;align-items:center;gap:6px}}
 @media (max-width:640px){.brand span{display:none}.search input{width:120px}.theme button{padding:5px 7px;font-size:11.5px}.back{padding:6px 10px}}
 @media (max-width:420px){.top .in{gap:6px}.search input{width:84px}}
@@ -107,9 +106,9 @@ li{margin:4px 0}
 /* ===== Layout ===== */
 .layout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:clamp(20px,3vw,44px);max-width:1240px;margin:0 auto;padding:28px clamp(16px,3vw,32px) 60px}
 .toc{position:sticky;top:76px;align-self:start;max-height:calc(100svh - 96px);overflow:auto;padding:14px 8px 14px 0;font-size:14px}
-.toc h2{font:600 12px var(--lp-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--pf-color-text-muted);margin:0 0 8px 12px}
+.toc h2{font:600 12px var(--lp-mono);letter-spacing:0;color:var(--pf-color-text-muted);margin:0 0 8px 12px}
 .toc ol{list-style:none;margin:0;padding:0}
-.toc a{display:flex;gap:8px;align-items:baseline;padding:6px 12px;border-radius:8px;color:var(--pf-color-text-muted);text-decoration:none;border-left:3px solid transparent}
+.toc a{display:flex;gap:8px;align-items:baseline;padding:6px 12px;border-radius:10px;color:var(--pf-color-text-muted);text-decoration:none;border-left:3px solid transparent}
 .toc a b{font:600 11.5px var(--lp-mono);color:var(--pf-color-text-muted)}
 .toc a:hover{background:var(--pf-color-surface-raised);color:var(--pf-color-text)}
 .toc a[aria-current=true]{background:var(--pf-color-surface-raised);color:var(--pf-color-text);border-left-color:var(--pf-color-accent);font-weight:600}
@@ -123,90 +122,90 @@ li{margin:4px 0}
 .hero{padding:6px 0 18px}
 .hero p.lede{font-size:1.08rem;color:var(--pf-color-text-muted);max-width:62ch}
 .legend{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:16px;font-size:14px}
-section.sec{background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:16px;padding:clamp(18px,3.4vw,34px);margin:0 0 22px;box-shadow:var(--pf-shadow-sm)}
+section.sec{background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:8px;padding:clamp(18px,3.4vw,34px);margin:0 0 22px;box-shadow:var(--pf-shadow-sm)}
 section.sec>header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
-section.sec>header .n{font:700 13px var(--lp-mono);color:var(--pf-color-accent);padding:2px 9px;border-radius:99px;background:var(--pf-status-in-progress-bg)}
-.tag{display:inline-flex;align-items:center;gap:5px;padding:1px 9px;border-radius:99px;font:600 11.5px/1.7 var(--pf-font-sans);white-space:nowrap;vertical-align:middle}
+section.sec>header .n{font:700 13px var(--lp-mono);color:var(--pf-color-accent);padding:2px 9px;border-radius:8px;background:var(--pf-status-in-progress-bg)}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:1px 9px;border-radius:8px;font:600 11.5px/1.7 var(--pf-font-sans);white-space:nowrap;vertical-align:middle}
 .tag.ok{background:var(--pf-status-resolved-bg);color:var(--pf-status-resolved-fg)}
 .tag.v2{background:var(--v2-bg);color:var(--v2-fg)}
 .tag.new{background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg)}
 .steps{list-style:none;padding:0;counter-reset:s;margin:14px 0}
 .steps>li{counter-increment:s;position:relative;padding:2px 0 2px 38px;margin:10px 0}
-.steps>li::before{content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:99px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 12px/26px var(--lp-mono);text-align:center}
-.saved{margin:16px 0;padding:12px 14px;border-radius:12px;background:var(--pf-color-surface);border:1px solid var(--pf-color-border);border-left:4px solid var(--pf-status-resolved-fg);font-size:14.5px}
-.saved>b{display:block;font:600 11.5px var(--lp-mono);text-transform:uppercase;letter-spacing:.07em;color:var(--pf-status-resolved-fg);margin-bottom:2px}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:8px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 12px/26px var(--lp-mono);text-align:center}
+.saved{margin:16px 0;padding:12px 14px;border-radius:10px;background:var(--pf-color-surface);border:1px solid var(--pf-color-border);border-left:4px solid var(--pf-status-resolved-fg);font-size:14.5px}
+.saved>b{display:block;font:600 11.5px var(--lp-mono);letter-spacing:0;color:var(--pf-status-resolved-fg);margin-bottom:2px}
 .saved p{margin:4px 0}
-.note{margin:16px 0;padding:12px 14px;border-radius:12px;background:var(--pf-status-pending-bg);color:var(--pf-status-pending-fg);font-size:14.5px}
+.note{margin:16px 0;padding:12px 14px;border-radius:10px;background:var(--pf-status-pending-bg);color:var(--pf-status-pending-fg);font-size:14.5px}
 .note b{color:inherit}
 .note p{margin:4px 0}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
 @media (max-width:760px){.grid2{grid-template-columns:minmax(0,1fr)}}
 .tbl{width:100%;border-collapse:collapse;font-size:14px;margin:12px 0}
-.tblw{overflow-x:auto;margin:12px 0;border:1px solid var(--pf-color-border);border-radius:12px}
+.tblw{overflow-x:auto;margin:12px 0;border:1px solid var(--pf-color-border);border-radius:10px}
 .tblw .tbl{margin:0;min-width:480px}
 .tbl th,.tbl td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--pf-color-border);vertical-align:top}
-.tbl th{background:var(--pf-color-surface);font:600 12px var(--lp-mono);text-transform:uppercase;letter-spacing:.05em;color:var(--pf-color-text-muted)}
+.tbl th{background:var(--pf-color-surface);font:600 12px var(--lp-mono);letter-spacing:0;color:var(--pf-color-text-muted)}
 .tbl tr:last-child td{border-bottom:0}
-.cmd{border-radius:12px;background:var(--code-bg);border:1px solid #232833;overflow:hidden;margin:14px 0;box-shadow:var(--pf-shadow-md)}
+.cmd{border-radius:10px;background:var(--code-bg);border:1px solid #232833;overflow:hidden;margin:14px 0;box-shadow:var(--pf-shadow-md)}
 .cmd>header{display:flex;align-items:center;gap:8px;padding:6px 8px 6px 14px;background:#12151b;border-bottom:1px solid #232833;color:#8b93a3;font:11.5px var(--lp-mono)}
-.cmd>header button{margin-left:auto;border:1px solid #2a2f3a;background:transparent;color:#d7dce5;border-radius:6px;padding:2px 10px;font:600 11.5px var(--pf-font-sans);cursor:pointer}
+.cmd>header button{margin-left:auto;border:1px solid #2a2f3a;background:transparent;color:#d7dce5;border-radius:8px;padding:2px 10px;font:600 11.5px var(--pf-font-sans);cursor:pointer}
 .cmd>header button:hover{border-color:#4a5163}
 .cmd pre{margin:0;padding:12px 16px;overflow-x:auto;color:var(--code-fg);font:13px/1.7 var(--lp-mono)}
 .cmd .c{color:#6b7385}.cmd .p{color:#7fdc9b}
 .hidden-by-search{display:none!important}
-.nores{display:none;padding:30px;text-align:center;color:var(--pf-color-text-muted);border:1px dashed var(--pf-color-border);border-radius:16px}
+.nores{display:none;padding:30px;text-align:center;color:var(--pf-color-text-muted);border:1px dashed var(--pf-color-border);border-radius:8px}
 .nores.on{display:block}
 
 /* ===== Ilustraciones ===== */
-.fig{margin:18px 0;padding:16px;border:1px solid var(--pf-color-border);border-radius:14px;background:var(--cv-bg);background-image:radial-gradient(var(--cv-dot) 1px,transparent 1px);background-size:16px 16px}
+.fig{margin:18px 0;padding:16px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--cv-bg);background-image:radial-gradient(var(--cv-dot) 1px,transparent 1px);background-size:16px 16px}
 .fig figcaption{margin-top:12px;font-size:13px;color:var(--pf-color-text-muted)}
 .fig .row{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start;justify-content:center}
 .ex{position:relative;display:inline-block}
-.ex-tag{display:inline-block;padding:0 8px;border-radius:99px;background:var(--pf-color-text);color:var(--pf-color-bg);font:700 10.5px/18px var(--lp-mono);text-transform:uppercase;letter-spacing:.06em}
+.ex-tag{display:inline-block;padding:0 8px;border-radius:8px;background:var(--pf-color-text);color:var(--pf-color-bg);font:700 10.5px/18px var(--lp-mono);letter-spacing:0}
 /* piezas del panel */
-.panel{display:flex;flex-direction:column;width:100%;max-width:22.5rem;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:12px;box-shadow:var(--pf-shadow-lg);font:14px/1.5 var(--pf-font-sans);color:var(--pf-color-text);text-align:left}
+.panel{display:flex;flex-direction:column;width:100%;max-width:22.5rem;background:var(--pf-color-surface-raised);border:1px solid var(--pf-color-border);border-radius:10px;box-shadow:var(--pf-shadow-lg);font:14px/1.5 var(--pf-font-sans);color:var(--pf-color-text);text-align:left}
 .p-head{display:flex;align-items:flex-start;gap:10px;padding:11px 10px 9px 12px}
-.p-kind{flex:none;display:grid;place-items:center;min-width:32px;height:32px;padding:0 4px;border-radius:9px;background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg);font:700 11px var(--lp-mono)}
+.p-kind{flex:none;display:grid;place-items:center;min-width:32px;height:32px;padding:0 4px;border-radius:8px;background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg);font:700 11px var(--lp-mono)}
 .p-id{flex:1;min-width:0}
 .p-id b{display:block;font-size:15px;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .p-id small{display:block;font:11.5px var(--lp-mono);color:var(--pf-color-text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ib{display:inline-grid;place-items:center;width:28px;height:28px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-bg);color:var(--pf-color-text-muted);font:600 12px var(--lp-mono)}
+.ib{display:inline-grid;place-items:center;width:28px;height:28px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-bg);color:var(--pf-color-text-muted);font:600 12px var(--lp-mono)}
 .ib.flat{border-color:transparent;background:transparent}
 .p-tgt{display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:7px 12px;background:var(--pf-color-surface);border-block:1px solid var(--pf-color-border)}
 .p-tabs{display:flex;padding:0 6px;border-bottom:1px solid var(--pf-color-border);overflow:hidden}
 .p-tab{flex:1;padding:7px 2px;text-align:center;font-size:12.5px;font-weight:500;color:var(--pf-color-text-muted);border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
 .p-tab.on{color:var(--pf-color-accent);border-bottom-color:var(--pf-color-accent)}
 .p-body{display:flex;flex-direction:column;gap:8px;padding:10px 12px}
-.ta{min-height:3.4rem;padding:8px 10px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-bg);font-size:13.5px}
+.ta{min-height:3.4rem;padding:8px 10px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-bg);font-size:13.5px}
 .ta i{display:inline-block;width:2px;height:1em;background:var(--pf-color-accent);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
 @keyframes blink{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.ta i{animation:none}html{scroll-behavior:auto}}
-.dz{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border:1px dashed var(--pf-color-border);border-radius:8px;font-size:12.5px;color:var(--pf-color-text-muted)}
+.dz{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 10px;border:1px dashed var(--pf-color-border);border-radius:10px;font-size:12.5px;color:var(--pf-color-text-muted)}
 .dz b{color:var(--pf-color-text)}
-.mini{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-surface-raised);font-size:12px;font-weight:500;color:var(--pf-color-text);white-space:nowrap}
+.mini{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 9px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-surface-raised);font-size:12px;font-weight:500;color:var(--pf-color-text);white-space:nowrap}
 .mini.pri{background:var(--pf-color-accent);border-color:var(--pf-color-accent);color:var(--pf-color-accent-fg)}
 .mini.on{border-color:var(--pf-color-accent);color:var(--pf-color-accent);background:var(--pf-status-in-progress-bg)}
 .mini.off{opacity:.45}
 .mini.dng{color:var(--pf-color-danger);border-color:color-mix(in srgb,var(--pf-color-danger) 40%,transparent)}
 .p-foot{display:flex;align-items:center;gap:6px;padding:9px 12px;border-top:1px solid var(--pf-color-border);background:var(--pf-color-surface);border-radius:0 0 12px 12px;font-size:11.5px;color:var(--pf-color-text-muted)}
 .p-foot .sp{flex:1}
-.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:1px 8px;border-radius:8px;font-size:12px;font-weight:600;white-space:nowrap}
 .chip.pending{background:var(--pf-status-pending-bg);color:var(--pf-status-pending-fg)}
 .chip.prog{background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg)}
 .chip.done{background:var(--pf-status-resolved-bg);color:var(--pf-status-resolved-fg)}
 .chip.grp{background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg)}
-.chg{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 10px;border:1px solid var(--pf-color-border);border-left:3px solid var(--pf-color-accent);border-radius:8px;background:color-mix(in srgb,var(--pf-color-accent) 6%,transparent);font:12px var(--lp-mono)}
+.chg{display:grid;grid-template-columns:1fr auto;gap:8px;padding:6px 10px;border:1px solid var(--pf-color-border);border-left:3px solid var(--pf-color-accent);border-radius:10px;background:color-mix(in srgb,var(--pf-color-accent) 6%,transparent);font:12px var(--lp-mono)}
 .chg s{opacity:.6}
 .chg.lock{border-left-color:var(--pf-color-border);background:var(--pf-color-surface);color:var(--pf-color-text-muted)}
-.vchip{display:inline-block;padding:0 7px;border-radius:6px;background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg);font:600 12px/20px var(--lp-mono)}
+.vchip{display:inline-block;padding:0 7px;border-radius:8px;background:var(--pf-status-archived-bg);color:var(--pf-status-archived-fg);font:600 12px/20px var(--lp-mono)}
 /* estados */
 .states{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
-.st{display:flex;flex-direction:column;gap:2px;min-width:112px;padding:10px 12px;border:1px solid var(--pf-color-border);border-radius:12px;background:var(--pf-color-surface-raised);font-size:13px}
+.st{display:flex;flex-direction:column;gap:2px;min-width:112px;padding:10px 12px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-surface-raised);font-size:13px}
 .st b{font:700 13px var(--lp-mono)}
 .st.cur{border-color:var(--pf-color-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--pf-color-accent) 18%,transparent)}
 .arrow{color:var(--pf-color-text-muted);font-size:18px}
 /* app de ejemplo */
-.app{position:relative;width:min(100%,340px);background:var(--cv-page);color:var(--cv-page-ink);border:1px solid var(--pf-color-border);border-radius:12px;overflow:hidden;box-shadow:var(--pf-shadow-md);font-size:13px;text-align:left}
+.app{position:relative;width:min(100%,340px);background:var(--cv-page);color:var(--cv-page-ink);border:1px solid var(--pf-color-border);border-radius:10px;overflow:hidden;box-shadow:var(--pf-shadow-md);font-size:13px;text-align:left}
 .app .bar{display:flex;align-items:center;gap:5px;height:26px;padding:0 10px;background:var(--cv-page-2);border-bottom:1px solid color-mix(in srgb,var(--cv-page-ink) 10%,transparent);font:10.5px var(--lp-mono)}
 .app .bar i{width:8px;height:8px;border-radius:50%;background:color-mix(in srgb,var(--cv-page-ink) 22%,transparent)}
 .app .bar span{margin-left:6px;opacity:.65}
@@ -214,21 +213,21 @@ section.sec>header .n{font:700 13px var(--lp-mono);color:var(--pf-color-accent);
 .app .body{padding:14px;display:flex;flex-direction:column;gap:10px}
 .app h4{margin:0;font:600 15px var(--lp-display)}
 .app .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.app .cd{position:relative;padding:8px;border:1px solid color-mix(in srgb,var(--cv-page-ink) 16%,transparent);border-radius:8px;font-size:11.5px}
+.app .cd{position:relative;padding:8px;border:1px solid color-mix(in srgb,var(--cv-page-ink) 16%,transparent);border-radius:10px;font-size:11.5px}
 .app .cd b{display:block;font-size:12px}
 .app .cd span{opacity:.6}
 .sel{outline:2px solid var(--pf-color-accent);outline-offset:1px;background:color-mix(in srgb,var(--pf-color-accent) 12%,transparent)!important}
 .sel-l{position:absolute;bottom:100%;left:-2px;padding:0 6px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:10.5px/17px var(--lp-mono);white-space:nowrap;border-radius:3px 3px 0 0}
 .ghostbox{outline:2px dashed color-mix(in srgb,var(--pf-color-accent) 70%,transparent);outline-offset:1px}
 .ghostbox .sel-l{background:transparent;color:var(--pf-color-accent);border:1px dashed var(--pf-color-accent)}
-.pin{position:absolute;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border:2px solid var(--pf-color-accent-fg);border-radius:99px 99px 99px 4px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 10.5px/1 var(--pf-font-sans);box-shadow:var(--pf-shadow-md)}
+.pin{position:absolute;display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 4px;border:2px solid var(--pf-color-accent-fg);border-radius:6px 99px 99px 4px;background:var(--pf-color-accent);color:var(--pf-color-accent-fg);font:700 10.5px/1 var(--pf-font-sans);box-shadow:var(--pf-shadow-md)}
 .pin.g{background:var(--pf-status-archived-fg);color:var(--pf-color-bg)}
 .pin.del{background:var(--pf-color-danger)}
 .struck{text-decoration:line-through;opacity:.45;outline:2px dashed var(--pf-color-danger);outline-offset:2px}
 /* escalas */
 .scales{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 @media (max-width:520px){.scales{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.sc{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-surface-raised);font-size:12px}
+.sc{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-surface-raised);font-size:12px}
 .sc b{font:700 13px var(--lp-mono)}
 .sc small{font:11px var(--lp-mono);color:var(--pf-color-text-muted)}
 .sc.on{border-color:var(--pf-color-accent);background:var(--pf-status-in-progress-bg)}
@@ -236,12 +235,12 @@ section.sec>header .n{font:700 13px var(--lp-mono);color:var(--pf-color-accent);
 .sc.off small{color:var(--pf-color-danger)}
 /* reordenar */
 .sibs{display:flex;gap:6px}
-.sib{flex:1;padding:8px 6px;text-align:center;border:1px solid var(--pf-color-border);border-radius:8px;background:var(--pf-color-surface-raised);font:600 11.5px var(--lp-mono)}
+.sib{flex:1;padding:8px 6px;text-align:center;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-surface-raised);font:600 11.5px var(--lp-mono)}
 .sib.mv{border-color:var(--pf-color-accent);background:var(--pf-status-in-progress-bg);color:var(--pf-status-in-progress-fg)}
 /* json */
-.json{margin:0;padding:12px 14px;border-radius:12px;background:var(--pf-color-bg);border:1px solid var(--pf-color-border);font:12px/1.6 var(--lp-mono);overflow-x:auto;color:var(--pf-color-text)}
+.json{margin:0;padding:12px 14px;border-radius:10px;background:var(--pf-color-bg);border:1px solid var(--pf-color-border);font:12px/1.6 var(--lp-mono);overflow-x:auto;color:var(--pf-color-text)}
 .json .k{color:var(--pf-color-accent)}.json .s{color:var(--pf-status-resolved-fg)}
-.tree{margin:12px 0;padding:12px 14px;border:1px solid var(--pf-color-border);border-radius:12px;background:var(--pf-color-bg);font:13px/1.7 var(--lp-mono);overflow-x:auto;white-space:pre}
+.tree{margin:12px 0;padding:12px 14px;border:1px solid var(--pf-color-border);border-radius:10px;background:var(--pf-color-bg);font:13px/1.7 var(--lp-mono);overflow-x:auto;white-space:pre}
 .tree .d{color:var(--pf-color-text-muted)}
 /* pie */
 .foot{max-width:1240px;margin:0 auto;padding:26px clamp(16px,3vw,32px) 70px;border-top:1px solid var(--pf-color-border);display:flex;flex-wrap:wrap;gap:12px 24px;align-items:center;font-size:14px;color:var(--pf-color-text-muted)}
@@ -254,6 +253,7 @@ section.sec>header .n{font:700 13px var(--lp-mono);color:var(--pf-color-accent);
 :root[data-theme="dark"] .foot .logo .ld{display:block}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .foot .logo .ll{display:none}:root:not([data-theme="light"]) .foot .logo .ld{display:block}}
 .foot .r{margin-left:auto}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.09;mix-blend-mode:overlay;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix type='saturate' values='0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
 </style>
 </head>
 <body>
@@ -298,10 +298,12 @@ section.sec>header .n{font:700 13px var(--lp-mono);color:var(--pf-color-accent);
 <div class="hero">
   <p class="eyebrow">Manual de uso</p>
   <h1>La capa de comentarios, paso a paso.</h1>
-  <p class="lede">Alt+clic sobre tu app en desarrollo, escribe qué cambiar y el comentario queda como un archivo JSON dentro de tu proyecto. Esta guía cubre todo lo que existe y lo que viene en la v2.</p>
+  <p class="lede">Alt+clic sobre tu app en desarrollo, escribe qué cambiar y el comentario queda como un archivo JSON dentro de tu proyecto. Esta guía cubre todo lo que existe, incluida la v2.</p>
+  <p class="lede">El overlay estrena el look «Comment Deck» (oscuro, minimalista: pantallas LCD, teclas y bandejas); el comportamiento y los atajos no cambian.</p>
   <div class="legend" role="note">
     <span><span class="tag ok">Disponible</span> ya está en la rama principal.</span>
-    <span><span class="tag v2">v2</span> rama <code>feat/overlay-v2</code>, aún no en la principal.</span>
+    <span><span class="tag v2">v2</span> panel de vistas apiladas (sin pestañas), ya fusionado en la principal.</span>
+    <span><span class="tag new">Nuevo</span> recién añadido: todavía sin commit y sin probar en un navegador real.</span>
   </div>
 </div>
 
@@ -333,6 +335,7 @@ perfect-front</pre></div>
       <tr><td><code>--no-proxy</code></td><td>Sin proxy y, por tanto, sin capa. Úsalo si tu app depende del origen del dev server (cookies, OAuth, CORS).</td></tr>
       <tr><td><code>--server-port &lt;n&gt;</code></td><td>Puerto del servidor local.</td></tr>
       <tr><td><code>--detach</code></td><td>Segundo plano: abre el navegador y devuelve la terminal.</td></tr>
+      <tr><td><code>--no-source</code></td><td>En Vite + React, no añade el plugin que marca cada elemento con su archivo:línea (ver «Ubicación exacta en el código», sección 3).</td></tr>
     </tbody>
   </table></div>
 
@@ -411,7 +414,7 @@ perfect-front</pre></div>
   <p>Con <b>Toda la vista</b> el comentario no apunta a ningún elemento (sirve para «la página se siente apretada»).</p>
 
   <h3>Reordenar hermanos <span class="tag v2">v2</span></h3>
-  <p>En la pestaña <b>Estructura</b> mueves un elemento entre sus hermanos con «Mover antes» / «Mover después». Es una <b>propuesta</b>: se previsualiza en la página, viaja con el comentario y se puede <b>Deshacer</b>. El código no cambia.</p>
+  <p>En la vista <b>Orden</b> (chip <b>Proponer → Orden</b>, solo con un nodo que tenga hermanos) mueves un elemento entre sus hermanos con «Mover antes» / «Mover después». Es una <b>propuesta</b>: se previsualiza en la página, viaja con el comentario y se puede <b>Deshacer</b>. El código no cambia.</p>
   <figure class="fig">
     <div class="sibs" role="img" aria-label="Tres hermanos; el tercero se propone moverlo a la primera posición">
       <div class="sib mv">3 · Equipo</div><div class="sib">1 · Inicial</div><div class="sib">2 · Empresa</div>
@@ -419,33 +422,41 @@ perfect-front</pre></div>
     <figcaption>Propuesta guardada: «mover de 3 a 1» (posiciones desde 1).</figcaption>
   </figure>
 
-  <h3>Copiar ubicación <span class="tag v2">v2</span></h3>
-  <p>El botón de copiar de la cabecera del panel abre «Copiar como»:</p>
-  <div class="tblw"><table class="tbl">
-    <thead><tr><th>Formato</th><th>Ejemplo</th><th>Para</th></tr></thead>
-    <tbody>
-      <tr><td>Archivo y línea</td><td><code>src/components/Card.tsx:42</code></td><td>Editor o PR</td></tr>
-      <tr><td>Selector CSS</td><td><code>main &gt; section.plans &gt; div.card</code></td><td>Tests, DevTools</td></tr>
-      <tr><td>Referencia Perfect Front</td><td><code>pf://planes#card</code></td><td>Pegar dentro de otro comentario</td></tr>
-      <tr><td>Markdown</td><td><code>`archivo:línea` · div.card en /planes</code></td><td>Issue o prompt</td></tr>
-      <tr><td>Los N elementos</td><td>una lista con <code>- </code> por elemento</td><td>Solo con varios</td></tr>
-    </tbody>
-  </table></div>
-  <p class="muted">«Archivo:línea» necesita que el elemento lleve <code>data-pf-src</code> (plugin de build, aún no existe); sin él se copian los demás formatos.</p>
-  <div class="saved"><b>Qué se guarda</b><p>Los elementos extra van en <code>extraTargets[]</code> (hasta 19 además del principal); el movimiento, en <code>proposals[]</code> como <code>reorder</code> con <code>from</code> y <code>to</code>. Copiar ubicación no guarda nada: solo copia al portapapeles.</p></div>
+  <h3>Capas <span class="tag v2">v2</span><span class="tag new">Nuevo</span></h3>
+  <p>La vista <b>Capas</b> (menú <b>⋯</b> de la cabecera) muestra el árbol del DOM del elemento (padres, hermanos e hijos, con el nombre del componente React cuando existe y un contador de comentarios abiertos): clic enfoca el nodo, <kbd>⇧</kbd> o <kbd>Ctrl</kbd> + clic lo suma a la selección, pasar el cursor lo resalta en la página (sin tocarla) y se maneja con teclado (<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd>, <kbd>Enter</kbd>).</p>
+
+  <h3>Abrir en el código <span class="tag v2">v2</span><span class="tag new">Nuevo</span></h3>
+  <p>El botón <b>↗ Abrir en el código</b> (cabecera del editor y cada comentario del cajón) abre <code>archivo:línea</code> en tu editor; queda apagado con «Sin archivo de origen» si el elemento no trae <code>data-pf-src</code>, y si no hay editor disponible muestra el aviso del servidor. El dashboard ofrece lo mismo en la vista Auditoría (sección 7).</p>
+
+  <h3>Ubicación exacta en el código <span class="tag v2">v2</span><span class="tag new">Nuevo</span></h3>
+  <p>Para saber en qué archivo y línea está cada elemento, Perfect Front usa dos vías según tu proyecto:</p>
+  <div class="grid2">
+    <div class="saved" style="margin:0"><b>Vite + React: plugin automático</b><p>Al detectar Vite + React con un script propio, el CLI arranca tu dev server con una config envoltorio que antepone el plugin <code>@perfect-front/source-plugin</code>. Este anota cada elemento JSX con <code>data-pf-src="ruta:línea:columna"</code>, solo en desarrollo y solo en <code>.jsx</code>/<code>.tsx</code>. La terminal avisa «Ubicacion exacta de archivo: activada». <b>Tu proyecto no se modifica</b>: la config envoltorio vive en el directorio de estado, fuera de tu código.</p></div>
+    <div class="saved" style="margin:0"><b>Next.js: sin plugin</b><p>En desarrollo, la ubicación se obtiene sola al seleccionar el elemento (unos instantes después): el overlay lee la pila de depuración de React 19 y la traduce al archivo original con el endpoint del propio dev server de Next. Es «mejor esfuerzo»: si falla, todo sigue como antes, solo sin archivo:línea.</p></div>
+  </div>
+  <p>Con <code>--no-source</code> no se añade el plugin (útil si ya usas tu propia config de Vite o prefieres que el HTML no lleve atributos extra). Con <code>--command</code> o una config explícita, sin React, o con Angular, el plugin tampoco se aplica.</p>
+  <p><b>Qué ganas:</b> el botón <b>↗ Abrir en el código</b> te lleva a la línea exacta, <b>Copiar referencia completa</b> incluye <code>archivo:línea</code>, y quien lea el comentario (tú o un agente) no tiene que buscar el elemento por selector.</p>
+
+  <h3>Comentarios dentro de un iframe <span class="tag v2">v2</span><span class="tag new">Nuevo</span></h3>
+  <p>Dentro de un <code>&lt;iframe&gt;</code> del mismo origen se comenta con <kbd>Alt</kbd> + clic; el comentario guarda el marco (<code>location.frame</code>), su pin se pinta dentro del marco y «ir al elemento» del cajón entra en él. En un iframe de otro origen no se puede entrar: se avisa y nada se rompe.</p>
+
+  <h3>Copiar referencia completa <span class="tag v2">v2</span><span class="tag new">Nuevo</span></h3>
+  <p>Un solo botón en la cabecera del panel copia <b>todo junto</b>: archivo y línea (<code>src/components/Card.tsx:42</code>), selector CSS (<code>main &gt; section.plans &gt; div.card</code>) y la referencia Perfect Front (<code>pf://planes#card</code>), más la ruta de la vista. Con varios elementos copia uno por cada uno. Sirve para pegar en un issue, un PR, un chat o un prompt; <code>pf://</code> pegada en otro comentario se convierte en un enlace al nodo.</p>
+  <p class="muted">«Archivo:línea» necesita la ubicación exacta (ver arriba: plugin en Vite + React, automática en Next.js en desarrollo); sin ella se copian los demás formatos.</p>
+  <div class="saved"><b>Qué se guarda</b><p>Los elementos extra van en <code>extraTargets[]</code> (hasta 19 además del principal); el movimiento, en <code>proposals[]</code> como <code>reorder</code> con <code>from</code> y <code>to</code>. Copiar la referencia no guarda nada: solo copia al portapapeles.</p></div>
 </section>
 
 <!-- ============ 4 ============ -->
 <section class="sec" id="describir" data-s>
-  <header><span class="n">4</span><h2>Describir</h2><span class="tag ok">Disponible</span><span class="tag v2">v2: pestañas</span></header>
-  <p>Aquí dices qué debería cambiar. El comentario de texto está disponible hoy; las pestañas del panel completo son v2.</p>
+  <header><span class="n">4</span><h2>Describir</h2><span class="tag ok">Disponible</span><span class="tag v2">v2: vistas</span></header>
+  <p>Aquí dices qué debería cambiar. El comentario de texto está disponible hoy. El panel completo (v2) ya no usa pestañas: la base «Comentar» es mínima (identidad, alcance, nota, imágenes, «Incluye» y pie) y, bajo la nota, una fila <b>Proponer</b> con chips (Texto, Estilos, Orden, Grupo) que solo aparecen cuando aplican abre cada vista encima, con «‹ Comentar» o <kbd>Esc</kbd> para volver; Capas, Eliminar elemento y lo demás viven en el menú <b>⋯</b>.</p>
 
   <figure class="fig">
     <div class="row">
-      <div class="panel" role="img" aria-label="Ilustración del panel de comentario con pestañas Comentar, Contenido, Estilos, Estructura y Cola">
+      <div class="panel" role="img" aria-label="Ilustración del panel de comentario: base Comentar con la fila Proponer (Texto, Estilos, Orden)">
         <div class="p-head"><span class="p-kind">div</span><div class="p-id"><b>Equipo <span class="muted" style="font-weight:400">en Card</span></b><small>src/Card.tsx:42</small></div><span class="ib flat">⧉</span><span class="ib flat">✕</span></div>
-        <div class="p-tgt"><span class="mini on">Este elemento</span><span class="mini">Toda la vista</span><span class="ib">↑</span><span class="ib">↓</span><span class="ib">←</span><span class="ib">→</span><span class="mini">Sumar</span></div>
-        <div class="p-tabs"><span class="p-tab on">Comentar</span><span class="p-tab">Contenido</span><span class="p-tab">Estilos</span><span class="p-tab">Estructura</span><span class="p-tab">Cola</span></div>
+        <div class="p-tgt"><span class="mini on">Este elemento</span><span class="mini">Toda la vista</span></div>
+        <div class="p-tabs"><span class="p-tab on">Proponer</span><span class="p-tab">Texto</span><span class="p-tab">Estilos</span><span class="p-tab">Orden</span></div>
         <div class="p-body">
           <div class="ta">El título se corta en móvil<i></i></div>
           <div class="dz"><span><b>Pega</b>, <b>arrastra</b> o</span><span class="mini">Abrir…</span><span class="mini">Capturar ▾</span></div>
@@ -453,7 +464,7 @@ perfect-front</pre></div>
         <div class="p-foot"><span><kbd>Ctrl</kbd><kbd>↵</kbd> guardar · <kbd>Esc</kbd> cancelar</span><span class="sp"></span><span class="mini">Cancelar</span><span class="mini pri">Guardar</span></div>
       </div>
     </div>
-    <figcaption>El panel: identidad y copiar arriba, objetivo y navegación, pestañas, y acciones abajo. Ilustración de ejemplo.</figcaption>
+    <figcaption>El panel: identidad y copiar arriba, alcance, nota con la fila Proponer, imágenes y acciones abajo (el navegador ↑↓←→ solo aparece al navegar). Ilustración de ejemplo.</figcaption>
   </figure>
 
   <h3>Comentario de texto <span class="tag ok">Disponible</span></h3>
@@ -464,7 +475,7 @@ perfect-front</pre></div>
   <div class="saved"><b>Qué se guarda</b><p>El texto, la ruta y URL, el selector (con candidatos), el texto y HTML del elemento, el viewport y el rectángulo. Ver sección 8.</p></div>
 
   <h3>Contenido e i18n <span class="tag v2">v2</span></h3>
-  <p>La pestaña <b>Contenido</b> edita el texto del elemento y lo pinta en la página mientras escribes; <b>Cancelar</b> lo deshace. Hay tres casos:</p>
+  <p>La vista <b>Texto</b> (chip <b>Proponer → Texto</b>) edita el texto del elemento y lo pinta en la página mientras escribes; <b>Cancelar</b> lo deshace. Hay tres casos:</p>
   <div class="grid2">
     <div class="saved" style="margin:0"><b>Texto fijo</b><p>Escrito directo en el código. Ves «Antes» y «Después».</p></div>
     <div class="saved" style="margin:0"><b>Clave i18n</b><p>Viene de archivos de idioma. Eliges ES / EN / PT y el alcance: <b>Todas las apariciones</b> o <b>Solo aquí</b> (propone una clave nueva, p. ej. <code>clave_2</code>). Las traducciones que faltan se marcan.</p></div>
@@ -475,7 +486,7 @@ perfect-front</pre></div>
   <div class="saved"><b>Qué se guarda</b><p>Una propuesta <code>text_fixed</code>, <code>text_dynamic</code> o <code>text_i18n</code> con «antes → después». El proyecto no se modifica.</p></div>
 
   <h3>Estilos: editable vs. foundation <span class="tag v2">v2</span></h3>
-  <p>La pestaña <b>Estilos</b> separa lo que puedes cambiar de lo que solo se consulta:</p>
+  <p>La vista <b>Estilos</b> tiene dos modos: <b>Lista</b> (el inspector de filas de abajo) y <b>Visual</b> <span class="tag new">Nuevo</span>, con tiradores sobre el propio elemento para ajustar padding, márgenes y radio arrastrando. Cada cambio puede llevar además una <b>clase Tailwind</b> sugerida (campo opcional <code>tailwind</code>). La vista separa lo que puedes cambiar de lo que solo se consulta:</p>
   <figure class="fig">
     <div class="row">
       <div class="panel" style="max-width:24rem" role="img" aria-label="Filas de estilo: una editable con antes y después, una foundation de solo lectura">
@@ -491,6 +502,9 @@ perfect-front</pre></div>
   <p>Cada cambio muestra «antes → después» y se ve en <b>vista previa en vivo</b>; <b>Revertir</b> (por fila o todo) o cerrar el panel la deshace. Si una propiedad usa un token, se indica «usa <code>--token</code>».</p>
   <div class="saved"><b>Qué se guarda</b><p>Una propuesta <code>style</code> con cada propiedad (<code>before → after</code>, origen <code>editable</code> o <code>foundation</code>). El código fuente no se toca.</p></div>
 
+  <h3>Guardar sin nota <span class="tag v2">v2</span><span class="tag new">Nuevo</span></h3>
+  <p>Si no escribes comentario pero hay propuestas de texto, estilo u orden, <b>Guardar</b> genera la nota por ti («Cambiar texto de … a …», «font-size 14 → 16», «Mover … de 3 a 1»). Con el comentario vacío y sin propuestas, sigue pidiendo que escribas algo.</p>
+
   <h3>Imágenes <span class="tag v2">v2</span></h3>
   <ul>
     <li><b>Pegar</b>: <kbd>Ctrl</kbd>+<kbd>V</kbd> con el panel abierto.</li>
@@ -503,6 +517,7 @@ perfect-front</pre></div>
 
   <h3 id="captura">Captura de nodo <span class="tag v2">v2</span></h3>
   <p>Una capa propia enmarca el nodo y lo <b>renderiza de nuevo</b> a 1×, 2×, 3× o 4× (no agranda una imagen).</p>
+  <p><b>1× es la captura rápida:</b> <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>S</kbd> hace un solo render, lo adjunta al comentario y lo copia al portapapeles sin diálogos (si el permiso falla, usa el botón Copiar).</p>
   <ol class="steps">
     <li>En el panel: <b>Capturar ▾ → Nodo seleccionado</b>, o <kbd>Alt</kbd>+<kbd>⇧</kbd>+<kbd>S</kbd>.</li>
     <li>Marca las escalas que quieras. Cada una muestra su <b>tamaño real en px</b> antes de capturar.</li>
@@ -563,7 +578,7 @@ perfect-front</pre></div>
   <header><span class="n">6</span><h2>Organizar</h2><span class="tag v2">v2</span></header>
 
   <h3 style="margin-top:14px">Grupos y cola de lectura</h3>
-  <p>En la pestaña <b>Cola</b> atas el comentario a un <b>grupo</b>: varios comentarios que se entienden juntos, en orden y con contexto. Opciones: <b>Grupo nuevo</b>, <b>Añadir a un grupo</b>, <b>Atar a un comentario…</b> (se coloca justo después del elegido) y <b>Sacar del grupo</b>.</p>
+  <p>En la vista <b>Grupo</b> (chip <b>Proponer → Agrupar</b>) atas el comentario a un <b>grupo</b>: varios comentarios que se entienden juntos, en orden y con contexto. Opciones: <b>Grupo nuevo</b>, <b>Añadir a un grupo</b>, <b>Atar a un comentario…</b> (se coloca justo después del elegido) y <b>Sacar del grupo</b>.</p>
   <ul>
     <li><b>Nota de contexto</b>: un texto que explica el objetivo del grupo.</li>
     <li><b>Entender el grupo antes de actuar</b>: quien ejecute lee la nota y toda la cola, en orden, antes de tocar nada.</li>
@@ -585,6 +600,36 @@ perfect-front</pre></div>
 
   <h3>Cajón de comentarios</h3>
   <p>Desde el menú del lanzador (<b>Más opciones → Comentarios</b>) se abre el cajón, aparte del editor: pestañas <b>Abiertos</b>, <b>Grupos</b> y <b>Resueltos</b>. Al hacer clic en un ítem vas a su pin. En un grupo, <b>Copiar como brief</b> arma un resumen para pegar.</p>
+  <p>Cada comentario del cajón se puede <b>editar</b> y <b>eliminar</b> <span class="tag new">Nuevo</span>; eliminar pide confirmación y borra también sus imágenes adjuntas. Desde la CLI: <code>perfect-front delete &lt;id&gt; [--yes]</code>.</p>
+
+  <h3>Cambios en vivo <span class="tag new">Nuevo</span></h3>
+  <p>El widget se entera en ~1 s cuando un agente, la CLI o el dashboard toma, resuelve, reabre, edita, mueve o borra un comentario (o cambia una colección): el pin pulsa en turquesa al quedar «en curso», pasa a verde al resolverse y el lanzador avisa «Comentario #5 resuelto · 2 de 3» con acción «Ver». Pines, cajón y grupos se refrescan solos, sin recargar la página.</p>
+  <ul>
+    <li><b>Canal</b>: SSE por <code>/__pf/events</code> (mismo origen que tu app, a través del proxy). Las ráfagas de eventos se agrupan unos 150 ms antes de refrescar.</li>
+    <li><b>Reconexión</b>: si el canal cae, reintenta con espera creciente (de 1 s hasta 10 s).</li>
+    <li><b>Respaldo</b>: si SSE no está disponible, hace <b>polling</b> cada 3 s con la pestaña visible y cada 15 s si está oculta.</li>
+  </ul>
+
+  <h3>Comment Deck y paneles flotantes <span class="tag new">Nuevo</span></h3>
+  <p>El look «Comment Deck» (pantallas LCD, teclas y bandejas oscuras) es solo visual: no cambia el comportamiento. Los paneles del overlay son <b>flotantes</b>:</p>
+  <ul>
+    <li><b>Mover</b>: arrastra por la cabecera (⠿). Al acercarte a un borde aparece una zona de anclaje.</li>
+    <li><b>Anclar</b>: suelta el panel a menos de ~48 px del borde <b>derecho</b> o <b>inferior</b> y queda anclado; arrastrar un panel anclado lo suelta. El anclaje y el tamaño se recuerdan por tipo de panel en el navegador.</li>
+    <li><b>Redimensionar</b>: con el panel anclado, arrastra su borde interior (cambia el ancho a la derecha o el alto abajo).</li>
+    <li><b>Minimizar</b>: el panel pasa a una píldora «Panel minimizado»; el botón «Restaurar panel» lo recupera.</li>
+  </ul>
+  <p>Atajos con el foco en la <b>cabecera</b> del panel:</p>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Atajo</th><th>Efecto</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>Enter</kbd> / <kbd>Espacio</kbd></td><td>Minimiza. Minimizado, lo mismo restaura; <kbd>Esc</kbd> cierra.</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>→</kbd> / <kbd>↓</kbd></td><td>Ancla a la derecha / abajo.</td></tr>
+      <tr><td><kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>←</kbd> / <kbd>↑</kbd></td><td>Suelta el panel anclado.</td></tr>
+      <tr><td>Flechas con el foco en el borde</td><td>Cambian el tamaño de 16 en 16 px (con <kbd>⇧</kbd>, de 64 en 64). A la derecha, <kbd>←</kbd> agranda y <kbd>→</kbd> reduce; abajo, <kbd>↑</kbd> agranda y <kbd>↓</kbd> reduce.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Enviar a agente <span class="tag new">Nuevo</span></h3>
+  <p>El botón <b>Enviar a agente</b> crea una solicitud en la bandeja <code>.perfect-front/agent-inbox</code> (por la API <code>POST /api/projects/:id/agent/requests</code>). El prompt solo dice <b>qué hay y dónde</b> (IDs, rutas y comandos de la CLI) y <b>nunca incluye el texto de los comentarios</b>: el agente los lee de los archivos. Para que el agente se entere solo, deja corriendo <code>perfect-front watch</code> (<code>--once</code> espera una sola solicitud), por ejemplo bajo el Monitor de Claude Code.</p>
   <h3>Pines</h3>
   <p>Cada comentario deja un pin numerado sobre el elemento: azul si está abierto, verde si está resuelto, otro color si pertenece a un grupo. El conteo aparece en el lanzador.</p>
   <div class="saved"><b>Qué se guarda</b><p>En el comentario: <code>group: { id, position }</code> (la cola es el orden por <code>position</code>). El nombre, la nota y <code>readFirst</code> viven en el grupo.</p></div>
@@ -603,12 +648,43 @@ perfect-front</pre></div>
       <tr><td><code>resolve &lt;id&gt; --summary "…"</code></td><td>Registra la resolución (<code>--files</code>, <code>--verification</code>, <code>--commit</code>, <code>--by agent|human</code>).</td></tr>
       <tr><td><code>edit &lt;id&gt; --comment "…"</code></td><td>Cambia el texto del comentario.</td></tr>
       <tr><td><code>move &lt;id…&gt; --to &lt;colección&gt;</code></td><td>Mueve a una colección existente.</td></tr>
+      <tr><td><code>delete &lt;id&gt; [--yes]</code></td><td>Elimina el comentario (y sus adjuntos); sin <code>--yes</code> pide confirmación.</td></tr>
+      <tr><td><code>watch [--once]</code></td><td>Espera las peticiones «Enviar a agente» del widget y las imprime como eventos.</td></tr>
+      <tr><td><code>claude [--force]</code></td><td>Instala el skill <code>perfect-front</code> y los comandos <code>/pf</code>, <code>/pf-watch</code> y <code>/pf-status</code> en <code>~/.claude</code>.</td></tr>
       <tr><td><code>status &lt;id&gt; &lt;estado&gt;</code></td><td>Cambia el estado. Sin id: estado del servidor.</td></tr>
       <tr><td><code>ignore</code> / <code>reopen</code></td><td>Marca como ignorado, o vuelve a <code>pending</code>.</td></tr>
       <tr><td><code>export --format md</code></td><td>Markdown a stdout o a un <code>.md</code> dentro de <code>.perfect-front</code> (<code>--out</code>).</td></tr>
     </tbody>
   </table></div>
   <p><code>&lt;id&gt;</code> acepta el ID completo (<code>pf_</code> + 26 caracteres) o un prefijo único. Con <code>--json</code>, stdout trae un único objeto JSON: <code>{"ok":true,…}</code> o <code>{"ok":false,"error":{"code","message"}}</code>. Para no pisar cambios ajenos usa <code>--expect-updated-at &lt;iso&gt;</code> (alias <code>--rev</code>).</p>
+
+  <h3>Vista Auditoría <span class="tag new">Nuevo</span></h3>
+  <p>En el dashboard, el botón <b>Auditoría</b> de la barra superior abre <code>/projects/&lt;id&gt;/audit</code>: todos los comentarios del proyecto <b>en orden de cola</b>, para revisar de un vistazo qué se pidió y cómo va.</p>
+  <ul>
+    <li>Cada fila muestra el estado, chips como «paso N/M · grupo X» y «N elementos», sus secciones y propuestas, y miniaturas de los adjuntos.</li>
+    <li><b>Filtros</b> por estado, grupo y ruta, y una caja de búsqueda; un botón los restablece.</li>
+    <li><b>Abrir en el código</b>: por cada archivo:línea del comentario (propuestas y elementos extra) abre tu editor; si no hay editor disponible, muestra el mensaje de error.</li>
+  </ul>
+
+  <h3>Instalar en Claude Code <span class="tag new">Nuevo</span></h3>
+  <p><code>perfect-front claude</code> instala en <code>~/.claude</code> el skill <code>perfect-front</code> y tres comandos para Claude Code. <b>Enlaza en vez de copiar</b>, así un <code>git pull</code> del repositorio los actualiza solo. Es idempotente: lo que ya apunta aquí se deja igual, y lo que existe y no es de este repo se omite.</p>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Comando</th><th>Qué hace</th></tr></thead>
+    <tbody>
+      <tr><td><code>/pf [pf_ID… | --grupo &lt;id&gt; | --solo-leer]</code></td><td>Ciclo completo: reclama los pendientes (o solo los indicados o un grupo), corrige, verifica y registra con <code>resolve</code>. <code>--solo-leer</code> hace triage sin tocar nada.</td></tr>
+      <tr><td><code>/pf-status</code></td><td>Solo lectura: estado del servidor y proceso, y conteo de comentarios por estado.</td></tr>
+      <tr><td><code>/pf-watch [--interval &lt;ms&gt;]</code></td><td>Deja <code>perfect-front watch</code> corriendo bajo Monitor para atender las peticiones «Enviar a agente» del widget.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tblw"><table class="tbl">
+    <thead><tr><th>Opción de <code>claude</code></th><th>Qué hace</th></tr></thead>
+    <tbody>
+      <tr><td><code>--force</code></td><td>Respalda lo existente como <code>&lt;nombre&gt;.bak-&lt;fecha&gt;</code> y lo reemplaza.</td></tr>
+      <tr><td><code>--home &lt;dir&gt;</code></td><td>Usa el <code>.claude</code> de ese directorio en lugar del tuyo.</td></tr>
+      <tr><td><code>--json</code></td><td>Resultado en JSON (un elemento por skill/comando, con su acción: enlazado, copiado, sin cambios, omitido o reemplazado).</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><p>En Windows sin permiso de symlink, los archivos se copian (con aviso) y las carpetas usan junction; en ese caso un <code>git pull</code> no los actualiza solo: vuelve a ejecutar el comando.</p></div>
 
   <h3>Flujo recomendado</h3>
   <div class="cmd"><header>terminal <button type="button" data-copy>Copiar</button></header><pre>perfect-front list --json
@@ -681,7 +757,7 @@ Contrato completo: packages/cli/AGENTS.md del repo perfect-front.</pre></div>
     <li>La app se sirve desde otro origen (<code>127.0.0.1:&lt;puerto del proxy&gt;</code>): <code>localStorage</code>, cookies y orígenes permitidos quedan separados. Si dependes de ellos, usa <code>--no-proxy</code>.</li>
     <li>HTML comprimido pese a quitar <code>accept-encoding</code>, o en UTF-16, no se inyecta.</li>
     <li>Máximo 20 adjuntos y 5 MB por imagen; reordenar, estilos y contenido son <b>propuestas</b>, nunca cambian el código.</li>
-    <li>La v2 todavía es un prototipo de diseño: algunas piezas descritas aquí aún no tienen código en la rama principal.</li>
+    <li>Lo marcado <span class="tag new">Nuevo</span> pasa typecheck, lint y build, pero aún no se ha probado en un navegador real. Si ya tienes el servidor local corriendo, reinícialo para que acepte los campos nuevos (si no, rechaza con «Datos inválidos»).</li>
   </ul>
 
   <h3>Solución de problemas</h3>
