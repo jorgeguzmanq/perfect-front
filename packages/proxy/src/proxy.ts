@@ -35,6 +35,8 @@ const FIRST_PORT = 7788;
 const PORT_TRIES = 50;
 const MAX_BODY = 14 * 1024 * 1024;
 const UPSTREAM_TIMEOUT_MS = 15_000;
+const MAX_EVENT_STREAMS = 8;
+const EVENT_HEARTBEAT_MS = 15_000;
 const HOP_BY_HOP = ["connection", "keep-alive", "proxy-connection", "proxy-authenticate", "proxy-authorization"];
 
 const STATUS_BY_CODE: Partial<Record<ErrorCode, number>> = {
@@ -141,7 +143,10 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
 
   // --- cliente del servidor local ----------------------------------------------------------------------------
 
-  const callLocal = async (method: "GET" | "POST" | "PATCH" | "DELETE", body?: string, sub = "/comments"): Promise<Record<string, unknown>> => {
+  /** `editor_not_found` no esta en ErrorCode de shared: se reenvia tal cual (424) al overlay. */
+  class EditorNotFoundForward extends Error {}
+
+  const callLocal = async (method: "GET" | "POST" | "PATCH" | "DELETE", body?: string, sub = "/comments", extra: Record<string, string> = {}): Promise<Record<string, unknown>> => {
     const url = `${localServer.baseUrl.replace(/\/+$/, "")}/api/projects/${encodeURIComponent(projectId)}${sub}`;
     let r: Response;
     try {
@@ -149,6 +154,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
         method,
         headers: {
           authorization: `Bearer ${localServer.token}`,
+          ...extra,
           ...(body !== undefined ? { "content-type": "application/json" } : {}),
         },
         ...(body !== undefined ? { body } : {}),
@@ -167,6 +173,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     if (!r.ok || obj.ok !== true) {
       const code = typeof obj.error?.code === "string" ? (obj.error.code as ErrorCode) : "internal_error";
       const message = typeof obj.error?.message === "string" ? obj.error.message : `El servidor local respondió ${r.status}`;
+      if ((obj.error?.code as unknown) === "editor_not_found") throw new EditorNotFoundForward(message.slice(0, 500));
       if (code === "unauthorized") {
         throw new PerfectFrontError("internal_error", "El proxy no está autorizado ante el servidor local (token rechazado)");
       }
@@ -187,11 +194,25 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       elementRect: o.elementRect ?? null,
       group: o.group ?? null,
       createdAt: o.createdAt,
+      updatedAt: o.updatedAt,
     };
   };
 
   /** Rutas dinámicas de grupos y PATCH de comentario; el id debe ser un token simple (sin `/`, `.` ni `%`). */
   const ID = "([A-Za-z0-9_-]{1,128})";
+  /** Cuerpo de `/__pf/open`: `{file, line?, column?}` (el servidor local valida la ruta contra la raiz del proyecto). */
+  const OpenSchema = {
+    safeParse(v: unknown): { success: boolean; data?: unknown; error?: unknown } {
+      const o = v as Record<string, unknown> | null;
+      if (o === null || typeof o !== "object" || Array.isArray(o)) return { success: false, error: new PerfectFrontError("invalid_request", "Datos inválidos") };
+      const bad = Object.keys(o).some((k) => !["file", "line", "column"].includes(k));
+      const int = (x: unknown, max: number): boolean => x === undefined || (typeof x === "number" && Number.isInteger(x) && x >= 1 && x <= max);
+      if (bad || typeof o.file !== "string" || o.file.length < 1 || o.file.length > 1024 || !int(o.line, 10_000_000) || !int(o.column, 100_000)) {
+        return { success: false, error: new PerfectFrontError("invalid_request", "Datos inválidos") };
+      }
+      return { success: true, data: { file: o.file, ...(o.line !== undefined ? { line: o.line } : {}), ...(o.column !== undefined ? { column: o.column } : {}) } };
+    },
+  };
   type Dyn = { sub: string; schema?: { safeParse(v: unknown): { success: boolean; data?: unknown; error?: unknown } }; status: number };
   const dynamicRoute = (pathname: string, method: string): Dyn | "method" | null => {
     let m: RegExpExecArray | null;
@@ -200,6 +221,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       if (method === "POST") return { sub: "/groups", schema: CreateGroupRequestSchema, status: 201 };
       return "method";
     }
+    if (pathname === "/__pf/open") return method === "POST" ? { sub: "/open", schema: OpenSchema, status: 200 } : "method";
     if (pathname === "/__pf/agent/requests") {
       if (method === "GET") return { sub: "/agent/requests", status: 200 };
       if (method === "POST") return { sub: "/agent/requests", schema: CreateAgentRequestSchema, status: 201 };
@@ -214,7 +236,9 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       return "method";
     }
     if ((m = new RegExp(`^/__pf/comments/${ID}$`).exec(pathname))) {
-      return method === "PATCH" ? { sub: `/comments/${m[1]}`, schema: UpdateCommentRequestSchema, status: 200 } : "method";
+      if (method === "PATCH") return { sub: `/comments/${m[1]}`, schema: UpdateCommentRequestSchema, status: 200 };
+      if (method === "DELETE") return { sub: `/comments/${m[1]}`, status: 200 };
+      return "method";
     }
     return null;
   };
@@ -252,6 +276,135 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       });
     });
 
+  // --- SSE /__pf/events --------------------------------------------------------------------------------------
+
+  const streams = new Set<() => void>();
+
+  /**
+   * Reenvía `/api/events` del servidor local filtrando por el proyecto de este proxy. EventSource no admite
+   * cabeceras: aquí (y solo aquí) el token del overlay también se acepta por query `pf_token`. Solo salen
+   * eventos de comentarios/colecciones con datos mínimos (sin capturas ni textos).
+   */
+  const handleEvents = async (req: http.IncomingMessage, res: http.ServerResponse): Promise<void> => {
+    if (!originAllowed(req)) return sendError(res, new PerfectFrontError("forbidden_origin", "Origen no permitido"));
+    let provided: string | undefined | null = typeof req.headers["x-pf-token"] === "string" ? req.headers["x-pf-token"] : undefined;
+    if (provided === undefined) {
+      try {
+        provided = new URL(req.url ?? "/", "http://x").searchParams.get("pf_token");
+      } catch {
+        provided = null;
+      }
+    }
+    if (typeof provided !== "string" || !safeEqual(provided, token)) {
+      return sendError(res, new PerfectFrontError("unauthorized", "Token del proxy ausente o inválido"));
+    }
+    if (streams.size >= MAX_EVENT_STREAMS) return sendError(res, new PerfectFrontError("invalid_request", "Demasiados clientes de eventos"), 429);
+
+    const ctrl = new AbortController();
+    let closed = false;
+    let beat: ReturnType<typeof setInterval> | null = null;
+    const stop = (): void => {
+      if (closed) return;
+      closed = true;
+      if (beat) clearInterval(beat);
+      streams.delete(stop);
+      ctrl.abort();
+      if (!res.writableEnded) res.end();
+    };
+    streams.add(stop);
+    res.on("close", stop);
+
+    let upstream: Response;
+    const connectTimer = setTimeout(() => ctrl.abort(), UPSTREAM_TIMEOUT_MS);
+    try {
+      upstream = await fetch(`${localServer.baseUrl.replace(/\/+$/, "")}/api/events`, {
+        headers: { authorization: `Bearer ${localServer.token}`, accept: "text/event-stream" },
+        signal: ctrl.signal,
+      });
+    } catch {
+      clearTimeout(connectTimer);
+      const wasClosed = closed;
+      stop();
+      if (!wasClosed && !res.headersSent) sendError(res, new PerfectFrontError("internal_error", "No se pudo contactar al servidor local de Perfect Front"));
+      return;
+    }
+    clearTimeout(connectTimer);
+    if (!upstream.ok || !upstream.body) {
+      const status = upstream.status === 429 ? 429 : 502;
+      upstream.body?.cancel().catch(() => undefined);
+      streams.delete(stop);
+      closed = true;
+      return sendError(res, new PerfectFrontError(status === 429 ? "invalid_request" : "internal_error", "El servidor local no admite más clientes de eventos"), status);
+    }
+    if (closed) return;
+
+    res.writeHead(200, {
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache, no-transform",
+      "x-accel-buffering": "no",
+      "x-content-type-options": "nosniff",
+    });
+    res.write(": connected\n\n");
+    beat = setInterval(() => {
+      if (!closed) res.write(": ping\n\n");
+    }, EVENT_HEARTBEAT_MS);
+
+    const decoder = new TextDecoder();
+    const reader = upstream.body.getReader();
+    let buf = "";
+    type Ev = { type?: unknown; projectId?: unknown; at?: unknown; commentId?: unknown; comment?: { id?: unknown; status?: unknown; updatedAt?: unknown } };
+    const forward = (frame: string): void => {
+      let id = "";
+      let data = "";
+      for (const line of frame.split(/\r?\n/)) {
+        if (line.startsWith("id:")) id = line.slice(3).trim();
+        else if (line.startsWith("data:")) data += line.slice(5).trimStart();
+      }
+      if (!data) return; // comentarios/heartbeats del servidor: el proxy emite los suyos
+      let ev: Ev;
+      try {
+        ev = JSON.parse(data) as Ev;
+      } catch {
+        return;
+      }
+      if (ev.projectId !== projectId || typeof ev.type !== "string" || !/^(comment|collection)\./.test(ev.type)) return;
+      const slim = {
+        type: ev.type,
+        projectId,
+        at: ev.at,
+        commentId: typeof ev.commentId === "string" ? ev.commentId : ev.comment?.id,
+        status: ev.comment?.status,
+        updatedAt: ev.comment?.updatedAt,
+      };
+      res.write(`${/^\d{1,16}$/.test(id) ? `id: ${id}\n` : ""}event: ${ev.type}\ndata: ${JSON.stringify(slim)}\n\n`);
+    };
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done || closed) break;
+        buf += decoder.decode(value, { stream: true });
+        if (buf.length > 1024 * 1024) buf = ""; // trama anómala: se descarta
+        for (let m = /\r?\n\r?\n/.exec(buf); m && !closed; m = /\r?\n\r?\n/.exec(buf)) {
+          const frame = buf.slice(0, m.index);
+          buf = buf.slice(m.index + m[0].length);
+          forward(frame);
+        }
+        // Contrapresión: si el navegador no drena, se pausa la lectura del upstream.
+        if (res.writableNeedDrain && !closed) {
+          await new Promise<void>((r) => {
+            res.once("drain", r);
+            res.once("close", r);
+          });
+        }
+      }
+    } catch {
+      /* upstream cortado o abortado */
+    } finally {
+      reader.cancel().catch(() => undefined);
+      stop();
+    }
+  };
+
   // --- rutas propias /__pf/ ----------------------------------------------------------------------------------
 
   const handleOwn = async (req: http.IncomingMessage, res: http.ServerResponse, pathname: string): Promise<void> => {
@@ -261,6 +414,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
       "/__pf/health": "GET",
       "/__pf/comments": "GET",
       "/__pf/comment": "POST",
+      "/__pf/events": "GET",
     };
     const dyn = Object.hasOwn(routes, pathname) ? null : dynamicRoute(pathname, method);
     if (dyn === "method") return sendError(res, new PerfectFrontError("invalid_request", "Método no permitido"), 405);
@@ -281,9 +435,13 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
           if (!parsed.success) throw parsed.error;
           payload = JSON.stringify(parsed.data);
         }
-        const json = await callLocal(method as "GET" | "POST" | "PATCH" | "DELETE", payload, dyn.sub);
+        // Control de concurrencia del PATCH de comentario: se reenvía tal cual (el servidor compara con updatedAt).
+        const expected = req.headers["x-pf-expected-updated-at"];
+        const extra = typeof expected === "string" && expected.length <= 64 ? { "x-pf-expected-updated-at": expected } : {};
+        const json = await callLocal(method as "GET" | "POST" | "PATCH" | "DELETE", payload, dyn.sub, extra);
         return sendJson(res, dyn.status, json);
       } catch (e) {
+        if (e instanceof EditorNotFoundForward) return sendJson(res, 424, { ok: false, error: { code: "editor_not_found", message: redact(e.message) } });
         return sendError(res, e);
       }
     }
@@ -295,6 +453,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     }
 
     if (pathname === "/__pf/health") return sendJson(res, 200, { ok: true });
+    if (pathname === "/__pf/events") return handleEvents(req, res);
 
     if (pathname === "/__pf/overlay.js") {
       try {
@@ -548,6 +707,7 @@ export async function startProxy(options: ProxyOptions): Promise<ProxyHandle> {
     token,
     close(): Promise<void> {
       closing ??= new Promise<void>((resolve) => {
+        for (const stop of [...streams]) stop();
         server.close(() => resolve());
         server.closeAllConnections();
         for (const s of sockets) s.destroy();

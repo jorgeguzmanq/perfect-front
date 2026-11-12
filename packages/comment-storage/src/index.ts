@@ -8,7 +8,7 @@ export type {
   MoveResult,
 } from "./service";
 export { GroupStorage } from "./groups";
-export { buildAgentPrompt, buildInboxPrompt, formatPromptBlock, PROMPT_BEGIN, PROMPT_END } from "./agent-prompt";
+export { AGENT_PROMPT_FILE, buildShortAgentPrompt, buildAgentPrompt, buildInboxPrompt, formatPromptBlock, PROMPT_BEGIN, PROMPT_END } from "./agent-prompt";
 export type { AgentPromptContext, InboxPromptInfo } from "./agent-prompt";
 export * from "./inbox";
 export { FsRepository } from "./repository";

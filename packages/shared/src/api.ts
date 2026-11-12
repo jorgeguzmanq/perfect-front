@@ -294,6 +294,8 @@ export const CreateAgentRequestSchema = z
   .object({
     commentIds: z.array(CommentIdSchema).min(1).max(LIMITS.groupItems).optional(),
     groupId: GroupIdSchema.optional(),
+    /** ID (o JSON de identificación) que el agente destino le dio a la persona; se guarda con la solicitud. */
+    agentRef: z.string().trim().min(1).max(500).optional(),
   })
   .strict();
 export type CreateAgentRequest = z.infer<typeof CreateAgentRequestSchema>;

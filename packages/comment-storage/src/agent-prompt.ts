@@ -98,11 +98,35 @@ export function buildAgentPrompt(ctx: AgentPromptContext): string {
   return L.join("\n");
 }
 
+/** Nombre del archivo (dentro de .perfect-front) donde se guarda el prompt completo. */
+export const AGENT_PROMPT_FILE = "AGENT_PROMPT.md";
+
+/** Prompt corto para imprimir en terminal: qué hacer, dónde están los comentarios y dónde está el prompt completo. */
+export function buildShortAgentPrompt(ctx: AgentPromptContext, promptFile: string): string {
+  const cli = ctx.cli ?? "perfect-front";
+  const root = path.resolve(ctx.root);
+  const pf = path.join(root, ".perfect-front");
+  return [
+    "Aplica en el código de este proyecto los comentarios visuales de Perfect Front, uno por uno, y ve moviéndolos EN VIVO para que la persona vea el avance en el widget:",
+    `1. \`${cli} claim <id>\` al empezar (pending → in_progress).`,
+    "2. Implementa el cambio y verifícalo.",
+    `3. \`${cli} resolve <id> --summary "qué cambiaste" --files a,b --by agent\` apenas termines ese comentario (no los dejes para el final).`,
+    "",
+    `- Comentarios (un JSON por comentario): ${path.join(pf, "comments", "<coleccion>", "<id>.json")}  →  ${path.join(pf, "comments")}`,
+    `- Capturas adjuntas: ${path.join(pf, "attachments")}`,
+    `- Pendientes: \`${cli} list --json\` (desde ${root} o con --cwd "${root}")`,
+    `- Instrucciones completas (léelas antes de empezar): ${promptFile}`,
+    `- No edites ${pf} a mano: usa solo los comandos de la CLI.`,
+  ].join("\n");
+}
+
 export interface InboxPromptInfo {
   /** IDs de los comentarios de la petición, en el orden en que deben atenderse. */
   ids: string[];
   /** Grupo de lectura de la petición, si se envió un grupo. */
   groupId?: string | null;
+  /** Identificación del agente destino que dio la persona (id o JSON). */
+  agentRef?: string;
 }
 
 /**
@@ -114,6 +138,7 @@ export function buildInboxPrompt(ctx: AgentPromptContext, info: InboxPromptInfo)
   const extra = [
     "",
     "## Petición enviada desde el widget",
+    ...(info.agentRef ? [`Destinatario: ${info.agentRef}`] : []),
     `Pendientes: ${info.ids.length} → ${info.ids.length > 0 ? info.ids.join(", ") : "(ninguno)"}`,
     ...(info.groupId ? [`Grupo: ${info.groupId} (ids en el orden de cola del grupo; la nota está en groups.json)`] : []),
     `Lee cada uno con \`${cli} show <id> --json\` (o \`${cli} list --json\`) y sigue el flujo claim → resolve de arriba, solo para estos ids.`,

@@ -35,7 +35,7 @@ beforeEach(async () => {
     res.writeHead(200, { "content-type": "text/plain" }).end(`ok ${req.method}`);
   });
   target.on("upgrade", (req, socket) => {
-    sockets.add(socket);
+    sockets.add(socket as net.Socket);
     seen.push({ origin: req.headers.origin, referer: req.headers.referer, host: req.headers.host, path: req.url ?? "" });
     socket.on("error", () => undefined);
     if (req.headers.origin !== undefined && req.headers.origin !== ownOrigin()) {

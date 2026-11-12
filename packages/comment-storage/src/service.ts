@@ -416,6 +416,41 @@ export class CommentStorage {
     });
   }
 
+  /**
+   * Elimina el comentario: su JSON y sus adjuntos (`attachments/<id>*`). Si pertenecía a un grupo de lectura,
+   * recompacta las posiciones de la cola restante (1..n) y devuelve esos comentarios ya actualizados.
+   */
+  async deleteComment(id: string): Promise<{ deleted: VisualComment; renumbered: VisualComment[] }> {
+    const cid = parseCommentId(id);
+    const deleted = await this.withLock(cid, async () => {
+      const current = await this.load(cid);
+      const rels = new Set<string>([
+        ...current.attachments,
+        ...current.attachmentInfo.map((a) => a.path),
+        ...current.sections.flatMap((x) => x.attachments),
+      ]);
+      await this.repo.remove(this.repo.commentFile(current.collection, cid));
+      for (const rel of rels) {
+        const name = rel.startsWith("attachments/") ? rel.slice("attachments/".length) : "";
+        // Solo nombres planos que empiezan por el ID del comentario: nunca se borra algo ajeno.
+        if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(name) || name.includes("..") || !name.startsWith(cid)) continue;
+        await this.repo.remove(this.repo.attachmentFile(name)).catch(() => undefined);
+      }
+      return current;
+    });
+    const renumbered: VisualComment[] = [];
+    const gid = deleted.group?.id;
+    if (gid) {
+      const rest = (await this.listComments({})).comments
+        .filter((c) => c.group?.id === gid)
+        .sort((a, b) => (a.group!.position - b.group!.position) || (a.id < b.id ? -1 : 1));
+      for (const [i, c] of rest.entries()) {
+        if (c.group!.position !== i + 1) renumbered.push(await this.updateComment(c.id, { group: { id: gid, position: i + 1 } }));
+      }
+    }
+    return { deleted, renumbered };
+  }
+
   async moveComment(id: string, to: string): Promise<VisualComment> {
     const { to: target } = parseWith<{ to: string }>(MoveCommentRequestSchema, { to });
     const cid = parseCommentId(id);

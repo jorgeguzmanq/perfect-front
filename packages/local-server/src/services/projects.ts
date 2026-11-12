@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { createCommentStorage } from "@perfect-front/comment-storage";
-import { detectProject } from "@perfect-front/project-detector";
+import { detectProject, type FrameworkInfo } from "@perfect-front/project-detector";
 import {
   PerfectFrontError,
   RegisterProjectRequestSchema,
@@ -84,7 +84,7 @@ export class ProjectsService {
         const d = detectProject({ cwd: real });
         return {
           url: d.url,
-          framework: d.framework ? (d.framework.ui ? `${d.framework.bundler}-${d.framework.ui}` : d.framework.bundler) : null,
+          framework: d.framework ? frameworkLabel(d.framework) : null,
         };
       } catch {
         return null;
@@ -114,4 +114,10 @@ export class ProjectsService {
     });
     return project;
   }
+}
+
+/** Etiqueta corta del framework detectado: `vite-react`, `vite`, `next-react`, `angular-angular`. */
+function frameworkLabel(f: FrameworkInfo): string {
+  const base = "bundler" in f ? f.bundler : f.runtime;
+  return f.ui ? `${base}-${f.ui}` : base;
 }

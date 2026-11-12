@@ -22,6 +22,8 @@ export interface AgentRequest {
   createdAt: string;
   commentIds: string[];
   groupId: string | null;
+  /** Identificación del agente destino (id o JSON que él mismo entregó), si la persona la indicó. */
+  agentRef?: string;
   prompt: string;
   status: AgentRequestStored;
 }
@@ -54,7 +56,7 @@ async function writeAtomic(file: string, data: unknown): Promise<void> {
 /** Crea la petición. `queue` = comentarios pendientes ya filtrados y ordenados (ids, no texto, llegan al prompt). */
 export async function createAgentRequest(
   root: string,
-  input: { commentIds: string[]; groupId?: string | null },
+  input: { commentIds: string[]; groupId?: string | null; agentRef?: string },
   ctx: Omit<AgentPromptContext, "root"> = {},
 ): Promise<AgentRequest> {
   const ids = [...new Set(input.commentIds)];
@@ -65,7 +67,8 @@ export async function createAgentRequest(
     createdAt: nowTimestamp(),
     commentIds: ids,
     groupId,
-    prompt: buildInboxPrompt({ ...ctx, root }, { ids, groupId }),
+    ...(input.agentRef ? { agentRef: input.agentRef } : {}),
+    prompt: buildInboxPrompt({ ...ctx, root }, { ids, groupId, ...(input.agentRef ? { agentRef: input.agentRef } : {}) }),
     status: "pending",
   };
   const dir = inboxDir(root);
@@ -121,5 +124,12 @@ export function deriveAgentRequest(req: AgentRequest, comments: readonly { id: s
   let status: AgentRequestStatus = "pending";
   if (req.commentIds.length > 0 && open.length === 0) status = "done";
   else if (req.status === "taken" || anyClaimed) status = "taken";
-  return { id: req.id, createdAt: req.createdAt, commentIds: req.commentIds, groupId: req.groupId, status };
+  return {
+    id: req.id,
+    createdAt: req.createdAt,
+    commentIds: req.commentIds,
+    groupId: req.groupId,
+    ...(req.agentRef ? { agentRef: req.agentRef } : {}),
+    status,
+  };
 }

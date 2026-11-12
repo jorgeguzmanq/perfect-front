@@ -41,6 +41,7 @@ import {
 } from "./security";
 import { AgentService } from "./services/agent";
 import { CommentsService } from "./services/comments";
+import { EditorNotFoundError, EditorService, OpenInEditorRequestSchema, type ExecFileFn } from "./services/editor";
 import { GroupsService } from "./services/groups";
 import { ProcessesService } from "./services/processes";
 import { ProjectsService } from "./services/projects";
@@ -93,6 +94,8 @@ export interface CoreOptions {
   authFailMax?: number;
   /** Carpeta del build del dashboard. Por defecto `apps/dashboard/dist`. */
   dashboardDir?: string;
+  /** Ejecutor del editor para `POST /api/projects/:id/open` (solo tests; por defecto `execFile` sin shell). */
+  execFile?: ExecFileFn;
 }
 
 export interface Core {
@@ -123,6 +126,7 @@ export async function createCore(options: CoreOptions): Promise<Core> {
   const comments = new CommentsService(registry, bus);
   const groups = new GroupsService(registry, comments);
   const agent = new AgentService(registry, comments);
+  const editor = new EditorService(registry, options.execFile ? { execFile: options.execFile } : {});
 
   const limiter = new RateLimiter(options.rateMax ?? LIMITS.rateMax, options.rateWindowMs ?? LIMITS.rateWindowMs);
   const authFails = new RateLimiter(options.authFailMax ?? LIMITS.authFailMax, options.rateWindowMs ?? LIMITS.rateWindowMs);
@@ -317,6 +321,13 @@ export async function createCore(options: CoreOptions): Promise<Core> {
     return c.json({ ok: true, comment: await comments.update(id, c.req.param("commentId"), body, expected) });
   });
 
+  app.delete("/api/projects/:id/comments/:commentId", async (c) => {
+    const id = c.req.param("id");
+    registry.get(id);
+    const r = await comments.delete(id, c.req.param("commentId"));
+    return c.json({ ok: true, deleted: r });
+  });
+
   /** Captura del comentario. Requiere token (el rol `extension` no la ve); el dashboard la pide con fetch + Bearer. */
   app.get("/api/projects/:id/comments/:commentId/attachments/:file", async (c) => {
     if (c.get("role") === "extension") {
@@ -356,6 +367,21 @@ export async function createCore(options: CoreOptions): Promise<Core> {
     registry.get(id);
     const body = await readBody(c, CreateCollectionRequestSchema);
     return c.json({ ok: true, collection: await comments.createCollection(id, body.name) }, 201);
+  });
+
+  // --- Abrir en el editor ------------------------------------------------------
+
+  app.post("/api/projects/:id/open", jsonBody, async (c) => {
+    if (c.get("role") === "extension") throw new PerfectFrontError("forbidden_origin", "La extensión no puede abrir el editor");
+    const id = c.req.param("id");
+    registry.get(id);
+    const body = await readBody(c, OpenInEditorRequestSchema);
+    try {
+      return c.json({ ok: true, opened: await editor.open(id, body) });
+    } catch (err) {
+      if (err instanceof EditorNotFoundError) return c.json({ ok: false, error: { code: err.code, message: err.message } }, 424);
+      throw err;
+    }
   });
 
   // --- Grupos de lectura -------------------------------------------------------

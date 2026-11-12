@@ -29,7 +29,7 @@ async function attachmentsOf(root: string): Promise<string[]> {
 
 describe("creación v2 con subidas y secciones", () => {
   it("guarda cada imagen con su extensión, la ata a su sección y registra metadatos", async () => {
-    const { root, storage } = await tempProject();
+    const { storage } = await tempProject();
     const c = await storage.createComment(
       v2({
         sections: [

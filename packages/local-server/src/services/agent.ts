@@ -29,7 +29,7 @@ export class AgentService {
       ids = open.filter((c) => c.status === "pending").map((c) => c.id);
     }
     if (ids.length === 0) throw new PerfectFrontError("invalid_request", "No hay comentarios pendientes que enviar");
-    const req = await createAgentRequest(rec.root, { commentIds: ids, groupId: input.groupId ?? null });
+    const req = await createAgentRequest(rec.root, { commentIds: ids, groupId: input.groupId ?? null, ...(input.agentRef ? { agentRef: input.agentRef } : {}) });
     return deriveAgentRequest(req, all);
   }
 

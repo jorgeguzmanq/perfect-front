@@ -1,4 +1,4 @@
-import { readFile, readdir, writeFile } from "node:fs/promises";
+import { readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { CommentStorage } from "../src/index";
@@ -85,6 +85,26 @@ describe("comentarios", () => {
     expect(e.updatedAt > c.updatedAt).toBe(true);
     expect((await storage.getComment(c.id)).comment).toBe("Nuevo texto");
     await expect(storage.updateComment(c.id, {})).rejects.toMatchObject({ code: "invalid_request" });
+  });
+
+  it("deleteComment borra el JSON y sus adjuntos, y recompacta la cola del grupo", async () => {
+    const { root, storage } = await tempProject();
+    const png = { mimeType: "image/png", dataBase64: PNG_B64 };
+    const group = (position: number) => ({ id: "g-uno", position });
+    const a = await storage.createComment(commentInput({ group: group(1), screenshot: png }));
+    const b = await storage.createComment(commentInput({ group: group(2) }));
+    const c = await storage.createComment(commentInput({ group: group(3) }));
+    const file = a.attachments[0]!.split("/")[1]!;
+    const attPath = path.join(root, ".perfect-front", "attachments", file);
+    await expect(stat(attPath)).resolves.toBeTruthy();
+    const r = await storage.deleteComment(a.id);
+    expect(r.deleted.id).toBe(a.id);
+    await expect(stat(attPath)).rejects.toThrow();
+    await expect(storage.getComment(a.id)).rejects.toMatchObject({ code: "not_found" });
+    expect(r.renumbered.map((x) => [x.id, x.group!.position])).toEqual([[b.id, 1], [c.id, 2]]);
+    expect((await storage.getComment(c.id)).group).toEqual({ id: "g-uno", position: 2 });
+    await expect(storage.deleteComment(a.id)).rejects.toMatchObject({ code: "not_found" });
+    await expect(storage.deleteComment("../../project")).rejects.toMatchObject({ code: "invalid_id" });
   });
 
   it("filtra por estado y texto", async () => {

@@ -59,7 +59,7 @@ let targetServer: http.Server;
 let targetPort: number;
 let localServer: http.Server;
 let localPort: number;
-let localLog: { method: string; url: string; auth: string | undefined; body: string }[];
+let localLog: { method: string; url: string; auth: string | undefined; expected?: string | string[] | undefined; body: string }[];
 let handle: ProxyHandle;
 let logs: string[];
 let overlay: () => Promise<string>;
@@ -133,7 +133,7 @@ beforeEach(async () => {
     const chunks: Buffer[] = [];
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
-      localLog.push({ method: req.method ?? "", url: req.url ?? "", auth: req.headers.authorization, body: Buffer.concat(chunks).toString() });
+      localLog.push({ method: req.method ?? "", url: req.url ?? "", auth: req.headers.authorization, expected: req.headers["x-pf-expected-updated-at"], body: Buffer.concat(chunks).toString() });
       if (req.url === "/api/projects/proj_1/comments" && req.method === "GET") {
         res.writeHead(200, { "content-type": "application/json" }).end(
           JSON.stringify({
@@ -157,6 +157,15 @@ beforeEach(async () => {
         res.writeHead(201, { "content-type": "application/json" }).end(
           JSON.stringify({ ok: true, comment: { id: "pf_ABCDE", collection: "inbox", location: { route: "/pricing" } } }),
         );
+      } else if (req.url === "/api/projects/proj_1/comments/pf_ABCDE" && (req.method === "PATCH" || req.method === "DELETE")) {
+        res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, comment: { id: "pf_ABCDE" } }));
+      } else if (req.url === "/api/projects/proj_1/open" && req.method === "POST") {
+        const file = (JSON.parse(Buffer.concat(chunks).toString()) as { file: string }).file;
+        if (file === "no-editor.tsx") {
+          res.writeHead(424, { "content-type": "application/json" }).end(JSON.stringify({ ok: false, error: { code: "editor_not_found", message: "sin code" } }));
+        } else {
+          res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, opened: { file, line: 3, column: null } }));
+        }
       } else if (req.url === "/api/projects/proj_1/groups" && req.method === "GET") {
         res.writeHead(200, { "content-type": "application/json" }).end(JSON.stringify({ ok: true, groups: [{ id: "g1" }] }));
       } else if (req.url === "/api/projects/proj_1/groups/g1" && req.method === "DELETE") {
@@ -385,6 +394,40 @@ describe("seguridad", () => {
     const badPatch = await request(handle.port, "/__pf/comments/pf_ABCDE", { method: "PATCH", headers: auth(), body: JSON.stringify({ nope: 1 }) });
     expect(badPatch.status).toBe(400);
     expect(localLog).toHaveLength(2);
+  });
+  it("open: reenvía {file,line,column} con token, valida cuerpo y propaga editor_not_found", async () => {
+    const url = "/__pf/open";
+    expect((await request(handle.port, url, { method: "POST", body: JSON.stringify({ file: "a.tsx" }) })).status).toBe(401);
+    expect((await request(handle.port, url, { headers: auth() })).status).toBe(405);
+    for (const body of [{}, { file: "" }, { file: "a.tsx", line: 0 }, { file: "a.tsx", line: 1.5 }, { file: "a.tsx", extra: 1 }, { file: 5 }]) {
+      expect((await request(handle.port, url, { method: "POST", headers: auth(), body: JSON.stringify(body) })).status, JSON.stringify(body)).toBe(400);
+    }
+    expect(localLog).toHaveLength(0);
+    const ok = await request(handle.port, url, { method: "POST", headers: auth(), body: JSON.stringify({ file: "src/A.tsx", line: 3 }) });
+    expect(ok.status).toBe(200);
+    expect(JSON.parse(ok.text).ok).toBe(true);
+    expect(localLog[0]).toMatchObject({ method: "POST", url: "/api/projects/proj_1/open", auth: `Bearer ${LOCAL_TOKEN}` });
+    expect(JSON.parse(localLog[0]!.body)).toEqual({ file: "src/A.tsx", line: 3 });
+    const none = await request(handle.port, url, { method: "POST", headers: auth(), body: JSON.stringify({ file: "no-editor.tsx" }) });
+    expect(none.status).toBe(424);
+    expect(JSON.parse(none.text).error.code).toBe("editor_not_found");
+  });
+  it("comentarios: reenvía PATCH (con x-pf-expected-updated-at) y DELETE con token del servidor local", async () => {
+    const stamp = "2026-01-01T00:00:00.000Z";
+    expect((await request(handle.port, "/__pf/comments/pf_ABCDE", { method: "DELETE" })).status).toBe(401);
+    expect(localLog).toHaveLength(0);
+    const patch = await request(handle.port, "/__pf/comments/pf_ABCDE", {
+      method: "PATCH",
+      headers: { ...auth(), "x-pf-expected-updated-at": stamp },
+      body: JSON.stringify({ comment: "nuevo" }),
+    });
+    expect(patch.status).toBe(200);
+    expect(localLog[0]).toMatchObject({ method: "PATCH", url: "/api/projects/proj_1/comments/pf_ABCDE", auth: `Bearer ${LOCAL_TOKEN}`, expected: stamp });
+    const del = await request(handle.port, "/__pf/comments/pf_ABCDE", { method: "DELETE", headers: auth() });
+    expect(del.status).toBe(200);
+    expect(localLog[1]).toMatchObject({ method: "DELETE", url: "/api/projects/proj_1/comments/pf_ABCDE", auth: `Bearer ${LOCAL_TOKEN}` });
+    expect((await request(handle.port, "/__pf/comments/pf_ABCDE", { method: "PUT", headers: auth() })).status).toBe(405);
+    expect((await request(handle.port, "/__pf/comments/a%2Fb", { method: "DELETE", headers: auth() })).status).toBe(404);
   });
   it("POST válido: reenvía con el token del servidor local y devuelve CommentCreatedData", async () => {
     const r = await request(handle.port, "/__pf/comment", { method: "POST", headers: auth(), body: JSON.stringify(validComment) });

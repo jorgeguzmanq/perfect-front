@@ -46,6 +46,22 @@ export const LocationSourceSchema = z
   .strict();
 export type LocationSource = z.infer<typeof LocationSourceSchema>;
 
+/**
+ * Marco (`<iframe>`) donde se comentó. `location.url`/`route` siguen siendo los de la página del marco;
+ * aquí va el contexto anfitrión. Opcional: los comentarios hechos en la ventana superior no lo llevan.
+ */
+export const FrameRefSchema = z
+  .object({
+    /** URL de la página del marco (la que contiene el elemento). */
+    url: httpUrl,
+    /** Selector del `<iframe>` en la página anfitriona; null si no se pudo leer (p. ej. anfitrión de otro origen). */
+    selector: z.string().min(1).max(LIMITS.selector).nullable(),
+    /** Ruta (path+query) de la página anfitriona, si se pudo leer. */
+    hostRoute: z.string().max(2048).startsWith("/").refine(noControl, "hostRoute con caracteres de control").nullable().optional(),
+  })
+  .strict();
+export type FrameRef = z.infer<typeof FrameRefSchema>;
+
 export const CommentLocationSchema = z
   .object({
     url: httpUrl,
@@ -56,6 +72,10 @@ export const CommentLocationSchema = z
     text: z.string().max(LIMITS.text).nullable(),
     html: z.string().max(LIMITS.html).nullable(),
     componentHint: z.string().max(200).nullable(),
+    /** Origen en el código del elemento principal (de `data-pf-src`), si se conoce. */
+    source: LocationSourceSchema.nullable().optional(),
+    /** v2: marco donde se comentó (null/ausente = ventana superior). */
+    frame: FrameRefSchema.nullable().optional(),
   })
   .strict();
 

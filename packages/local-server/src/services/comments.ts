@@ -65,6 +65,15 @@ export class CommentsService {
     return comment;
   }
 
+  /** Borra el comentario (JSON + adjuntos) y publica `comment.deleted`; los de su cola recompactada, `comment.updated`. */
+  async delete(projectId: string, id: string): Promise<{ id: string; collection: string }> {
+    const { deleted, renumbered } = await (await this.storage(projectId)).deleteComment(id);
+    const pid = this.pid(projectId);
+    this.bus.publish({ type: "comment.deleted", at: nowTimestamp(), projectId: pid, commentId: deleted.id, collection: deleted.collection });
+    for (const comment of renumbered) this.bus.publish({ type: "comment.updated", at: nowTimestamp(), projectId: pid, comment });
+    return { id: deleted.id, collection: deleted.collection };
+  }
+
   async move(projectId: string, id: string, to: string): Promise<VisualComment> {
     const s = await this.storage(projectId);
     const before = await s.getComment(id);

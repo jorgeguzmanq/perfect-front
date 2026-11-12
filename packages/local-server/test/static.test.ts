@@ -185,6 +185,21 @@ describe("adjuntos y control de conflictos", () => {
     expect(ok.status).toBe(200);
   });
 
+  it("DELETE borra el comentario y su adjunto; 404, id invalido y token requerido", async () => {
+    const h = await harness();
+    const { id, comment } = await withShot(h);
+    const url = `/api/projects/${id}/comments/${comment.id}`;
+    const file = comment.attachments[0]!.split("/")[1]!;
+    expect((await h.json(url, { method: "DELETE", auth: "none" })).status).toBe(401);
+    expect((await h.json(`/api/projects/${id}/comments/..%2F..%2Fproject`, { method: "DELETE" })).status).toBe(400);
+    const ok = await h.json(url, { method: "DELETE" });
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ ok: true, deleted: { id: comment.id } });
+    expect((await h.json(url)).status).toBe(404);
+    await expect(fs.stat(path.join(h.projectRoot, ".perfect-front", "attachments", file))).rejects.toThrow();
+    expect((await h.json(url, { method: "DELETE" })).status).toBe(404);
+  });
+
   it("el listado informa de JSON corrupto sin fallar", async () => {
     const h = await harness();
     const { id } = await withShot(h);
