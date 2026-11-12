@@ -518,3 +518,92 @@ code {
     scroll-behavior: auto !important;
   }
 }
+
+/* --- Auditoria ------------------------------------------------------------------ */
+
+.db-nav {
+  display: flex;
+  gap: var(--pf-space-2);
+}
+.db-nav [aria-current='page'] {
+  background: var(--pf-color-bg);
+  box-shadow: inset 0 calc(var(--pf-space-1) * -1) 0 var(--pf-color-accent);
+}
+.db-layout--audit,
+.db-layout--audit[data-projects],
+.db-layout--audit[data-list] {
+  grid-template-columns: calc(var(--pf-space-7) * 5) minmax(0, 1fr);
+}
+.db-layout--audit[data-projects='collapsed'] {
+  grid-template-columns: var(--pf-space-7) minmax(0, 1fr);
+}
+.db-audit-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--pf-space-3);
+  margin-bottom: var(--pf-space-3);
+}
+.db-audit-head p {
+  margin: 0;
+}
+.db-audit-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(var(--pf-space-7) * 4), 1fr));
+  gap: var(--pf-space-3);
+  margin-bottom: var(--pf-space-4);
+}
+.db-audit-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-space-3);
+}
+.db-audit-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-space-2);
+  padding: var(--pf-space-3);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-md);
+  background: var(--pf-color-surface-raised);
+}
+.db-audit-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.db-chip {
+  padding: 0 var(--pf-space-2);
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-full);
+  font-size: var(--pf-font-size-xs);
+  color: var(--pf-color-text-muted);
+}
+.db-thumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--pf-space-2);
+}
+.db-thumb {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--pf-space-7) * 2);
+  height: calc(var(--pf-space-7) * 1.5);
+  object-fit: cover;
+  border: 1px solid var(--pf-color-border);
+  border-radius: var(--pf-radius-md);
+  color: var(--pf-color-text-muted);
+  font-size: var(--pf-font-size-xs);
+}
+@media (max-width: 52rem) {
+  .db-layout--audit,
+  .db-layout--audit[data-projects] {
+    display: flex;
+    flex-direction: column;
+  }
+}

@@ -28,3 +28,7 @@ Solo `@perfect-front/design-tokens`: variables `--pf-*` y clases `.pf-*` (sin Ta
 - Renombrar colecciones: no existe operacion en `comment-storage`/API (solo crear).
 - Logs de procesos en la UI (el endpoint existe) y reintentar localizar el elemento en la pagina.
 - Lista virtualizada: solo si las mediciones lo justifican (Fase 8).
+
+## Auditoria
+
+`/projects/<id>/audit` (boton «Auditoria» de la barra superior): todos los comentarios del proyecto en orden de cola con estado, chips «paso N/M · grupo X» y «N elementos», secciones/propuestas, miniaturas de adjuntos (Bearer, via `getAttachment`), filtros por estado/grupo/ruta y busqueda, y «Abrir en el codigo» (`POST /api/projects/:id/open` con `{file,line,column?}`; muestra el mensaje de error, p. ej. `editor_not_found`). Logica pura en `src/lib/audit.ts`.

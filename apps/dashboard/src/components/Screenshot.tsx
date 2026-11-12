@@ -7,10 +7,12 @@ interface Props {
   commentId: string;
   attachment: string | null;
   alt: string;
+  /** Miniatura para listas: sin avisos largos. */
+  compact?: boolean;
 }
 
 /** Captura servida por el endpoint con token: se descarga con Bearer y se muestra como blob URL local. */
-export function Screenshot({ api, projectId, commentId, attachment, alt }: Props) {
+export function Screenshot({ api, projectId, commentId, attachment, alt, compact = false }: Props) {
   const [state, setState] = useState<{ status: "idle" | "loading" | "error"; url: string | null; message?: string }>({ status: "idle", url: null });
   const [retry, setRetry] = useState(0);
 
@@ -38,6 +40,21 @@ export function Screenshot({ api, projectId, commentId, attachment, alt }: Props
     };
   }, [api, projectId, commentId, attachment, retry]);
 
+  if (compact && !attachment) return null;
+  if (compact && state.status === "loading") {
+    return (
+      <span className="db-thumb db-thumb--loading" role="status">
+        Cargando…
+      </span>
+    );
+  }
+  if (compact && state.status === "error") {
+    return (
+      <button type="button" className="db-thumb db-thumb--error pf-btn" title={state.message} onClick={() => setRetry((n) => n + 1)}>
+        Reintentar captura
+      </button>
+    );
+  }
   if (!attachment) return <p className="db-muted db-shot-empty">Este comentario no tiene captura.</p>;
   if (state.status === "loading") return <p className="db-muted db-shot-empty">Cargando captura…</p>;
   if (state.status === "error") {
@@ -50,5 +67,5 @@ export function Screenshot({ api, projectId, commentId, attachment, alt }: Props
       </div>
     );
   }
-  return state.url ? <img className="db-shot" src={state.url} alt={alt} /> : null;
+  return state.url ? <img className={compact ? "db-thumb" : "db-shot"} src={state.url} alt={alt} /> : null;
 }

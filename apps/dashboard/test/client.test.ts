@@ -76,6 +76,22 @@ describe("ApiClient", () => {
     expect(blob.size).toBe(3);
   });
 
+  it("lista grupos y abre en el editor con el contrato {file,line,column}; propaga editor_not_found", async () => {
+    const ok = fakeFetch(() => json({ ok: true, groups: [{ id: "grp_1", name: "Hero" }] }));
+    const api = new ApiClient({ token: "t", fetch: ok.fetch });
+    expect(await api.listGroups("p 1")).toHaveLength(1);
+    expect(ok.calls[0]!.url).toBe("/api/projects/p%201/groups");
+
+    const open = fakeFetch(() => json({ ok: true }));
+    await new ApiClient({ token: "t", fetch: open.fetch }).openInEditor("p_1", { file: "src/a.tsx", line: 4, column: 2 });
+    expect(open.calls[0]!.url).toBe("/api/projects/p_1/open");
+    expect(open.calls[0]!.init.method).toBe("POST");
+    expect(JSON.parse(open.calls[0]!.init.body as string)).toEqual({ file: "src/a.tsx", line: 4, column: 2 });
+
+    const bad = fakeFetch(() => json({ ok: false, error: { code: "editor_not_found", message: "No hay editor" } }, 424));
+    expect(await new ApiClient({ token: "t", fetch: bad.fetch }).openInEditor("p_1", { file: "a", line: 1 }).catch((e: unknown) => e)).toMatchObject({ code: "editor_not_found", message: "No hay editor" });
+  });
+
   it("la URL de eventos lleva access_token y sin token no lo incluye", () => {
     expect(new ApiClient({ token: "a b" }).eventsUrl()).toBe("/api/events?access_token=a%20b");
     expect(new ApiClient({ token: null }).eventsUrl()).toBe("/api/events");

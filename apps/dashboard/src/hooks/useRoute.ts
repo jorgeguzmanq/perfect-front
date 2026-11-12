@@ -3,14 +3,16 @@ import { useCallback, useEffect, useState } from "react";
 export interface Route {
   projectId: string | null;
   commentId: string | null;
+  /** Vista de auditoria del proyecto (`/projects/<id>/audit`). Solo existe cuando es true. */
+  audit?: true;
 }
 
-/** `/projects/<id>[/comments/<id>]`. El servidor hace fallback SPA, asi que son URLs recargables. */
+/** `/projects/<id>[/comments/<id> | /audit]`. El servidor hace fallback SPA, asi que son URLs recargables. */
 export function parseRoute(pathname: string): Route {
-  const m = /^\/projects\/([^/]+)(?:\/comments\/([^/]+))?\/?$/.exec(pathname);
+  const m = /^\/projects\/([^/]+)(?:\/comments\/([^/]+)|\/(audit))?\/?$/.exec(pathname);
   if (!m) return { projectId: null, commentId: null };
   try {
-    return { projectId: decodeURIComponent(m[1]!), commentId: m[2] ? decodeURIComponent(m[2]) : null };
+    return { projectId: decodeURIComponent(m[1]!), commentId: m[2] ? decodeURIComponent(m[2]) : null, ...(m[3] ? { audit: true as const } : {}) };
   } catch {
     return { projectId: null, commentId: null };
   }
@@ -19,6 +21,7 @@ export function parseRoute(pathname: string): Route {
 export function routePath(r: Route): string {
   if (!r.projectId) return "/";
   const base = `/projects/${encodeURIComponent(r.projectId)}`;
+  if (r.audit) return `${base}/audit`;
   return r.commentId ? `${base}/comments/${encodeURIComponent(r.commentId)}` : base;
 }
 

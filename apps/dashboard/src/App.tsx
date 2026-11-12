@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { CollectionInfo, PerfectFrontEvent, ProjectSummary, VisualComment } from "@perfect-front/shared";
+import type { CollectionInfo, PerfectFrontEvent, ProjectSummary, ReadingGroup, VisualComment } from "@perfect-front/shared";
 import { ApiError, type ApiClient, type CorruptEntry } from "./api/client";
+import { AuditView } from "./components/AuditView";
 import { CommentDetail } from "./components/CommentDetail";
 import { CommentList } from "./components/CommentList";
 import { useAnnouncer } from "./components/LiveRegion";
@@ -27,6 +28,9 @@ interface ProjectData {
   comments: VisualComment[];
   corrupt: CorruptEntry[];
   collections: CollectionInfo[];
+  groups: ReadingGroup[];
+  /** Mensaje si los grupos no cargaron (la auditoria sigue funcionando sin nombres). */
+  groupsError: string | null;
 }
 
 export function App({ api }: { api: ApiClient }) {
@@ -61,8 +65,12 @@ export function App({ api }: { api: ApiClient }) {
       const mine = ++seq.current;
       if (!quiet) setData({ status: "loading" });
       try {
-        const [list, collections] = await Promise.all([api.listComments(id), api.listCollections(id)]);
-        if (mine === seq.current) setData({ status: "ready", data: { comments: list.comments, corrupt: list.corrupt, collections } });
+        const [list, collections, g] = await Promise.all([
+          api.listComments(id),
+          api.listCollections(id),
+          api.listGroups(id).then((groups) => ({ groups, error: null as string | null }), (e: unknown) => ({ groups: [] as ReadingGroup[], error: e instanceof Error ? e.message : "Error desconocido" })),
+        ]);
+        if (mine === seq.current) setData({ status: "ready", data: { comments: list.comments, corrupt: list.corrupt, collections, groups: g.groups, groupsError: g.error } });
       } catch (e) {
         if (mine === seq.current) setData((prev) => (quiet && prev.status === "ready" ? prev : toError(e)));
       }
@@ -223,6 +231,16 @@ export function App({ api }: { api: ApiClient }) {
       {region}
       <header className="db-topbar">
         <h1 className="db-title">Perfect Front</h1>
+        {projectId ? (
+          <nav className="db-nav" aria-label="Vistas del proyecto">
+            <button type="button" className="db-filter pf-focusable" aria-current={route.audit ? undefined : "page"} onClick={() => navigate({ projectId, commentId: null })}>
+              Comentarios
+            </button>
+            <button type="button" className="db-filter pf-focusable" aria-current={route.audit ? "page" : undefined} onClick={() => navigate({ projectId, commentId: null, audit: true })}>
+              Auditoría
+            </button>
+          </nav>
+        ) : null}
         <span className={`db-live db-live--${stream}`}>{STREAM_LABEL[stream]}</span>
       </header>
       {notice ? (
@@ -234,7 +252,7 @@ export function App({ api }: { api: ApiClient }) {
         </div>
       ) : null}
 
-      <main className="db-layout" data-projects={collapsed.projects ? "collapsed" : "open"} data-list={collapsed.list ? "collapsed" : "open"}>
+      <main className={`db-layout${route.audit ? " db-layout--audit" : ""}`} data-projects={collapsed.projects ? "collapsed" : "open"} data-list={collapsed.list ? "collapsed" : "open"}>
         <Panel id="projects" title="Proyectos" collapsed={collapsed.projects} onToggle={() => setCollapsed((c) => ({ ...c, projects: !c.projects }))}>
           {projects.status === "loading" ? <p className="db-muted">Cargando proyectos…</p> : null}
           {projects.status === "error" ? (
@@ -250,6 +268,25 @@ export function App({ api }: { api: ApiClient }) {
           ) : null}
         </Panel>
 
+        {route.audit && projectId ? (
+          <section id="detalle" className="db-main" tabIndex={-1} aria-label="Auditoría del proyecto">
+            {data.status === "loading" ? <p className="db-muted">Cargando comentarios…</p> : null}
+            {data.status === "error" ? (
+              <div className="db-warning" role="alert">
+                No se pudieron cargar los comentarios: {data.message}{" "}
+                <button type="button" className="pf-btn" onClick={() => void loadProject(projectId)}>
+                  Reintentar
+                </button>
+              </div>
+            ) : null}
+            {data.status === "ready" ? (
+              <AuditView api={api} projectId={projectId} comments={comments} groups={data.data.groups} groupsError={data.data.groupsError} onOpenComment={(id) => navigate({ projectId, commentId: id })} announce={announce} />
+            ) : null}
+          </section>
+        ) : null}
+
+        {route.audit ? null : (
+          <>
         <Panel id="comments" title="Comentarios" collapsed={collapsed.list} onToggle={() => setCollapsed((c) => ({ ...c, list: !c.list }))}>
           {data.status === "loading" ? <p className="db-muted">Cargando comentarios…</p> : null}
           {data.status === "error" ? (
@@ -313,6 +350,8 @@ export function App({ api }: { api: ApiClient }) {
             </div>
           )}
         </section>
+          </>
+        )}
       </main>
     </div>
   );

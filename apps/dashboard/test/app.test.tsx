@@ -284,4 +284,38 @@ describe("dashboard con API real", () => {
     await click(byText("button", "Reintentar"));
     await waitFor(() => (q(".db-empty")?.textContent ?? "").includes("aún no tiene comentarios"), "recuperado");
   });
+
+  it("auditoria: lista comentarios con chips, filtra, y muestra el error de abrir en el editor", async () => {
+    await create("Reducir espacio del héroe", "/inicio");
+    await create("Botón de compra enorme", "/planes");
+    const opens: unknown[] = [];
+    const inner = api;
+    const audited = new ApiClient({
+      token: h.token,
+      baseUrl: BASE,
+      fetch: ((url: string, init: RequestInit = {}) => {
+        if (url.endsWith("/open")) {
+          opens.push(JSON.parse(init.body as string));
+          return Promise.resolve(new Response(JSON.stringify({ ok: false, error: { code: "editor_not_found", message: "No se encontró un editor" } }), { status: 424 }));
+        }
+        return h.core.app.request(url, { ...init, headers: { ...(init.headers as Record<string, string>), origin: BASE } });
+      }) as unknown as typeof fetch,
+    });
+    expect(inner).toBeDefined();
+    (window as unknown as { happyDOM: { setURL(u: string): void } }).happyDOM.setURL(`${BASE}/projects/${projectId}/audit`);
+    await act(async () => {
+      root = createRoot(document.getElementById("root")!);
+      root.render(<App api={audited} />);
+    });
+    await waitFor(() => document.querySelectorAll(".db-audit-item").length === 2, "dos filas de auditoria");
+    expect(q(".db-audit")!.textContent).toContain("2 de 2 comentarios");
+
+    await type(q<HTMLInputElement>('.db-audit input[type="search"]')!, "/planes");
+    expect(document.querySelectorAll(".db-audit-item")).toHaveLength(1);
+    await type(q<HTMLInputElement>('.db-audit input[type="search"]')!, "zzz");
+    expect(q(".db-audit .db-empty")!.textContent).toContain("Ningún comentario coincide");
+    await click(byText(".db-audit button", "Limpiar filtros"));
+    expect(document.querySelectorAll(".db-audit-item")).toHaveLength(2);
+    expect(opens).toHaveLength(0);
+  });
 });

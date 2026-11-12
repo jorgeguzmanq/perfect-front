@@ -4,6 +4,7 @@ import type {
   HealthResponse,
   MoveCommentRequest,
   ProjectSummary,
+  ReadingGroup,
   ResolveCommentRequest,
   UpdateCommentRequest,
   VisualComment,
@@ -24,6 +25,7 @@ export type ErrorCodeName =
   | "invalid_data"
   | "storage_error"
   | "process_error"
+  | "editor_not_found"
   | "internal_error"
   | "network"
   | "bad_response";
@@ -215,6 +217,15 @@ export class ApiClient {
 
   async createCollection(projectId: string, name: string): Promise<CollectionInfo> {
     return this.pick(await this.json(`/api/projects/${ApiClient.enc(projectId)}/collections`, { method: "POST", body: { name } }), "collection", isRecord);
+  }
+
+  async listGroups(projectId: string): Promise<ReadingGroup[]> {
+    return this.pick(await this.json(`/api/projects/${ApiClient.enc(projectId)}/groups`), "groups", Array.isArray);
+  }
+
+  /** Pide al servidor local abrir archivo:linea en el editor. Falla con `editor_not_found` si no hay editor. */
+  async openInEditor(projectId: string, target: { file: string; line: number; column?: number }): Promise<void> {
+    await this.json(`/api/projects/${ApiClient.enc(projectId)}/open`, { method: "POST", body: target });
   }
 
   /** Captura como Blob (requiere Authorization: no se puede usar como `<img src>` directo). */
