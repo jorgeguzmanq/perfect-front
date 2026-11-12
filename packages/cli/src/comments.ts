@@ -15,10 +15,10 @@ import { COMMENT_STATUSES, PerfectFrontError, toErrorData, type VisualComment } 
 
 /**
  * Subcomandos que operan DIRECTO sobre `<proyecto>/.perfect-front` (sin servidor local ni navegador):
- * list, show, move, edit, status, claim, resolve, ignore, reopen, export, watch. Contrato para agentes en AGENTS.md.
+ * list, show, move, edit, delete, status, claim, resolve, ignore, reopen, export, watch. Contrato para agentes en AGENTS.md.
  */
 
-export const COMMENT_COMMANDS = ["list", "show", "move", "edit", "status", "claim", "resolve", "ignore", "reopen", "export", "watch"] as const;
+export const COMMENT_COMMANDS = ["list", "show", "move", "edit", "delete", "status", "claim", "resolve", "ignore", "reopen", "export", "watch"] as const;
 type CommentCommand = (typeof COMMENT_COMMANDS)[number];
 
 /** Codigos de salida de estos subcomandos (los generales viven en `EXIT` de run.ts; los valores no se solapan). */
@@ -41,6 +41,8 @@ export interface CommentIo {
   cwd: string;
   /** Cancelación (Ctrl+C); la usa `watch`. */
   signal?: AbortSignal;
+  /** Confirmación interactiva (solo con TTY real); true = sí, false/null = no. Ausente = no hay terminal. */
+  confirm?: (question: string) => Promise<boolean | null>;
 }
 
 /** Error con codigo de salida explicito (proyecto no encontrado, revision obsoleta, id ambiguo...). */
@@ -74,6 +76,7 @@ const OPTIONS = {
   rev: { type: "string" },
   format: { type: "string" },
   out: { type: "string" },
+  yes: { type: "boolean", short: "y" },
   once: { type: "boolean" },
   interval: { type: "string" },
 } as const;
@@ -83,6 +86,7 @@ const FOREIGN_OPTIONS = {
   command: { type: "string" },
   port: { type: "string" },
   page: { type: "string" },
+  file: { type: "string" },
   fallback: { type: "string" },
   "server-port": { type: "string" },
   lines: { type: "string", short: "n" },
@@ -110,6 +114,7 @@ export const COMMENTS_HELP = `Comentarios visuales por CLI (operan sobre <proyec
   perfect-front claim <id>                         pending -> in_progress
   perfect-front resolve <id> --summary "..." [--files a,b] [--verification "..."]... [--commit sha] [--by agent|human]
   perfect-front edit <id> --comment "..."
+  perfect-front delete <id> [--yes]                elimina el comentario y sus adjuntos (sin --yes pide confirmacion; sin terminal exige --yes)
   perfect-front move <id...> --to <coleccion>
   perfect-front status <id> pending|in_progress|ignored|archived
   perfect-front ignore <id>
@@ -118,7 +123,7 @@ export const COMMENTS_HELP = `Comentarios visuales por CLI (operan sobre <proyec
   perfect-front export [--format md] [--status s] [--collection c] [--out archivo.md]   (--out dentro de .perfect-front)
 
 Comunes: --cwd <dir>, --json. <id> acepta un prefijo unico (p. ej. pf_01K9ZQ3).
-Bloqueo optimista en edit/move/resolve/ignore/reopen/claim/status: --expect-updated-at <iso> (alias --rev).
+Bloqueo optimista en edit/delete/move/resolve/ignore/reopen/claim/status: --expect-updated-at <iso> (alias --rev).
 Codigos de salida: 0 ok, 2 uso/validacion, 3 proyecto/.perfect-front no encontrado, 6 id no encontrado,
 7 conflicto/revision obsoleta, 8 datos/almacenamiento, 1 interno. Detalle: packages/cli/AGENTS.md
 `;
@@ -353,13 +358,12 @@ ${formatPromptBlock(r.prompt)}`);
           if ((await drain()) > 0 && values.once) return COMMENT_EXIT.OK;
           if (io.signal?.aborted) return COMMENT_EXIT.OK;
           await new Promise<void>((resolve) => {
-            let t: NodeJS.Timeout | undefined;
             const done = (): void => {
               clearTimeout(t);
               io.signal?.removeEventListener("abort", done);
               resolve();
             };
-            t = setTimeout(done, interval);
+            const t = setTimeout(done, interval);
             io.signal?.addEventListener("abort", done, { once: true });
           });
           if (io.signal?.aborted) return COMMENT_EXIT.OK;
@@ -426,6 +430,22 @@ ${formatPromptBlock(r.prompt)}`);
         await checkRevision(storage, id, expect);
         const c = await storage.updateComment(id, { comment: values.comment });
         return done(c, `Editado ${shortId(c.id)}`);
+      }
+
+      case "delete": {
+        const id = await resolveId(storage, needOneId());
+        const cur = await checkRevision(storage, id, expect);
+        if (values.yes !== true) {
+          if (!io.confirm) throw usage("delete requiere --yes cuando no hay terminal interactiva");
+          const ok = await io.confirm(`Eliminar ${shortId(cur.id)} ("${trunc(cur.comment, 60)}")? No se puede deshacer.`);
+          if (ok !== true) {
+            emit({ command, id: cur.id, deleted: false }, "Cancelado");
+            return COMMENT_EXIT.OK;
+          }
+        }
+        const r = await storage.deleteComment(id);
+        emit({ command, id: r.deleted.id, deleted: true, collection: r.deleted.collection }, `Eliminado ${shortId(r.deleted.id)}`);
+        return COMMENT_EXIT.OK;
       }
 
       case "move": {

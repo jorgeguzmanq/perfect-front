@@ -8,6 +8,17 @@ Codigos de salida: 0 ok, 1 interno, 2 uso, 3 proyecto, 4 proceso, 5 no activo, 6
 
 `list`, `show`, `claim`, `resolve`, `edit`, `move`, `status <id> <estado>`, `ignore`, `reopen` y `export` operan directo sobre `<proyecto>/.perfect-front` (`src/comments.ts`). Salida `--json` estable, bloqueo optimista con `--expect-updated-at` y codigos de salida documentados. Contrato completo, flujo para agentes y bloque para pegar en el CLAUDE.md de un proyecto: [AGENTS.md](./AGENTS.md).
 
+## Skill y comandos para Claude Code
+
+`perfect-front claude [--force] [--home <dir>] [--json]` (`src/claude-install.ts`; fuentes en `claude/`) instala en `<home>/.claude` el skill `perfect-front` (`skills/perfect-front/SKILL.md`: contrato de la CLI, grupos y cola, propuestas, `watch`) y los comandos `/pf` (ciclo completo: listar pendientes, reclamar, resolver en orden de cola con verificacion y `resolve`), `/pf-watch` (deja `perfect-front watch` bajo Monitor para las peticiones «Enviar a agente») y `/pf-status`.
+
+- **Enlaza, no copia**: un `git pull` del repo los actualiza solo. En Windows las carpetas usan junction y los archivos symlink; si el SO niega el symlink de un archivo, cae a COPIA y avisa por stderr (`warnings` en `--json`).
+- **Idempotente**: lo que ya apunta a este repo (o es una copia identica) sale como `ya estaba`.
+- **No pisa lo ajeno**: lo que existe y no es de este repo sale como `OMITIDO` (codigo 0). `--force` lo renombra a `<nombre>.bak-<AAAAMMDD-HHMMSS>` y lo reemplaza.
+- `--home <dir>`: home alternativo (se usa `<dir>/.claude`); por defecto el del usuario. Los tests usan siempre un home temporal.
+- `--json`: `{"ok":true,"command":"claude","home","claudeDir","force","items":[{"kind","name","source","target","action":"linked|copied|unchanged|skipped|replaced","backup?","mode?"}],"summary":{...},"warnings":[...]}`. Uso invalido: codigo 2.
+- Abre una sesion nueva de Claude Code para que cargue los comandos.
+
 ## Servidor local de Perfect Front
 
 `perfect-front` (alias `comment`) sin subcomando corre en PRIMER PLANO: detecta el proyecto del directorio actual, inicia el dev server (hijo administrado) y el servidor local, registra el proyecto (`POST /api/projects/register` con el token de CLI, sin Origin), abre el navegador, pone el proxy con la capa de comentarios delante del dev server (ver "Proxy y capa de comentarios"), imprime la URL del proyecto (la del proxy), la URL original, el estado del servidor local y "Capa de comentarios activa: Alt+clic sobre un elemento (o Ctrl/Cmd+Mayús+C)", y se queda vivo. La extension oficial se reconoce por su ID fijo (Origin del navegador), sin configuracion; para probar una build con otro ID, `PF_EXTENSION_IDS=<id>[,<id>]` al arrancar el servidor local. Ctrl+C, cerrar la terminal (SIGHUP/SIGBREAK) o SIGTERM apagan todo lo que inicio: mata el arbol del dev server, cierra el proxy, des-registra el proyecto y, si es duena del servidor local, lo cierra y borra su estado. No hace falta ningun comando de stop. Si el dev server propio termina, la sesion se apaga con codigo 4.
@@ -75,6 +86,10 @@ Que pagina se abre (la URL abierta y registrada es la de esa pagina; el comentar
 2. `index.html` en la raiz: manda sobre todos los demas.
 3. Un unico `.html`: se elige solo.
 4. Varios sin `index.html`: hay que escoger. En terminal (TTY) aparece una lista numerada (flechas o numero, Enter confirma, Ctrl+C cancela con codigo 130 sin dejar procesos) y despues pregunta si recordar la eleccion; solo con `s` escribe `entry` en `<proyecto>/.perfect-front/project.json` (lo crea con `{ "version": 1, "entry": ... }` si no existe y conserva los demas campos; nunca pisa un archivo invalido). Sin TTY o con `--json` NO adivina: imprime la lista y sale con codigo 2 (`--page <ruta>`; en JSON `{"ok":false,"pages":[...],"hint":...}`).
+
+### Modo archivo
+
+`perfect-front <archivo.html>` (o `--file <ruta>`; ruta relativa al cwd/`--cwd` o absoluta; tambien con el alias `comment`) revisa ESE archivo suelto sin llamar a `detectProject` ni subir de carpeta (util dentro de un monorepo con varias apps): raiz y proyecto = carpeta del archivo, tipo estatico, pagina = el archivo, puerto 5500 (o `--port`, siguiente libre si esta ocupado). Se sirve toda la carpeta (los assets relativos funcionan), la URL anunciada y abierta es la de esa pagina, y los comentarios y el estado van a `<carpeta-del-archivo>/.perfect-front/`. Archivo inexistente o que no sea `.html`/`.htm`: codigo 2. `perfect-front --x.html` (flag desconocido que termina en .html) sugiere `perfect-front x.html`. Un subcomando de comentarios o de `server` con el mismo nombre no cambia: solo se interpreta como archivo lo que termina en `.html`/`.htm`.
 
 Opciones: `--page <ruta>` (debe estar en la lista de candidatas; nunca absolutas ni `..`), `--choose` (ignora `entry` e `index.html` y obliga a elegir de nuevo), `--port <n>` (puerto preferido; por defecto 5500 y, si esta ocupado, el siguiente libre; el puerto final se anuncia), `--fallback <ruta.html>` (desactivado por defecto: sirve esa pagina para rutas sin extension que no existen, tipo SPA).
 

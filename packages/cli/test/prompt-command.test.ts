@@ -195,9 +195,13 @@ describe("arranque: --no-agent-prompt y campo agentPrompt", () => {
       const data = json(withPrompt.stdout);
       expect(data.ok).toBe(true);
       expect(typeof data.agentPrompt).toBe("string");
-      expect(data.agentPrompt).toContain(`Raíz del proyecto: ${path.resolve(root)}`);
-      expect(data.agentPrompt).toContain("perfect-front list --json");
+      const pf = path.join(path.resolve(root), ".perfect-front");
+      expect(data.agentPrompt).toContain(path.join(pf, "comments"));
+      expect(data.agentPrompt).toContain(path.join(pf, "AGENT_PROMPT.md"));
+      expect(data.agentPrompt).toContain("perfect-front claim <id>");
+      expect(data.agentPrompt).toContain("perfect-front resolve <id>");
       expect(data.agentPrompt).not.toContain(PROMPT_BEGIN);
+      expect(fs.readFileSync(path.join(pf, "AGENT_PROMPT.md"), "utf8")).toContain(`Raíz del proyecto: ${path.resolve(root)}`);
       await stopManaged({ root, url: null });
 
       const noPrompt = await run(["start", ...base, "--no-agent-prompt"], root);

@@ -20,6 +20,7 @@
     "@perfect-front/project-detector": "workspace:*",
     "@perfect-front/proxy": "workspace:*",
     "@perfect-front/shared": "workspace:*",
+    "@perfect-front/source-plugin": "workspace:*",
     "tsx": "^4.20.0"
   },
   "devDependencies": {

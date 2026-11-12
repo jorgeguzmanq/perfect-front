@@ -18,7 +18,8 @@ Binario: `perfect-front` (alias `comment`). Sin instalacion global: `node Z:\Dev
 | `show <id> [--json]` | Datos completos para localizar el elemento. |
 | `claim <id>` | `pending` -> `in_progress` (conflicto 7 si no estaba pending). |
 | `resolve <id> --summary "..." [--files a,b] [--verification "..."]... [--commit sha] [--by agent\|human]` | Registra la resolucion, estado `resolved` y mueve a la coleccion de resueltos (`resolved` por defecto). `--verification` se puede repetir. Conflicto 7 si ya estaba resolved/archived. |
-| `edit <id> --comment "..."` | Cambia el texto del comentario. |
+| `edit <id> --comment "..."` | Cambia el texto del comentario (admite `--expect-updated-at`). |
+| `delete <id> [--yes]` | Elimina el comentario y sus adjuntos y recompacta su cola de grupo. Irreversible: sin `--yes` pide confirmacion en terminal; sin terminal falla con codigo 2. Salida `--json`: `{"ok":true,"command":"delete","id","deleted":true,"collection"}`. Los agentes no deben borrar comentarios sin que la persona lo pida. |
 | `move <id...> --to <coleccion>` | Mueve a una coleccion existente. |
 | `status <id> pending\|in_progress\|ignored\|archived` | Cambia el estado (para resolver usa `resolve`). `status` sin id es el estado del servidor. |
 | `ignore <id>` / `reopen <id>` | `ignored`; o vuelve a `pending` (limpia la resolucion y regresa a la coleccion por defecto si estaba en resolved/archived). |
@@ -35,6 +36,10 @@ Bloqueo optimista: en `edit`, `move`, `resolve`, `ignore`, `reopen`, `claim` y `
 ### Buzon del agente (`agent-inbox`)
 
 El widget (boton «Enviar a agente») hace `POST /api/projects/:id/agent/requests` con `{commentIds?, groupId?}` (ninguno = toda la cola pendiente) y el servidor local escribe `.perfect-front/agent-inbox/<requestId>.json` con `{id, createdAt, commentIds, groupId, prompt, status}`. El estado que ve el widget es derivado: `pending` -> `taken` (lo toma `watch` o algun comentario esta `in_progress`) -> `done` (todos resueltos). Si ya tienes la sesion abierta: `perfect-front watch` bajo Monitor y atiende cada peticion con `claim` -> `resolve`.
+
+## Skill y comandos para Claude Code
+
+`perfect-front claude [--force] [--home <dir>] [--json]` instala en `~/.claude` (enlazando desde `packages/cli/claude/`) el skill `perfect-front` y los comandos `/pf`, `/pf-watch` y `/pf-status`. Idempotente; lo ajeno que ya exista se OMITE salvo `--force` (respaldo `.bak-<fecha>`). `--json`: `{"ok":true,"command":"claude","items":[{"kind","name","target","action"}],"summary":{...},"warnings":[...]}`. El SKILL.md es un resumen de ESTE documento: si cambian los comandos o el contrato, actualiza ambos.
 
 ## Codigos de salida (estables)
 

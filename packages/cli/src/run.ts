@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import net from "node:net";
 import path from "node:path";
 import { parseArgs } from "node:util";
 import { DetectionError, detectProject, findRoot, normalizePagePath, type DetectionResult } from "@perfect-front/project-detector";
@@ -11,10 +13,12 @@ import { overlayScriptProvider } from "./proxy/overlay";
 import { liveProxyState, stopProxy } from "./proxy/state";
 import { confirmKey, pickPage, type PickerInput, type PickerOutput } from "./static/picker";
 import { pageUrl, staticTarget } from "./static/launch";
+import { SOURCE_ACTIVE_MESSAGE, withSourcePlugin } from "./source";
 import { rememberEntry } from "./static/remember";
 import { ServerNotRunningError, defaultStateDir } from "./discovery";
 import { COMMENT_EXIT, detectCommentCommand, runCommentCommand } from "./comments";
-import { buildAgentPrompt, formatPromptBlock } from "./agent-prompt";
+import { AGENT_PROMPT_FILE, buildAgentPrompt, buildShortAgentPrompt, formatPromptBlock } from "./agent-prompt";
+import { detectClaudeCommand, runClaudeCommand } from "./claude-install";
 import { agentsDocPath, detectPromptCommand, runPromptCommand } from "./prompt-command";
 import {
   ServerStartError,
@@ -58,6 +62,7 @@ export const HELP = `Perfect Front - comentarios visuales sobre tu app local
 
 Uso:
   perfect-front [comando] [opciones]     (alias: comment)
+  perfect-front <archivo.html> [opciones]  Revisa ESE archivo HTML suelto (sin detectar proyecto ni subir de carpeta)
 
 Comandos:
   (ninguno)   PRIMER PLANO: inicia dev server + servidor local, registra el proyecto,
@@ -78,6 +83,9 @@ Comandos:
               con las rutas y URLs reales del proyecto (alias: agent-prompt; --copy lo copia
               al portapapeles; --project <ruta>; no necesita servidor). Detalle: perfect-front prompt --help
 
+  claude      Instala el skill perfect-front y los comandos /pf, /pf-watch y /pf-status en
+              ~/.claude (enlaza, no copia; --force respalda; --home <dir>). Detalle: perfect-front claude --help
+
 Comentarios (directo sobre .perfect-front, sin servidor ni navegador; ver AGENTS.md):
   list, show <id>, claim <id>, resolve <id> --summary "...", edit <id> --comment "...",
   move <id...> --to <coleccion>, status <id> <estado>, ignore <id>, reopen <id>,
@@ -88,10 +96,12 @@ Opciones:
   --url <url>        Usa un servidor que ya corre en esa URL (no inicia nada; vale para cualquier framework)
   --command <cmd>    Comando de desarrollo (sin operadores de shell; vale para cualquier framework)
   --start-timeout <s> Segundos de espera a que el dev server responda (por defecto 120; Next/Angular tardan al primer arranque)
-  --port <n>         Puerto esperado (HTML estatico: puerto preferido, por defecto 5500)
+  --port <n>         Puerto esperado (HTML estatico: puerto preferido, por defecto 5500). Atajo: --<n> (ej. --5001)
   --page <ruta>      HTML estatico: pagina a abrir (ruta relativa de la lista de candidatas)
   --choose           HTML estatico: elegir de nuevo aunque haya index.html o pagina recordada
   --fallback <ruta>  HTML estatico: sirve esta pagina para rutas sin extension inexistentes (SPA)
+  --file <ruta>      Modo archivo: revisa ese .html suelto (equivale a \`perfect-front <archivo.html>\`); se sirve su carpeta
+                     y los comentarios van a <carpeta-del-archivo>/.perfect-front
   --cwd <dir>        Directorio de trabajo (por defecto el actual)
   --detach           Segundo plano en vez de primer plano
   --no-open          No abre el navegador
@@ -99,6 +109,7 @@ Opciones:
   --no-proxy         No pone el proxy delante: sin capa de comentarios (la extension ya no la inyecta)
   --server-port <n>  Puerto preferido del servidor local (por defecto 45800)
   --state-dir <dir>  Directorio de estado del servidor local (discovery.json)
+  --no-source        Vite+React: no anade el plugin que marca cada elemento con su archivo:linea (data-pf-src)
   --no-agent-prompt  No imprime el prompt para el agente tras el arranque (con --json, omite el campo agentPrompt)
   --json             Salida JSON en stdout (el arranque incluye agentPrompt: texto del prompt para el agente)
   -h, --help         Ayuda
@@ -136,6 +147,7 @@ interface Parsed {
   noServer: boolean;
   noProxy: boolean;
   noAgentPrompt: boolean;
+  noSource: boolean;
   overlayNoCache: boolean;
   detach: boolean;
   serverPort: number | undefined;
@@ -148,15 +160,36 @@ interface Parsed {
   stateDir: string | undefined;
   overrides: { url?: string; command?: string; port?: number; page?: string; choose?: boolean };
   fallback: string | undefined;
+  /** Modo archivo: ruta absoluta del .html a revisar (null = deteccion normal de proyecto). */
+  file: string | null;
 }
 
 const EXTENSION_HINT = "La extensión Perfect Front es opcional: lista este proyecto y alterna la capa";
 const LAYER_HINT = "Capa de comentarios activa: Alt+clic sobre un elemento (o Ctrl/Cmd+Mayús+C)";
 
 const COMMANDS = ["start", "status", "stop", "restart", "logs", "open", "server"]; // `prompt` se atiende antes (prompt-command.ts)
+const HTML_FILE = /\.html?$/i;
 const SERVER_SUBS = ["start", "stop", "status", "logs"];
 
-function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
+/** ¿Hay algo escuchando en localhost:<port>? (IPv4 o IPv6) */
+function portInUse(port: number, timeoutMs = 500): Promise<boolean> {
+  const probe = (host: string): Promise<boolean> =>
+    new Promise((resolve) => {
+      const sock = net.connect({ port, host });
+      const done = (ok: boolean): void => {
+        sock.destroy();
+        resolve(ok);
+      };
+      sock.setTimeout(timeoutMs, () => done(false));
+      sock.once("connect", () => done(true));
+      sock.once("error", () => done(false));
+    });
+  return Promise.all([probe("127.0.0.1"), probe("::1")]).then((r) => r.some(Boolean));
+}
+
+function parse(rawArgv: string[], cwd: string): Parsed | "help" | "version" {
+  // Atajo `--5001` → `--port 5001`.
+  const argv = rawArgv.flatMap((a) => (/^--\d+$/.test(a) ? ["--port", a.slice(2)] : [a]));
   let values;
   let positionals;
   try {
@@ -172,6 +205,7 @@ function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
         "no-server": { type: "boolean" },
         "no-proxy": { type: "boolean" },
         "no-agent-prompt": { type: "boolean" },
+        "no-source": { type: "boolean" },
         "overlay-no-cache": { type: "boolean" }, // oculto: reconstruye el overlay en cada peticion (desarrollo)
         detach: { type: "boolean" },
         "server-port": { type: "string" },
@@ -181,6 +215,7 @@ function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
         page: { type: "string" },
         choose: { type: "boolean" },
         fallback: { type: "string" },
+        file: { type: "string" },
         cwd: { type: "string" },
         "state-dir": { type: "string" },
         lines: { type: "string", short: "n" },
@@ -188,11 +223,29 @@ function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
       },
     }));
   } catch (err) {
+    // `--archivo.html` (flag desconocido que termina en .html): sugiere la forma correcta.
+    const bad = argv.find((a) => /^--[^=\s]+\.html?$/i.test(a));
+    if (bad) throw new PerfectFrontError("invalid_request", `Opcion desconocida: ${bad}. Para revisar un archivo HTML usa: perfect-front ${bad.slice(2)}`);
     throw new PerfectFrontError("invalid_request", (err as Error).message.split("\n")[0] ?? "Argumentos invalidos");
   }
   if (values.help) return "help";
   if (values.version) return "version";
-  const [command = "default", ...rest] = positionals;
+  const [firstPositional = "default", ...rest] = positionals;
+  let command = firstPositional;
+  const cwdDir = values.cwd ? path.resolve(cwd, values.cwd) : cwd;
+  // Modo archivo: `--file <ruta>` o primer posicional que no es subcomando y termina en .html/.htm.
+  let fileArg = values.file;
+  if (fileArg === undefined && command !== "default" && !COMMANDS.includes(command) && rest.length === 0 && HTML_FILE.test(command)) {
+    fileArg = command;
+    command = "default";
+  }
+  let file: string | null = null;
+  if (fileArg !== undefined) {
+    file = path.resolve(cwdDir, fileArg);
+    if (!HTML_FILE.test(file)) throw new PerfectFrontError("invalid_request", `El archivo debe ser .html o .htm: ${fileArg}`);
+    if (!fs.existsSync(file) || !fs.statSync(file).isFile()) throw new PerfectFrontError("invalid_request", `No existe el archivo HTML: ${file}`);
+    if (normalizePagePath(path.basename(file)) === null) throw new PerfectFrontError("invalid_request", `Nombre de archivo HTML no soportado: ${path.basename(file)}`);
+  }
   const sub = command === "server" ? (rest.shift() ?? "status") : null;
   if (sub !== null && !SERVER_SUBS.includes(sub)) {
     throw new PerfectFrontError("invalid_request", `Subcomando desconocido: server ${sub}`);
@@ -222,6 +275,7 @@ function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
     noServer: values["no-server"] === true,
     noProxy: values["no-proxy"] === true,
     noAgentPrompt: values["no-agent-prompt"] === true,
+    noSource: values["no-source"] === true,
     overlayNoCache: values["overlay-no-cache"] === true,
     detach: values.detach === true,
     serverPort: num(values["server-port"], "server-port", 0, 65535),
@@ -229,7 +283,8 @@ function parse(argv: string[], cwd: string): Parsed | "help" | "version" {
     noOpen: values["no-open"] === true,
     startTimeoutSec: num(values["start-timeout"], "start-timeout", 1, 3600),
     lines: num(values.lines, "lines", 1, 1000) ?? 50,
-    cwd: values.cwd ? path.resolve(cwd, values.cwd) : cwd,
+    cwd: cwdDir,
+    file,
     stateDir: values["state-dir"] ? path.resolve(cwd, values["state-dir"]) : undefined,
     overrides,
     fallback: values.fallback !== undefined ? (normalizePagePath(values.fallback) ?? undefined) : undefined,
@@ -244,8 +299,33 @@ function toTarget(d: DetectionResult, p: Parsed): Target {
   return { root: d.root, plan: { command: d.plan.command, args: d.plan.args, cwd: d.plan.cwd }, url: d.url };
 }
 
+/** Modo archivo: sin detectProject ni subir de carpeta; root = projectDir = carpeta del archivo, pagina = su nombre. */
+function fileDetection(file: string, port: number | undefined): DetectionResult {
+  const dir = path.dirname(file);
+  const entry = path.basename(file);
+  const p = port ?? 5500;
+  return {
+    root: dir,
+    projectDir: dir,
+    configPath: null,
+    name: path.basename(dir),
+    kind: "static",
+    static: { pages: [entry], entry, status: "chosen", choice: "override", truncated: false },
+    framework: null,
+    packageManager: { name: "npm", version: null, source: "no aplica (archivo HTML)" },
+    plan: { command: "static-server", args: [], cwd: dir, source: "static" },
+    url: `http://127.0.0.1:${p}/${encodeURIComponent(entry)}`,
+    port: p,
+    reasons: [],
+  };
+}
+
 /** Para status/stop/logs basta la raiz: si el proyecto no es detectable se usa solo `findRoot`. */
 function loadTarget(p: Parsed, needsPlan: boolean): { target: Target; detection: DetectionResult | null } {
+  if (p.file) {
+    const detection = fileDetection(p.file, p.overrides.port);
+    return { target: toTarget(detection, p), detection };
+  }
   try {
     const detection = detectProject({ cwd: p.cwd, overrides: p.overrides, env: { PORT: process.env.PORT } });
     return { target: toTarget(detection, p), detection };
@@ -280,9 +360,10 @@ const describeServer = (s: ServerStatus): string =>
       : `Servidor local externo en ${s.url} (Perfect Front no lo detendra)`;
 
 export async function runCli(argv: string[], io: Io): Promise<number> {
+  if (detectClaudeCommand(argv)) return runClaudeCommand(argv, { stdout: io.stdout, stderr: io.stderr });
   if (detectPromptCommand(argv)) return runPromptCommand(argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd });
   const commentCmd = detectCommentCommand(argv);
-  if (commentCmd) return runCommentCommand(commentCmd, argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd, ...(io.signal ? { signal: io.signal } : {}) });
+  if (commentCmd) return runCommentCommand(commentCmd, argv, { stdout: io.stdout, stderr: io.stderr, cwd: io.cwd, ...(io.signal ? { signal: io.signal } : {}), ...(io.tty ? { confirm: (q: string) => confirmKey(q, { ...io.tty!, signal: io.signal }) } : {}) });
   let json = argv.includes("--json");
   const out = (s: string): void => io.stdout(s.endsWith("\n") ? s : s + "\n");
   const emit = (data: Record<string, unknown>, human: string): void => {
@@ -295,6 +376,12 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
     if (parsed === "help") return out(HELP), EXIT.OK;
     if (parsed === "version") return out(json ? JSON.stringify({ ok: true, version: VERSION }) : VERSION), EXIT.OK;
     json = parsed.json;
+    // `--port <n>` / `--<n>` con algo ya escuchando ahí: se usa como --url (monta el proxy encima y no inicia nada).
+    const o = parsed.overrides;
+    if (o.port !== undefined && o.url === undefined && o.command === undefined && parsed.file === null && ["default", "start", "restart"].includes(parsed.command) && (await portInUse(o.port))) {
+      o.url = `http://localhost:${o.port}`;
+      if (!json) out(`Puerto ${o.port} ocupado: se monta la capa sobre ${o.url} (no se inicia ningún servidor)`);
+    }
     const open = io.openBrowser ?? defaultOpenBrowser;
     const startOpts: StartOptions = {};
     if (io.signal) startOpts.signal = io.signal;
@@ -396,6 +483,15 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
         const loaded = loadTarget(parsed, true);
         const detection = loaded.detection;
         let target = loaded.target;
+        // Vite+React: plugin de fuente por config envoltorio fuera del proyecto (--no-source lo desactiva).
+        let sourceNote: string | null = null;
+        if (!parsed.noSource) {
+          const withSource = withSourcePlugin(detection, target, stateDir);
+          if (withSource) {
+            target = withSource;
+            sourceNote = SOURCE_ACTIVE_MESSAGE;
+          }
+        }
 
         // HTML estatico: pagina elegida (override > recordada > index.html > unica) o seleccion interactiva.
         const st = detection?.static ?? null;
@@ -445,9 +541,18 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
           proxy: ProxyReady | null,
           proxyReason: string | null,
         ): { data: Record<string, unknown>; lines: string[]; prompt: string | null } => {
-          const prompt = parsed.noAgentPrompt
-            ? null
-            : buildAgentPrompt({ root: target.root, url: proxy?.url ?? mapUrl(status.url), targetUrl: proxy?.targetUrl ?? mapUrl(status.url), agentsDoc: agentsDocPath() });
+          let prompt: string | null = null;
+          if (!parsed.noAgentPrompt) {
+            const ctx = { root: target.root, url: proxy?.url ?? mapUrl(status.url), targetUrl: proxy?.targetUrl ?? mapUrl(status.url), agentsDoc: agentsDocPath() };
+            const promptFile = path.join(path.resolve(target.root), ".perfect-front", AGENT_PROMPT_FILE);
+            try {
+              fs.mkdirSync(path.dirname(promptFile), { recursive: true });
+              fs.writeFileSync(promptFile, buildAgentPrompt(ctx) + "\n");
+              prompt = buildShortAgentPrompt(ctx, promptFile);
+            } catch {
+              prompt = buildAgentPrompt(ctx); // sin escritura en el proyecto: cae al prompt completo en terminal
+            }
+          }
           return {
           prompt,
           data: {
@@ -466,6 +571,7 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
                 }
               : {}),
             ...(detection ? { project: detection.name } : {}),
+            sourceLocation: sourceNote !== null,
             ...(prompt ? { agentPrompt: prompt } : {}),
           },
           lines: [
@@ -473,6 +579,7 @@ export async function runCli(argv: string[], io: Io): Promise<number> {
             describe(status),
             ...((proxy?.url ?? mapUrl(status.url)) ? [`URL del proyecto: ${proxy?.url ?? mapUrl(status.url)}`] : []),
             ...(proxy ? [`URL original: ${proxy.targetUrl}`] : []),
+            ...(sourceNote ? [sourceNote] : []),
             ...(local
               ? [
                   `Servidor local: ${local.srv.action === "started" ? "iniciado" : "activo"} - ${describeServer(local.srv.status)}`,

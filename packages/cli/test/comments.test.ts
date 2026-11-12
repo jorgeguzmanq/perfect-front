@@ -149,6 +149,19 @@ describe("mutaciones", () => {
     expect((await run(["claim", c.id, "--json"])).code).toBe(7);
   });
 
+  it("delete: sin --yes y sin TTY falla con 2; con --yes borra y limpia adjuntos", async () => {
+    const c = await seed();
+    const file = path.join(root, ".perfect-front", "comments", "inbox", `${c.id}.json`);
+    expect((await run(["delete", c.id, "--json"])).code).toBe(2);
+    expect(fs.existsSync(file)).toBe(true);
+    const r = await run(["delete", c.id, "--yes", "--json"]);
+    expect(r.code).toBe(0);
+    expect(j(r.stdout)).toMatchObject({ ok: true, command: "delete", id: c.id, deleted: true });
+    expect(fs.existsSync(file)).toBe(false);
+    expect((await run(["delete", c.id, "--yes", "--json"])).code).toBe(6);
+    expect((await run(["show", c.id, "--json"])).code).toBe(6);
+  });
+
   it("edit, move, ignore, reopen y status", async () => {
     const c = await seed();
     expect(j((await run(["edit", c.id, "--comment", "nuevo texto", "--json"])).stdout).comment.comment).toBe("nuevo texto");

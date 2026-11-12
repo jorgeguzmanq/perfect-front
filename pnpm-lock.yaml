@@ -106,6 +106,9 @@ importers:
       '@perfect-front/shared':
         specifier: workspace:*
         version: link:../shared
+      '@perfect-front/source-plugin':
+        specifier: workspace:*
+        version: link:../source-plugin
       tsx:
         specifier: ^4.20.0
         version: 4.23.15
@@ -210,6 +213,12 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+
+  packages/source-plugin:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.0.0
+        version: 22.20.5
 
 packages:
 
